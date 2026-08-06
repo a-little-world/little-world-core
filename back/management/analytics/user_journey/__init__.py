@@ -3,8 +3,8 @@
 Covers everything from account creation to leaving the platform, in two constructs
 over the same signup-date cohort:
 
-- ``funnels.SIGNUP_FUNNEL`` — cumulative stage reach, the ``signup__`` namespace.
-- ``partitions.USER_JOURNEY_V5`` — mutually exclusive current state, the ``current__``
+- ``funnels.SIGNUP_FUNNEL`` — cumulative stage reach, the ``funnel__`` namespace.
+- ``partitions.USER_JOURNEY_V5`` — mutually exclusive current state, the ``state__``
   namespace. Replaces the ``journey_v2__*`` buckets rendered as "The User Journey V4"
   in the admin panel; V4 itself is left untouched.
 

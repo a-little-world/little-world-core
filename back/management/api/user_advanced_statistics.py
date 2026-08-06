@@ -742,6 +742,10 @@ def bucket_statistics(request):
                 help_text="Phases, bucket order, labels and descriptions, owned by the server."
             ),
             "counts": serializers.DictField(child=serializers.IntegerField()),
+            "rollup_counts": serializers.DictField(
+                child=serializers.IntegerField(),
+                help_text="Subtotals for COMPOSITE catalog entries whose members are all cells.",
+            ),
             "baseline_count": serializers.IntegerField(),
             "summed_count": serializers.IntegerField(),
             "balanced": serializers.BooleanField(

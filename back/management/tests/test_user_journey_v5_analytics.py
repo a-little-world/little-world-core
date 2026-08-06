@@ -6,6 +6,7 @@ page load and nothing ever failed, so the fixtures here deliberately build the f
 combinations that produced them (conventions §13).
 """
 
+from dataclasses import replace
 from datetime import timedelta
 from uuid import uuid4
 
@@ -18,9 +19,12 @@ from management.analytics.registry import (
     ALL_CATALOG,
     ALL_PARTITIONS,
     DOMAIN_PREFIXES,
+    assert_composite_equals_members_strict,
+    assert_composites_valid_strict,
     assert_partition_balances_strict,
     assert_partition_valid_strict,
     baseline_list_id,
+    composite_entries,
     compute_partition,
     get_partition,
     partition_buckets_with_disallowed_roles,
@@ -40,7 +44,7 @@ from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.profile import Profile
 from management.models.state import State
-from management.models.unconfirmed_matches import ProposedMatch
+from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from management.models.user import User
 
 _A0_GERMAN = [{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}]
@@ -70,36 +74,36 @@ class JourneyV5StructureTests(SimpleTestCase):
 
     def test_drill_down_lists_are_in_the_catalog_but_not_the_partition(self):
         """A list that can overlap the partition must not be a cell of it."""
-        self.assertIn("current__failed_match_reasons", UJ_CATALOG)
-        self.assertNotIn("current__failed_match_reasons", USER_JOURNEY_V5.bucket_ids())
+        self.assertIn("state__failed_match_reasons", UJ_CATALOG)
+        self.assertNotIn("state__failed_match_reasons", USER_JOURNEY_V5.bucket_ids())
 
     def test_partition_cells_and_funnel_steps_never_share_an_id(self):
         """The two constructs answer different questions and must not reuse an ID.
 
-        ``signup__stage_email_verified`` counts everyone who ever verified;
-        ``current__signup_email_verified`` counts those who verified and got no further.
+        ``funnel__email_verified`` counts everyone who ever verified;
+        ``state__form_unfilled`` counts those who verified and got no further.
         A shared ID would let one be rendered as the other.
         """
         shared = set(SIGNUP_FUNNEL.list_ids()) & set(USER_JOURNEY_V5.bucket_ids())
         self.assertEqual(shared, set())
 
-    def test_partition_cells_all_sit_in_the_current_namespace(self):
+    def test_partition_cells_all_sit_in_the_state_namespace(self):
         for list_id in USER_JOURNEY_V5.bucket_ids():
-            self.assertTrue(list_id.startswith("current__"), list_id)
+            self.assertTrue(list_id.startswith("state__"), list_id)
 
     def test_funnel_and_partition_share_one_baseline(self):
         """`all_users` and the old `journey__all` were the same set, so there is one entry."""
-        self.assertEqual(USER_JOURNEY_V5.baseline_list_id, "signup__all")
-        self.assertEqual(baseline_list_id(SIGNUP_FUNNEL), "signup__all")
+        self.assertEqual(USER_JOURNEY_V5.baseline_list_id, "funnel__all")
+        self.assertEqual(baseline_list_id(SIGNUP_FUNNEL), "funnel__all")
 
     def test_domain_declares_both_namespaces(self):
-        self.assertEqual(DOMAIN_PREFIXES["user_journey"], ("signup__", "current__"))
+        self.assertEqual(DOMAIN_PREFIXES["user_journey"], ("funnel__", "state__"))
         self.assertEqual(prefixes_claimed_by_multiple_domains(), {})
 
     def test_two_domains_may_not_claim_the_same_prefix(self):
-        DOMAIN_PREFIXES["match"] = ("current__",)
+        DOMAIN_PREFIXES["match"] = ("state__",)
         try:
-            self.assertEqual(prefixes_claimed_by_multiple_domains(), {"current__": ["user_journey", "match"]})
+            self.assertEqual(prefixes_claimed_by_multiple_domains(), {"state__": ["user_journey", "match"]})
         finally:
             del DOMAIN_PREFIXES["match"]
 
@@ -118,14 +122,47 @@ class JourneyV5StructureTests(SimpleTestCase):
     def test_v5_does_not_reuse_the_cumulative_signup_funnel_lists(self):
         """Stage reaches are nested; summing them as partition cells is meaningless."""
         for list_id in USER_JOURNEY_V5.bucket_ids():
-            self.assertFalse(list_id.startswith("signup__"), list_id)
+            self.assertFalse(list_id.startswith("funnel__"), list_id)
+
+
+class CompositeDeclarationTests(SimpleTestCase):
+    """A composite is exempt from the partition-cell checks, so its members must be declared."""
+
+    def test_every_composite_declares_usable_members(self):
+        assert_composites_valid_strict()
+
+    def test_first_search_is_the_only_composite_so_far(self):
+        self.assertEqual(sorted(composite_entries()), ["state__first_search"])
+
+    def test_composite_members_are_all_partition_cells(self):
+        """Otherwise the rollup and the chart would be counting different populations."""
+        members = ALL_CATALOG["state__first_search"].members
+        self.assertEqual(set(members) - set(USER_JOURNEY_V5.bucket_ids()), set())
+
+    def test_a_composite_with_no_members_is_rejected(self):
+        entry = ALL_CATALOG["state__first_search"]
+        ALL_CATALOG["state__unchecked_rollup"] = replace(entry, list_id="state__unchecked_rollup", members=())
+        try:
+            with self.assertRaises(AssertionError):
+                assert_composites_valid_strict()
+        finally:
+            del ALL_CATALOG["state__unchecked_rollup"]
+
+    def test_a_composite_pointing_at_an_unknown_member_is_rejected(self):
+        entry = ALL_CATALOG["state__first_search"]
+        ALL_CATALOG["state__bad_rollup"] = replace(entry, list_id="state__bad_rollup", members=("state__nope",))
+        try:
+            with self.assertRaises(AssertionError):
+                assert_composites_valid_strict()
+        finally:
+            del ALL_CATALOG["state__bad_rollup"]
 
 
 class JourneyV5PayloadTests(SimpleTestCase):
     def test_payload_carries_labels_so_the_client_needs_none(self):
         payload = USER_JOURNEY_V5.as_payload(ALL_CATALOG)
         self.assertEqual(payload["id"], "user-journey-v5")
-        self.assertEqual(payload["baseline_list_id"], "signup__all")
+        self.assertEqual(payload["baseline_list_id"], "funnel__all")
 
         buckets = [bucket for phase in payload["phases"] for bucket in phase["buckets"]]
         self.assertEqual(len(buckets), len(USER_JOURNEY_V5.bucket_ids()))
@@ -136,8 +173,8 @@ class JourneyV5PayloadTests(SimpleTestCase):
     def test_labels_come_from_the_catalog(self):
         payload = USER_JOURNEY_V5.as_payload(ALL_CATALOG)
         labels = {b["list_id"]: b["label"] for phase in payload["phases"] for b in phase["buckets"]}
-        self.assertEqual(labels["current__signup_no_show"], UJ_CATALOG["current__signup_no_show"].display_name)
-        self.assertEqual(labels["current__past_deleted"], UJ_CATALOG["current__past_deleted"].display_name)
+        self.assertEqual(labels["state__onboarding_no_show"], UJ_CATALOG["state__onboarding_no_show"].display_name)
+        self.assertEqual(labels["state__deleted"], UJ_CATALOG["state__deleted"].display_name)
 
     def test_overrides_win_over_the_catalog_when_set(self):
         partition = PartitionDefinition(
@@ -145,14 +182,14 @@ class JourneyV5PayloadTests(SimpleTestCase):
             title="Test",
             description="",
             base_model=User,
-            baseline_list_id="signup__all",
+            baseline_list_id="funnel__all",
             phases=(
                 PartitionPhase(
                     id="only",
                     title="Only",
                     buckets=(
                         PartitionBucket(
-                            list_id="current__past_deleted",
+                            list_id="state__deleted",
                             label_override="Gone",
                             description_override="Chart-specific wording",
                         ),
@@ -161,14 +198,14 @@ class JourneyV5PayloadTests(SimpleTestCase):
             ),
         )
         meta = partition.display_meta(ALL_CATALOG)
-        self.assertEqual(meta["current__past_deleted"]["label"], "Gone")
-        self.assertEqual(meta["current__past_deleted"]["description"], "Chart-specific wording")
+        self.assertEqual(meta["state__deleted"]["label"], "Gone")
+        self.assertEqual(meta["state__deleted"]["description"], "Chart-specific wording")
 
 
 class PartitionValidationRejectsBadDefinitionsTests(SimpleTestCase):
     """Negative side of the validation — without these, "all green" proves nothing."""
 
-    def _partition(self, *bucket_ids, baseline="signup__all", base_model=User):
+    def _partition(self, *bucket_ids, baseline="funnel__all", base_model=User):
         return PartitionDefinition(
             id="test",
             title="Test",
@@ -186,7 +223,7 @@ class PartitionValidationRejectsBadDefinitionsTests(SimpleTestCase):
 
     def test_bucket_missing_from_catalog_raises(self):
         with self.assertRaisesRegex(AssertionError, "missing from catalog"):
-            assert_partition_valid_strict(self._partition("current__does_not_exist"))
+            assert_partition_valid_strict(self._partition("state__does_not_exist"))
 
     def test_segment_role_bucket_raises(self):
         """The V4 failure mode: `too_low_german_level` is a trait, so it overlapped everything."""
@@ -195,19 +232,19 @@ class PartitionValidationRejectsBadDefinitionsTests(SimpleTestCase):
 
     def test_baseline_role_bucket_raises(self):
         with self.assertRaisesRegex(AssertionError, "disallowed roles"):
-            assert_partition_valid_strict(self._partition("signup__all"))
+            assert_partition_valid_strict(self._partition("funnel__all"))
 
     def test_mismatched_base_model_raises(self):
         with self.assertRaisesRegex(AssertionError, "mismatched base_model"):
-            assert_partition_valid_strict(self._partition("current__past_deleted", base_model=Match))
+            assert_partition_valid_strict(self._partition("state__deleted", base_model=Match))
 
     def test_non_baseline_baseline_raises(self):
         with self.assertRaisesRegex(AssertionError, "has role"):
-            assert_partition_valid_strict(self._partition("current__past_deleted", baseline="current__signup_created"))
+            assert_partition_valid_strict(self._partition("state__deleted", baseline="state__email_unverified"))
 
     def test_duplicated_bucket_raises(self):
         with self.assertRaisesRegex(AssertionError, "same bucket twice"):
-            assert_partition_valid_strict(self._partition("current__past_deleted", "current__past_deleted"))
+            assert_partition_valid_strict(self._partition("state__deleted", "state__deleted"))
 
 
 @skipUnlessDBFeature("supports_json_field_contains")
@@ -332,6 +369,16 @@ class JourneyV5PartitionBalanceTests(TestCase):
         )
 
     @classmethod
+    def _proposal(cls, user1, user2, *, created_days_ago=1, **fields):
+        """A resolved proposal. ``potential_matching_created_at`` is ``auto_now_add``, so it
+        has to be written back after insert for the most-recent tiebreak to be testable."""
+        proposal = ProposedMatch.objects.create(user1=user1, user2=user2, **{"confirming_user": user2, **fields})
+        ProposedMatch.objects.filter(pk=proposal.pk).update(
+            potential_matching_created_at=timezone.now() - timedelta(days=created_days_ago)
+        )
+        return proposal
+
+    @classmethod
     def _active_users(cls):
         cls._onboarded("active_first_search", joined_days_ago=5, user_type=Profile.TypeChoices.VOLUNTEER)
         cls._onboarded(
@@ -372,6 +419,51 @@ class JourneyV5PartitionBalanceTests(TestCase):
             "searching_again_partner", searching=False, user_type=Profile.TypeChoices.LEARNER
         )
         cls._match(again, again_partner, active=False, confirmed=True, created_days_ago=60)
+
+        cls._first_search_users()
+
+    @classmethod
+    def _first_search_users(cls):
+        """The five ways a first search can look, all invisible to V4.
+
+        ``matching_proposals()`` only sees open proposals, so a user whose proposal was
+        rejected or expired looked identical to one nobody had ever been proposed to.
+        Each pair below is two users in one proposal, which is also how the two rejection
+        cells get covered: the same row is "they rejected it" from one side and "the
+        partner rejected them" from the other.
+        """
+        rejecter = cls._onboarded("first_search_rejected_by_them", user_type=Profile.TypeChoices.LEARNER)
+        rejected = cls._onboarded("first_search_rejected_by_partner", user_type=Profile.TypeChoices.VOLUNTEER)
+        cls._proposal(rejected, rejecter, confirming_user=rejecter, closed=True, rejected=True, rejected_by=rejecter)
+
+        expired_a = cls._onboarded("first_search_expired", user_type=Profile.TypeChoices.VOLUNTEER)
+        expired_b = cls._onboarded("first_search_expired_partner", user_type=Profile.TypeChoices.LEARNER)
+        cls._proposal(expired_a, expired_b, closed=True, expired=True, expires_at=timezone.now() - timedelta(days=1))
+
+        closed_a = cls._onboarded("first_search_closed", user_type=Profile.TypeChoices.VOLUNTEER)
+        closed_b = cls._onboarded("first_search_closed_partner", user_type=Profile.TypeChoices.LEARNER)
+        cls._proposal(closed_a, closed_b, closed=True)
+
+        # Two resolved proposals of different kinds: the more recent one decides.
+        tiebreak = cls._onboarded("first_search_latest_proposal_wins", user_type=Profile.TypeChoices.VOLUNTEER)
+        old_partner = cls._onboarded("first_search_tiebreak_old_partner", user_type=Profile.TypeChoices.LEARNER)
+        new_partner = cls._onboarded("first_search_tiebreak_new_partner", user_type=Profile.TypeChoices.LEARNER)
+        cls._proposal(
+            tiebreak,
+            old_partner,
+            created_days_ago=30,
+            confirming_user=tiebreak,
+            closed=True,
+            rejected=True,
+            rejected_by=tiebreak,
+        )
+        cls._proposal(tiebreak, new_partner, created_days_ago=2, closed=True, expired=True, expires_at=timezone.now())
+
+        # Random-call proposals are a different product surface and must not classify a
+        # matching-funnel bucket.
+        rc_a = cls._onboarded("first_search_random_call_only", user_type=Profile.TypeChoices.VOLUNTEER)
+        rc_b = cls._onboarded("first_search_random_call_partner", user_type=Profile.TypeChoices.LEARNER)
+        cls._proposal(rc_a, rc_b, closed=True, rejected=True, rejected_by=rc_b, match_type=MatchType.RANDOM_CALL)
 
     @classmethod
     def _success_users(cls):
@@ -496,13 +588,25 @@ class JourneyV5PartitionBalanceTests(TestCase):
     def _cohort(self):
         return PartitionCohort(start_date="2000-01-01", end_date=timezone.now().date()).apply(User.objects.all())
 
+    def _members_by_bucket(self):
+        """Every bucket's member IDs, computed once per test.
+
+        The obvious version — ask each bucket whether it contains one user — costs a query
+        per bucket per user, and the bucket queries are subquery-heavy. Asking each bucket
+        once and answering the per-user question in Python turns the placement tests from
+        thousands of queries into twenty-odd.
+        """
+        if not hasattr(self, "_bucket_members"):
+            cohort = self._cohort()
+            self._bucket_members = {
+                list_id: set(ALL_CATALOG[list_id].queryset(cohort).values_list("id", flat=True))
+                for list_id in USER_JOURNEY_V5.bucket_ids()
+            }
+        return self._bucket_members
+
     def _bucket_of(self, key):
         user_id = self.users[key].id
-        return [
-            list_id
-            for list_id in USER_JOURNEY_V5.bucket_ids()
-            if ALL_CATALOG[list_id].queryset(self._cohort()).filter(id=user_id).exists()
-        ]
+        return [list_id for list_id, member_ids in self._members_by_bucket().items() if user_id in member_ids]
 
     # -- the invariant -----------------------------------------------------
 
@@ -522,42 +626,82 @@ class JourneyV5PartitionBalanceTests(TestCase):
     # -- placement of the cases V4 got wrong -------------------------------
 
     def test_a0_learner_with_a_booked_call_counts_as_booked_only(self):
-        self.assertEqual(self._bucket_of("a0_learner_with_booked_call"), ["current__signup_onboarding_booked"])
+        self.assertEqual(self._bucket_of("a0_learner_with_booked_call"), ["state__onboarding_booked"])
 
     def test_rebooked_no_show_counts_as_booked_not_no_show(self):
-        self.assertEqual(self._bucket_of("no_show_who_rebooked"), ["current__signup_onboarding_booked"])
+        self.assertEqual(self._bucket_of("no_show_who_rebooked"), ["state__onboarding_booked"])
 
     def test_self_onboarding_without_a_booking_is_not_also_form_completed(self):
-        self.assertEqual(self._bucket_of("self_onboarding_no_booking"), ["current__signup_self_onboarding"])
+        self.assertEqual(self._bucket_of("self_onboarding_no_booking"), ["state__self_onboarding"])
 
     def test_onboarded_with_unfilled_form_stays_in_the_signup_phase(self):
-        self.assertEqual(self._bucket_of("onboarded_with_unfilled_form"), ["current__signup_email_verified"])
+        self.assertEqual(self._bucket_of("onboarded_with_unfilled_form"), ["state__form_unfilled"])
 
     def test_learner_without_a_country_is_not_treated_as_living_abroad(self):
-        self.assertEqual(self._bucket_of("learner_without_country"), ["current__active_first_search"])
+        self.assertEqual(self._bucket_of("learner_without_country"), ["state__first_search_no_proposal"])
 
     def test_completed_and_ongoing_counts_as_completed(self):
-        self.assertEqual(self._bucket_of("completed_and_ongoing"), ["current__success_match_completed"])
+        self.assertEqual(self._bucket_of("completed_and_ongoing"), ["state__match_completed"])
 
     def test_unresponsive_with_a_completed_match_counts_as_unresponsive(self):
-        self.assertEqual(self._bucket_of("unresponsive_with_completed_match"), ["current__past_unresponsive"])
+        self.assertEqual(self._bucket_of("unresponsive_with_completed_match"), ["state__unresponsive"])
 
     def test_deleted_after_success_is_split_from_plain_deletion(self):
-        self.assertEqual(self._bucket_of("past_deleted_after_success"), ["current__past_deleted_after_success"])
-        self.assertEqual(self._bucket_of("past_deleted"), ["current__past_deleted"])
+        self.assertEqual(self._bucket_of("past_deleted_after_success"), ["state__deleted_after_success"])
+        self.assertEqual(self._bucket_of("past_deleted"), ["state__deleted"])
 
     def test_blocked_searcher_has_a_bucket_of_their_own(self):
-        self.assertEqual(self._bucket_of("active_search_blocked"), ["current__active_search_blocked"])
+        self.assertEqual(self._bucket_of("active_search_blocked"), ["state__search_blocked"])
 
     def test_searcher_overdue_for_a_match_is_lapsed_not_first_search(self):
-        self.assertEqual(self._bucket_of("lapsed_unmatched"), ["current__lapsed_unmatched"])
+        self.assertEqual(self._bucket_of("lapsed_unmatched"), ["state__unmatched"])
 
     def test_account_without_a_state_row_has_a_bucket_of_its_own(self):
-        self.assertEqual(self._bucket_of("record_incomplete"), ["current__record_incomplete"])
+        self.assertEqual(self._bucket_of("record_incomplete"), ["state__record_incomplete"])
 
     def test_ineligible_learners_land_in_the_ineligible_bucket(self):
-        self.assertEqual(self._bucket_of("signup_ineligible_a0"), ["current__signup_ineligible"])
-        self.assertEqual(self._bucket_of("signup_ineligible_abroad"), ["current__signup_ineligible"])
+        self.assertEqual(self._bucket_of("signup_ineligible_a0"), ["state__onboarding_ineligible"])
+        self.assertEqual(self._bucket_of("signup_ineligible_abroad"), ["state__onboarding_ineligible"])
+
+    # -- first search, split by the last proposal's outcome ----------------
+
+    def test_first_search_without_any_proposal(self):
+        self.assertEqual(self._bucket_of("active_first_search"), ["state__first_search_no_proposal"])
+
+    def test_rejection_is_attributed_to_the_side_that_rejected(self):
+        self.assertEqual(
+            self._bucket_of("first_search_rejected_by_them"),
+            ["state__first_search_rejected_by_them"],
+        )
+        self.assertEqual(
+            self._bucket_of("first_search_rejected_by_partner"),
+            ["state__first_search_rejected_by_partner"],
+        )
+
+    def test_expired_proposal_is_not_reported_as_never_proposed(self):
+        for key in ("first_search_expired", "first_search_expired_partner"):
+            self.assertEqual(self._bucket_of(key), ["state__first_search_proposal_expired"], key)
+
+    def test_proposal_closed_without_a_decision_is_not_reported_as_expired(self):
+        for key in ("first_search_closed", "first_search_closed_partner"):
+            self.assertEqual(self._bucket_of(key), ["state__first_search_proposal_closed"], key)
+
+    def test_the_most_recent_proposal_decides(self):
+        # Rejected 30 days ago, expired 2 days ago — the expiry is the current story.
+        self.assertEqual(
+            self._bucket_of("first_search_latest_proposal_wins"),
+            ["state__first_search_proposal_expired"],
+        )
+
+    def test_random_call_proposals_do_not_classify_the_matching_funnel(self):
+        for key in ("first_search_random_call_only", "first_search_random_call_partner"):
+            self.assertEqual(self._bucket_of(key), ["state__first_search_no_proposal"], key)
+
+    def test_the_five_cells_sum_back_to_the_composite(self):
+        assert_composite_equals_members_strict("state__first_search", self._cohort())
+
+    def test_composite_is_not_itself_a_partition_cell(self):
+        self.assertNotIn("state__first_search", USER_JOURNEY_V5.bucket_ids())
 
 
 class PartitionImbalanceIsReportedNotRaisedTests(TestCase):
@@ -579,39 +723,39 @@ class PartitionImbalanceIsReportedNotRaisedTests(TestCase):
             title="Test",
             description="",
             base_model=User,
-            baseline_list_id="signup__all",
+            baseline_list_id="funnel__all",
             phases=(
                 PartitionPhase(
                     id="only",
                     title="Only",
                     buckets=(
-                        PartitionBucket(list_id="current__signup_created"),
-                        PartitionBucket(list_id="current__duplicate_of_created"),
+                        PartitionBucket(list_id="state__email_unverified"),
+                        PartitionBucket(list_id="state__duplicate_of_created"),
                     ),
                 ),
             ),
         )
         duplicate = CatalogEntry(
-            list_id="current__duplicate_of_created",
+            list_id="state__duplicate_of_created",
             role=CatalogRole.STAGE,
-            queryset=UJ_CATALOG["current__signup_created"].queryset,
+            queryset=UJ_CATALOG["state__email_unverified"].queryset,
             description="Same membership under a second ID.",
             display_name="Duplicate",
             base_model=User,
         )
-        ALL_CATALOG["current__duplicate_of_created"] = duplicate
+        ALL_CATALOG["state__duplicate_of_created"] = duplicate
         try:
             with self.assertLogs("management.analytics.registry", level="WARNING"):
                 result = compute_partition(overlapping, User.objects.all())
         finally:
-            del ALL_CATALOG["current__duplicate_of_created"]
+            del ALL_CATALOG["state__duplicate_of_created"]
 
         self.assertFalse(result["balanced"])
         self.assertEqual(
             list(result["overlap_counts"]),
-            ["current__signup_created---current__duplicate_of_created"],
+            ["state__email_unverified---state__duplicate_of_created"],
         )
-        self.assertEqual(result["counts"]["current__signup_created"], 1)
+        self.assertEqual(result["counts"]["state__email_unverified"], 1)
 
     def test_uncovered_users_are_reported_with_balanced_false(self):
         verified = self._user("uncovered")
@@ -623,12 +767,12 @@ class PartitionImbalanceIsReportedNotRaisedTests(TestCase):
             title="Test",
             description="",
             base_model=User,
-            baseline_list_id="signup__all",
+            baseline_list_id="funnel__all",
             phases=(
                 PartitionPhase(
                     id="only",
                     title="Only",
-                    buckets=(PartitionBucket(list_id="current__signup_created"),),
+                    buckets=(PartitionBucket(list_id="state__email_unverified"),),
                 ),
             ),
         )

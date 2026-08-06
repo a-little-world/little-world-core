@@ -272,8 +272,6 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("journey_v2__never_active_or_deleted", None, never_active_or_deleted),
     FilterListEntry("journey_v2__email_verified", None, email_verified),
     FilterListEntry("journey_v2__user_form_completed", None, user_form_completed),
-    # Legacy alias for signup__ineligible_for_onboarding — see registry.LEGACY_ALIASES.
-    FilterListEntry("signup__invalid_german_level", None, _catalog_queryset("signup__ineligible_for_onboarding")),
     FilterListEntry("journey_v2__booked_onboarding_call", None, booked_onboarding_call),
     FilterListEntry("journey_v2__self_onboarding_started", None, self_onboarding_started_no_booked_call),
     FilterListEntry("journey_v2__onboarding_incomplete", None, onboarding_incomplete),
@@ -380,9 +378,7 @@ USER_JOURNEY_FILTER_LISTS = [
     ),
 ]
 
-# User journey V5. One entry per key in ``management.analytics.journey.catalog.CATALOG``;
-# the catalog owns the query, label and description, so nothing is repeated here.
-# Every servable ID from ``management.analytics.user_journey.catalog``.
+# Servable IDs from ``management.analytics.user_journey.catalog``, split by construct.
 #
 # Listed rather than derived: importing the catalog here is circular, because the
 # analytics queries still import legacy filters out of ``management.api`` and that
@@ -391,50 +387,62 @@ USER_JOURNEY_FILTER_LISTS = [
 #
 # Only the IDs are repeated, never the queries: ``_catalog_queryset`` resolves each one
 # through the catalog at call time, and ``registry.catalog_keys_not_servable`` fails the
-# registry test the moment a catalog key is missing from this tuple.
+# registry test the moment a catalog key is missing from these tuples.
 #
 # Descriptions stay ``None`` — the catalog owns display_name/description (conventions §4)
 # and ``resolved_description`` reads it from there.
-ANALYTICS_LIST_IDS = (
-    # signup__ — cumulative stage reach
-    "signup__all",
-    "signup__stage_active_adjusted",
-    "signup__stage_email_verified",
-    "signup__stage_form_completed",
-    "signup__stage_eligible_for_onboarding",
-    "signup__stage_onboarding_started",
-    "signup__stage_onboarded",
-    "signup__ineligible_a0_german",
-    "signup__ineligible_outside_germany",
-    "signup__ineligible_for_onboarding",
-    "signup__form_completed_awaiting_onboarding",
-    # current__ — mutually exclusive current state
-    "current__signup_created",
-    "current__signup_email_verified",
-    "current__signup_form_completed",
-    "current__signup_onboarding_booked",
-    "current__signup_self_onboarding",
-    "current__signup_no_show",
-    "current__signup_ineligible",
-    "current__active_first_search",
-    "current__active_search_blocked",
-    "current__active_proposed",
-    "current__active_match_takeoff",
-    "current__active_match_ongoing",
-    "current__active_searching_again",
-    "current__success_match_completed",
-    "current__success_free_play",
-    "current__lapsed_unmatched",
-    "current__lapsed_failed_matching",
-    "current__lapsed_gave_up",
-    "current__past_unresponsive",
-    "current__past_deleted_after_success",
-    "current__past_deleted",
-    "current__record_incomplete",
-    "current__failed_match_reasons",
+#
+# V4 ``journey_v2__*`` lists stay in ``USER_JOURNEY_FILTER_LISTS`` above, untouched.
+
+FUNNEL_LIST_IDS = (
+    "funnel__all",
+    "funnel__active_adjusted",
+    "funnel__email_verified",
+    "funnel__form_completed",
+    "funnel__eligible_for_onboarding",
+    "funnel__onboarding_started",
+    "funnel__onboarded",
+    "funnel__ineligible_a0_german",
+    "funnel__ineligible_outside_germany",
+    "funnel__ineligible_for_onboarding",
+    "funnel__form_completed_awaiting_onboarding",
 )
 
-ANALYTICS_FILTER_LISTS = [FilterListEntry(list_id, None, _catalog_queryset(list_id)) for list_id in ANALYTICS_LIST_IDS]
+# V5 partition cells + composites/drill-downs that are not cells.
+STATE_LIST_IDS = (
+    "state__email_unverified",
+    "state__form_unfilled",
+    "state__onboarding_not_started",
+    "state__onboarding_booked",
+    "state__self_onboarding",
+    "state__onboarding_no_show",
+    "state__onboarding_ineligible",
+    "state__first_search",
+    "state__first_search_no_proposal",
+    "state__first_search_proposal_expired",
+    "state__first_search_rejected_by_them",
+    "state__first_search_rejected_by_partner",
+    "state__first_search_proposal_closed",
+    "state__search_blocked",
+    "state__proposed",
+    "state__match_takeoff",
+    "state__match_ongoing",
+    "state__searching_again",
+    "state__match_completed",
+    "state__free_play",
+    "state__unmatched",
+    "state__failed_matching",
+    "state__gave_up",
+    "state__unresponsive",
+    "state__deleted_after_success",
+    "state__deleted",
+    "state__record_incomplete",
+    "state__failed_match_reasons",
+)
+
+ANALYTICS_FILTER_LISTS = [
+    FilterListEntry(list_id, None, _catalog_queryset(list_id)) for list_id in (*FUNNEL_LIST_IDS, *STATE_LIST_IDS)
+]
 
 FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS + ANALYTICS_FILTER_LISTS
 

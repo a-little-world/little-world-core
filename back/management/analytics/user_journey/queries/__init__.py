@@ -6,9 +6,9 @@ Three modules, and the split is the point:
     Predicates both constructs need — "is this learner blocked from matching?".
     Defined once; everything else composes them.
 ``funnel``
-    Cumulative stage reach (``signup__``). Stages nest, so the bar chart is monotonic.
+    Cumulative stage reach (``funnel__``). Stages nest, so the bar chart is monotonic.
 ``state``
-    Mutually exclusive current state (``current__``). Cells are disjoint, so they sum
+    Mutually exclusive current state (``state__``). Cells are disjoint, so they sum
     to the cohort.
 
 The funnel and the partition ask overlapping questions and get different — both

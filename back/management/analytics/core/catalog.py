@@ -16,3 +16,10 @@ class CatalogEntry:
     description: str
     display_name: str
     base_model: type[Model]
+    members: tuple[str, ...] = ()
+    """Catalog IDs this entry rolls up, for ``COMPOSITE`` entries only.
+
+    Declaring them lets the registry check that the members are disjoint and sum back to
+    the composite, so a rollup cannot quietly drift away from its parts. A composite with
+    no members declared is not checked — which is why the registry requires them.
+    """

@@ -1,4 +1,4 @@
-"""Mutually exclusive current-state queries — the ``current__`` namespace.
+"""Mutually exclusive current-state queries — the ``state__`` namespace.
 
 Every user in the cohort should land in **exactly one** bucket. Each query therefore
 carries its own exclusions rather than relying on the order the registry happens to
@@ -43,7 +43,7 @@ eligibility comes from ``traits`` rather than being restated here.
 
 from datetime import timedelta
 
-from django.db.models import Q, QuerySet
+from django.db.models import Exists, F, OuterRef, Q, QuerySet, Subquery
 from django.utils import timezone
 
 from management.analytics.user_journey.queries import traits
@@ -64,6 +64,7 @@ from management.api.match_journey_filters import (
     user_ghosted,
 )
 from management.models.matches import Match
+from management.models.unconfirmed_matches import MatchType, ProposedMatch
 
 _FILLED = traits.FILLED
 _UNFILLED = traits.UNFILLED
@@ -142,7 +143,7 @@ def post_onboarding(qs: QuerySet) -> QuerySet:
     return live_users(qs).filter(state__user_form_state=_FILLED, state__is_onboarded=True)
 
 
-# The partition's denominator is `signup__all` — the same cohort the funnel starts
+# The partition's denominator is `funnel__all` — the same cohort the funnel starts
 # from, so there is one baseline entry rather than an identical second one.
 
 # ---------------------------------------------------------------------------
@@ -365,10 +366,106 @@ def active_search_blocked(qs: QuerySet) -> QuerySet:
 
 
 def active_first_search(qs: QuerySet, as_of=None) -> QuerySet:
-    """Searching for a first match, eligible, and not yet overdue."""
+    """Searching for a first match, eligible, and not yet overdue.
+
+    Composite: the union of the five ``active_first_search_*`` cells below, which split
+    it by what happened to the user's most recent proposal. Not a partition cell itself —
+    it would double-count against its own members (``CatalogRole.COMPOSITE``).
+    """
     searching = _searching_without_match(qs)
     return searching.exclude(id__in=_match_ineligible_learners(searching)).filter(
         date_joined__gte=_now(as_of) - timedelta(days=UNMATCHED_AFTER_DAYS)
+    )
+
+
+# ---------------------------------------------------------------------------
+# First search, split by the outcome of the most recent proposal
+# ---------------------------------------------------------------------------
+#
+# A user in `active_first_search` has no `Match` and no *open* proposal — both are
+# excluded upstream by `_searching_without_match`. What they may have is a history of
+# proposals that came to nothing, and V4 could not see it: `matching_proposals()` is
+# `closed=False, expires_at >= now`, so anything rejected or expired simply stopped
+# counting and the user was reported as though nothing had ever been tried for them.
+#
+# Ties are broken by *most recent proposal*, ordered on `potential_matching_created_at`
+# — the only timestamp that is `auto_now_add` and therefore always populated
+# (`rejected_at` and `expires_at` are both nullable).
+
+
+def _standard_proposals_for_outer_user() -> QuerySet:
+    """This user's STANDARD proposals, correlated to the outer query.
+
+    Random-call and temporary proposals are excluded: they are a different product
+    surface, and classifying a matching-funnel bucket by a random-call proposal would
+    misreport it. ``ProposedMatch.get_open_proposals`` excludes temporary for the same
+    reason.
+    """
+    return ProposedMatch.objects.filter(
+        Q(user1=OuterRef("pk")) | Q(user2=OuterRef("pk")),
+        match_type=MatchType.STANDARD,
+    )
+
+
+def _with_latest_proposal(qs: QuerySet) -> QuerySet:
+    """Annotate each user with the outcome of their most recent standard proposal."""
+    latest = _standard_proposals_for_outer_user().order_by("-potential_matching_created_at")
+    return qs.annotate(
+        _has_proposal=Exists(_standard_proposals_for_outer_user()),
+        _latest_rejected=Subquery(latest.values("rejected")[:1]),
+        _latest_expired=Subquery(latest.values("expired")[:1]),
+        _latest_rejected_by=Subquery(latest.values("rejected_by_id")[:1]),
+    )
+
+
+def active_first_search_no_proposal(qs: QuerySet, as_of=None) -> QuerySet:
+    """Searching, and we have never proposed anyone to them."""
+    return _with_latest_proposal(active_first_search(qs, as_of)).filter(_has_proposal=False)
+
+
+def active_first_search_rejected_by_them(qs: QuerySet, as_of=None) -> QuerySet:
+    """Searching again after turning down the person we last proposed.
+
+    Only the proposal's ``confirming_user`` is ever shown a proposal, so only they can
+    reject one — every ``rejected_by`` in the data is that user. This cell is therefore
+    mostly learners, since the learner confirms a standard match.
+    """
+    return _with_latest_proposal(active_first_search(qs, as_of)).filter(
+        _has_proposal=True, _latest_rejected=True, _latest_rejected_by=F("id")
+    )
+
+
+def active_first_search_rejected_by_partner(qs: QuerySet, as_of=None) -> QuerySet:
+    """Searching again after the person we last proposed turned *them* down.
+
+    The counterpart of ``active_first_search_rejected_by_them``, and mostly volunteers.
+    A rejected proposal with no ``rejected_by`` recorded would land here; there are none
+    today, and the alternative is dropping the user out of the partition entirely.
+    """
+    return (
+        _with_latest_proposal(active_first_search(qs, as_of))
+        .filter(_has_proposal=True, _latest_rejected=True)
+        .exclude(_latest_rejected_by=F("id"))
+    )
+
+
+def active_first_search_proposal_expired(qs: QuerySet, as_of=None) -> QuerySet:
+    """Searching again because nobody decided on the last proposal in time."""
+    return _with_latest_proposal(active_first_search(qs, as_of)).filter(
+        _has_proposal=True, _latest_rejected=False, _latest_expired=True
+    )
+
+
+def active_first_search_proposal_closed(qs: QuerySet, as_of=None) -> QuerySet:
+    """Searching again after the last proposal was closed without a decision.
+
+    Not expiry and not a rejection — withdrawn, superseded, or closed by staff. Small
+    but real: 32 of the closed proposals in production ended this way without ever
+    becoming a match. Folding them into "expired" would put a wrong label on roughly a
+    tenth of the users who have proposal history.
+    """
+    return _with_latest_proposal(active_first_search(qs, as_of)).filter(
+        _has_proposal=True, _latest_rejected=False, _latest_expired=False
     )
 
 

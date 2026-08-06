@@ -55,10 +55,10 @@ class PartitionCohort:
 
     Same date and user-type semantics as ``SignupCohort``, minus the
     ``include_too_low_german_level`` toggle. The partition gives A0-German and
-    outside-Germany learners their own cells (``current__signup_ineligible``,
-    ``current__active_search_blocked``), so dropping them from the universe would hide
+    outside-Germany learners their own cells (``state__onboarding_ineligible``,
+    ``state__search_blocked``), so dropping them from the universe would hide
     the very numbers those cells exist to surface — and would leave the partition unable
-    to balance against ``signup__all``.
+    to balance against ``funnel__all``.
     """
 
     start_date: date | datetime | str

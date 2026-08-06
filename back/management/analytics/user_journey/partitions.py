@@ -1,7 +1,7 @@
 """Partition machinery and the V5 user journey definition.
 
 A partition is not a funnel. ``FunnelDefinition`` steps are cumulative stage reaches —
-``signup__stage_email_verified`` includes everyone who later onboarded — so summing them
+``funnel__email_verified`` includes everyone who later onboarded — so summing them
 is meaningless. A partition's buckets are current-state cells: every member of the
 baseline belongs to exactly one, and the counts sum to the total. Mixing the two is what
 made the V4 overview report overlaps and missing users it could not explain.
@@ -82,6 +82,21 @@ class PartitionDefinition:
                 }
         return meta
 
+    def rollups(self, catalog: dict[str, CatalogEntry]) -> list[CatalogEntry]:
+        """Composite entries whose members are all cells of this partition.
+
+        A rollup is a subtotal over cells the chart already shows — "searching for a first
+        match", across the five ways that search can currently look. Deriving it from the
+        catalog rather than listing it on the phase keeps the grouping in one place: add a
+        sixth cell to the composite's ``members`` and the subtotal follows.
+        """
+        cells = set(self.bucket_ids())
+        return [
+            entry
+            for entry in catalog.values()
+            if entry.role is CatalogRole.COMPOSITE and entry.members and set(entry.members) <= cells
+        ]
+
     def as_payload(self, catalog: dict[str, CatalogEntry]) -> dict:
         """Server-owned shape the admin panel renders directly.
 
@@ -110,6 +125,15 @@ class PartitionDefinition:
                 }
                 for phase in self.phases
             ],
+            "rollups": [
+                {
+                    "list_id": entry.list_id,
+                    "label": entry.display_name,
+                    "description": entry.description,
+                    "members": list(entry.members),
+                }
+                for entry in self.rollups(catalog)
+            ],
         }
 
 
@@ -121,58 +145,65 @@ USER_JOURNEY_V5 = PartitionDefinition(
         "counted in exactly one bucket, so the buckets sum to the total."
     ),
     base_model=User,
-    baseline_list_id="signup__all",
+    baseline_list_id="funnel__all",
     phases=(
         PartitionPhase(
             id="signup",
             title="Sign-up",
             buckets=(
-                PartitionBucket(list_id="current__signup_created"),
-                PartitionBucket(list_id="current__signup_email_verified"),
-                PartitionBucket(list_id="current__signup_form_completed"),
-                PartitionBucket(list_id="current__signup_onboarding_booked"),
-                PartitionBucket(list_id="current__signup_self_onboarding"),
-                PartitionBucket(list_id="current__signup_no_show"),
-                PartitionBucket(list_id="current__signup_ineligible"),
+                PartitionBucket(list_id="state__email_unverified"),
+                PartitionBucket(list_id="state__form_unfilled"),
+                PartitionBucket(list_id="state__onboarding_not_started"),
+                PartitionBucket(list_id="state__onboarding_booked"),
+                PartitionBucket(list_id="state__self_onboarding"),
+                PartitionBucket(list_id="state__onboarding_no_show"),
+                PartitionBucket(list_id="state__onboarding_ineligible"),
             ),
         ),
         PartitionPhase(
             id="active",
             title="Active users",
             buckets=(
-                PartitionBucket(list_id="current__active_first_search"),
-                PartitionBucket(list_id="current__active_search_blocked"),
-                PartitionBucket(list_id="current__active_proposed"),
-                PartitionBucket(list_id="current__active_match_takeoff"),
-                PartitionBucket(list_id="current__active_match_ongoing"),
-                PartitionBucket(list_id="current__active_searching_again"),
+                # `state__first_search` itself is COMPOSITE and deliberately not a
+                # cell — it is the sum of the five below, and including both would
+                # double-count. Query it when you want the group as a whole.
+                PartitionBucket(list_id="state__first_search_no_proposal"),
+                PartitionBucket(list_id="state__first_search_proposal_expired"),
+                PartitionBucket(list_id="state__first_search_rejected_by_them"),
+                PartitionBucket(list_id="state__first_search_rejected_by_partner"),
+                PartitionBucket(list_id="state__first_search_proposal_closed"),
+                PartitionBucket(list_id="state__search_blocked"),
+                PartitionBucket(list_id="state__proposed"),
+                PartitionBucket(list_id="state__match_takeoff"),
+                PartitionBucket(list_id="state__match_ongoing"),
+                PartitionBucket(list_id="state__searching_again"),
             ),
         ),
         PartitionPhase(
             id="success",
             title="Success",
             buckets=(
-                PartitionBucket(list_id="current__success_match_completed"),
-                PartitionBucket(list_id="current__success_free_play"),
+                PartitionBucket(list_id="state__match_completed"),
+                PartitionBucket(list_id="state__free_play"),
             ),
         ),
         PartitionPhase(
             id="lapsed",
             title="Lapsed",
             buckets=(
-                PartitionBucket(list_id="current__lapsed_unmatched"),
-                PartitionBucket(list_id="current__lapsed_failed_matching"),
-                PartitionBucket(list_id="current__lapsed_gave_up"),
+                PartitionBucket(list_id="state__unmatched"),
+                PartitionBucket(list_id="state__failed_matching"),
+                PartitionBucket(list_id="state__gave_up"),
             ),
         ),
         PartitionPhase(
             id="past",
             title="Past users",
             buckets=(
-                PartitionBucket(list_id="current__past_unresponsive"),
-                PartitionBucket(list_id="current__past_deleted_after_success"),
-                PartitionBucket(list_id="current__past_deleted"),
-                PartitionBucket(list_id="current__record_incomplete"),
+                PartitionBucket(list_id="state__unresponsive"),
+                PartitionBucket(list_id="state__deleted_after_success"),
+                PartitionBucket(list_id="state__deleted"),
+                PartitionBucket(list_id="state__record_incomplete"),
             ),
         ),
     ),

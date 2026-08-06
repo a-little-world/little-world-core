@@ -25,24 +25,16 @@ logger = logging.getLogger(__name__)
 
 _USER = User
 
-# Old public list IDs → canonical catalog keys. API compatibility only; not live definitions.
-# Resolved at the view boundary, so callers may send either form.
-LEGACY_ALIASES: dict[str, str] = {
-    # Bare ID from before domain prefixes were mandatory (conventions §3).
-    # Remove once no client sends it — tracked as rollout commit 5.
-    "all": "signup__all",
-    # Renamed 2026-08-05: the query became the full ineligibility union (A0 German +
-    # residence outside Germany), so the German-only name was misleading.
-    # Remove once no client sends it — tracked as rollout commit 5.
-    "signup__invalid_german_level": "signup__ineligible_for_onboarding",
-}
+# No list-ID aliases. Old public names are deleted, not redirected — update callers
+# instead of accumulating a second name for every rename.
+LEGACY_ALIASES: dict[str, str] = {}
 
-# Legacy journey list IDs owed to callers outside the signup funnel catalog.
+# Legacy journey list IDs owed to callers outside the user-journey funnel/state catalog.
 #
 # These are full definitions, not aliases: the `journey_v2__*` IDs name membership sets
-# that no signup__ key covers. They exist here so the catalog can own their labels while
-# `USER_JOURNEY_FILTER_LISTS` owns serving them; `assert_all_domains_strict` asserts the
-# two agree on the queryset.
+# that no funnel__/state__ key covers. They exist here so the catalog can own their labels
+# while `USER_JOURNEY_FILTER_LISTS` owns serving them; `assert_all_domains_strict` asserts
+# the two agree on the queryset.
 #
 # Removal condition: delete when the admin panel stops requesting `journey_v2__*` IDs
 # (rollout commit 5, deprecation date still unset — see the refactor doc's open decisions).
@@ -112,7 +104,7 @@ ALL_FUNNELS: tuple[FunnelDefinition, ...] = (SIGNUP_FUNNEL,)
 ALL_PARTITIONS: tuple[PartitionDefinition, ...] = (USER_JOURNEY_V5,)
 
 # Domain → the ID namespaces it owns. A domain may own several: ``user_journey`` keeps
-# cumulative funnel stages under ``signup__`` and current-state cells under ``current__``
+# cumulative funnel stages under ``funnel__`` and current-state cells under ``state__``
 # because conflating the two is the likeliest way to misread these numbers (§3).
 # The prefix is a namespace the domain claims, not a restatement of its name, so
 # ``assert_all_domains_strict`` checks that no two domains claim the same one.
@@ -195,6 +187,79 @@ def prefixes_claimed_by_multiple_domains() -> dict[str, list[str]]:
         for prefix in prefixes:
             claims.setdefault(prefix, []).append(domain)
     return {prefix: domains for prefix, domains in claims.items() if len(domains) > 1}
+
+
+# ---------------------------------------------------------------------------
+# Composites
+# ---------------------------------------------------------------------------
+
+
+def composite_entries() -> dict[str, CatalogEntry]:
+    return {list_id: entry for list_id, entry in ALL_CATALOG.items() if entry.role is CatalogRole.COMPOSITE}
+
+
+def composites_with_bad_members() -> dict[str, str]:
+    """Composite ID → why its ``members`` declaration is unusable.
+
+    A composite that declares nothing is the failure case worth catching: it looks like a
+    rollup, is exempt from the partition-cell checks, and nothing verifies it still equals
+    the parts it claims to summarise.
+    """
+    problems: dict[str, str] = {}
+    for list_id, entry in composite_entries().items():
+        if not entry.members:
+            problems[list_id] = "declares no members"
+            continue
+        missing = [m for m in entry.members if m not in ALL_CATALOG]
+        if missing:
+            problems[list_id] = f"members missing from catalog: {missing}"
+            continue
+        nested = [m for m in entry.members if ALL_CATALOG[m].role is CatalogRole.COMPOSITE]
+        if nested:
+            problems[list_id] = f"members are themselves composites: {nested}"
+            continue
+        wrong_model = [m for m in entry.members if ALL_CATALOG[m].base_model is not entry.base_model]
+        if wrong_model:
+            problems[list_id] = f"members with a different base_model: {wrong_model}"
+    return problems
+
+
+def assert_composites_valid_strict() -> None:
+    problems = composites_with_bad_members()
+    if problems:
+        raise AssertionError(f"Composite catalog entries are misdeclared: {problems}")
+
+
+def assert_composite_equals_members_strict(list_id: str, qs) -> None:
+    """Check on real data that a composite is exactly the disjoint union of its members.
+
+    Structural checks cannot see this: the composite and its members are independent
+    querysets, and a predicate added to one and not the others would leave the shape
+    intact while the numbers silently stopped adding up.
+    """
+    entry = ALL_CATALOG[list_id]
+    composite_ids = set(entry.queryset(qs).values_list("id", flat=True))
+
+    seen: dict[int, str] = {}
+    overlaps: dict[str, list[str]] = {}
+    member_ids: set[int] = set()
+    for member in entry.members:
+        ids = set(ALL_CATALOG[member].queryset(qs).values_list("id", flat=True))
+        for uid in ids & seen.keys():
+            overlaps.setdefault(f"{seen[uid]} & {member}", []).append(str(uid))
+        seen.update(dict.fromkeys(ids, member))
+        member_ids |= ids
+
+    if overlaps:
+        raise AssertionError(f"Composite {list_id!r} has overlapping members: {overlaps}")
+
+    missing = composite_ids - member_ids
+    extra = member_ids - composite_ids
+    if missing or extra:
+        raise AssertionError(
+            f"Composite {list_id!r} does not equal the union of its members: "
+            f"{len(missing)} in the composite but no member, {len(extra)} in a member but not the composite"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -301,11 +366,21 @@ def compute_partition(partition: PartitionDefinition, qs, *, sample_limit: int =
             {pair: ids for pair, ids in overlaps.items()},
         )
 
+    # Subtotals over cells already counted above, so no extra queries. Taken from the
+    # member sets rather than from the composite's own query on purpose: this is the sum
+    # of what the chart renders, which is what a reader adding the rows up will expect.
+    # `assert_composite_equals_members_strict` is what holds the two definitions together.
+    rollup_counts = {
+        entry.list_id: len(set().union(*(bucket_ids[m] for m in entry.members)))
+        for entry in partition.rollups(ALL_CATALOG)
+    }
+
     return {
         "partition_id": partition.id,
         "baseline_list_id": partition.baseline_list_id,
         "baseline_count": len(baseline_ids),
         "counts": {list_id: len(ids) for list_id, ids in bucket_ids.items()},
+        "rollup_counts": rollup_counts,
         "summed_count": sum(len(ids) for ids in bucket_ids.values()),
         "balanced": balanced,
         "uncovered_count": len(uncovered),
@@ -416,6 +491,8 @@ def assert_all_domains_strict() -> None:
     contested = prefixes_claimed_by_multiple_domains()
     if contested:
         raise AssertionError(f"ID prefixes claimed by more than one domain: {contested}")
+
+    assert_composites_valid_strict()
 
     for funnel in ALL_FUNNELS:
         assert_funnel_valid_strict(funnel)

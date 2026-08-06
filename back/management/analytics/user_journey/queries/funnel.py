@@ -1,4 +1,4 @@
-"""Cumulative stage-reach queries — the ``signup__`` namespace.
+"""Cumulative stage-reach queries — the ``funnel__`` namespace.
 
 Each query counts everyone who **reached at least** that stage, so the stages nest:
 `active ⊇ email verified ⊇ form completed ⊇ eligible`. That nesting is what makes the
@@ -95,7 +95,7 @@ def learners_ineligible_for_onboarding(qs: QuerySet) -> QuerySet:
     """Union of the active onboarding-ineligibility reasons.
 
     Reasons come from ``traits.INELIGIBILITY_REASONS``, so the funnel gate and the
-    partition's ``current__signup_ineligible`` bucket can never answer "is this learner
+    partition's ``state__onboarding_ineligible`` bucket can never answer "is this learner
     blocked?" differently.
 
     The reasons are ``Q`` objects OR-ed inside one ``filter()`` rather than separate

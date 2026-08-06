@@ -30,7 +30,6 @@ from management.analytics.registry import (
     catalog_keys_not_servable,
     catalog_keys_with_duplicated_description,
     funnel_steps_with_disallowed_roles,
-    get_catalog_entry,
     is_baseline,
     resolve_list_id,
 )
@@ -76,7 +75,7 @@ class RegistryValidationRejectsBadFunnelsTests(SimpleTestCase):
             title="Test",
             mode=FunnelMode.STAGE,
             base_model=User,
-            steps=(FunnelStep(list_id="signup__all"), FunnelStep(list_id="signup__does_not_exist")),
+            steps=(FunnelStep(list_id="funnel__all"), FunnelStep(list_id="funnel__does_not_exist")),
         )
         with self.assertRaisesRegex(AssertionError, "missing from catalog"):
             assert_funnel_valid_strict(funnel)
@@ -88,7 +87,7 @@ class RegistryValidationRejectsBadFunnelsTests(SimpleTestCase):
             title="Test",
             mode=FunnelMode.STAGE,
             base_model=User,
-            steps=(FunnelStep(list_id="signup__does_not_exist"),),
+            steps=(FunnelStep(list_id="funnel__does_not_exist"),),
         )
         self.assertEqual(funnel_steps_with_disallowed_roles(funnel), [])
 
@@ -98,7 +97,7 @@ class RegistryValidationRejectsBadFunnelsTests(SimpleTestCase):
             title="Test",
             mode=FunnelMode.STAGE,
             base_model=User,
-            steps=(FunnelStep(list_id="signup__all"), FunnelStep(list_id="journey_v2__too_low_german_level")),
+            steps=(FunnelStep(list_id="funnel__all"), FunnelStep(list_id="journey_v2__too_low_german_level")),
         )
         with self.assertRaisesRegex(AssertionError, "disallowed roles"):
             assert_funnel_valid_strict(funnel)
@@ -110,7 +109,7 @@ class RegistryValidationRejectsBadFunnelsTests(SimpleTestCase):
             title="Test",
             mode=FunnelMode.STAGE,
             base_model=Match,
-            steps=(FunnelStep(list_id="signup__all"),),
+            steps=(FunnelStep(list_id="funnel__all"),),
         )
         with self.assertRaisesRegex(AssertionError, "mismatched base_model"):
             assert_funnel_valid_strict(funnel)
@@ -121,36 +120,28 @@ class RegistryValidationRejectsBadFunnelsTests(SimpleTestCase):
             title="Test",
             mode=FunnelMode.STAGE,
             base_model=User,
-            steps=(FunnelStep(list_id="signup__stage_onboarded"),),
+            steps=(FunnelStep(list_id="funnel__onboarded"),),
         )
         with self.assertRaisesRegex(AssertionError, "exactly one baseline"):
             assert_funnel_valid_strict(funnel)
 
 
 class LegacyAliasTests(SimpleTestCase):
-    def test_bare_all_resolves_to_the_namespaced_baseline(self):
-        self.assertEqual(resolve_list_id("all"), "signup__all")
+    """Aliases are intentionally empty — renames update callers, they do not accumulate."""
 
-    def test_renamed_ineligibility_id_resolves(self):
-        self.assertEqual(resolve_list_id("signup__invalid_german_level"), "signup__ineligible_for_onboarding")
+    def test_resolve_is_identity(self):
+        self.assertEqual(resolve_list_id("funnel__all"), "funnel__all")
+        self.assertEqual(resolve_list_id("unknown"), "unknown")
 
-    def test_canonical_ids_resolve_to_themselves(self):
-        for list_id in ALL_CATALOG:
-            self.assertEqual(resolve_list_id(list_id), list_id)
+    def test_no_aliases_are_registered(self):
+        self.assertEqual(LEGACY_ALIASES, {})
 
-    def test_every_alias_resolves_to_a_catalog_entry(self):
-        for alias in LEGACY_ALIASES:
-            self.assertIsNotNone(get_catalog_entry(alias), f"alias {alias!r} does not resolve")
-
-    def test_no_alias_shadows_a_live_catalog_key(self):
-        self.assertEqual(set(LEGACY_ALIASES) & set(ALL_CATALOG), set())
-
-    def test_is_baseline_accepts_both_forms(self):
+    def test_is_baseline_uses_the_canonical_id_only(self):
         baseline = baseline_list_id(SIGNUP_FUNNEL)
-        self.assertEqual(baseline, "signup__all")
-        self.assertTrue(is_baseline("signup__all", baseline))
-        self.assertTrue(is_baseline("all", baseline))
-        self.assertFalse(is_baseline("signup__stage_onboarded", baseline))
+        self.assertEqual(baseline, "funnel__all")
+        self.assertTrue(is_baseline("funnel__all", baseline))
+        self.assertFalse(is_baseline("all", baseline))
+        self.assertFalse(is_baseline("funnel__onboarded", baseline))
 
 
 class SignupFunnelAnalyticsStructureTests(SimpleTestCase):
@@ -161,13 +152,13 @@ class SignupFunnelAnalyticsStructureTests(SimpleTestCase):
         self.assertEqual(
             SIGNUP_FUNNEL.list_ids(),
             [
-                "signup__all",
-                "signup__stage_active_adjusted",
-                "signup__stage_email_verified",
-                "signup__stage_form_completed",
-                "signup__stage_eligible_for_onboarding",
-                "signup__stage_onboarding_started",
-                "signup__stage_onboarded",
+                "funnel__all",
+                "funnel__active_adjusted",
+                "funnel__email_verified",
+                "funnel__form_completed",
+                "funnel__eligible_for_onboarding",
+                "funnel__onboarding_started",
+                "funnel__onboarded",
             ],
         )
 
@@ -180,24 +171,24 @@ class SignupFunnelAnalyticsStructureTests(SimpleTestCase):
 
     def test_ineligibility_subsets_in_catalog_not_in_funnel(self):
         for list_id in (
-            "signup__ineligible_a0_german",
-            "signup__ineligible_outside_germany",
-            "signup__ineligible_for_onboarding",
+            "funnel__ineligible_a0_german",
+            "funnel__ineligible_outside_germany",
+            "funnel__ineligible_for_onboarding",
         ):
             self.assertIn(list_id, CATALOG)
             self.assertEqual(CATALOG[list_id].role, CatalogRole.DROPOUT)
             self.assertNotIn(list_id, SIGNUP_FUNNEL.list_ids())
 
     def test_eligible_stage_is_stage_role(self):
-        entry = CATALOG["signup__stage_eligible_for_onboarding"]
+        entry = CATALOG["funnel__eligible_for_onboarding"]
         self.assertEqual(entry.role, CatalogRole.STAGE)
 
     def test_display_meta_reads_labels_from_catalog(self):
         meta = SIGNUP_FUNNEL.display_meta(ALL_CATALOG)
-        self.assertEqual(meta["signup__stage_active_adjusted"]["label"], "Adjusted registered users")
-        self.assertEqual(meta["signup__stage_form_completed"]["label"], "Form completed")
-        self.assertEqual(meta["signup__stage_eligible_for_onboarding"]["label"], "Eligible for onboarding")
-        self.assertEqual(meta["signup__stage_onboarded"]["label"], "Onboarded")
+        self.assertEqual(meta["funnel__active_adjusted"]["label"], "Adjusted registered users")
+        self.assertEqual(meta["funnel__form_completed"]["label"], "Form completed")
+        self.assertEqual(meta["funnel__eligible_for_onboarding"]["label"], "Eligible for onboarding")
+        self.assertEqual(meta["funnel__onboarded"]["label"], "Onboarded")
 
     def test_funnel_steps_have_no_label_overrides(self):
         for step in SIGNUP_FUNNEL.steps:
@@ -212,16 +203,16 @@ class SignupFunnelAnalyticsStructureTests(SimpleTestCase):
             mode=FunnelMode.STAGE,
             base_model=User,
             steps=(
-                FunnelStep(list_id="signup__all"),
+                FunnelStep(list_id="funnel__all"),
                 FunnelStep(
-                    list_id="signup__stage_onboarded",
+                    list_id="funnel__onboarded",
                     label_override="Done",
                     description_override="Chart-specific wording",
                 ),
             ),
             merge_groups=(
                 FunnelMergeGroup(
-                    list_ids=("signup__stage_onboarding_started", "signup__stage_onboarded"),
+                    list_ids=("funnel__onboarding_started", "funnel__onboarded"),
                     merge_key="merged__onboarding",
                     display_label="Onboarding",
                     description="Started or finished",
@@ -229,9 +220,9 @@ class SignupFunnelAnalyticsStructureTests(SimpleTestCase):
             ),
         )
         meta = funnel.display_meta(ALL_CATALOG)
-        self.assertEqual(meta["signup__all"]["label"], "Total registered users")
-        self.assertEqual(meta["signup__stage_onboarded"]["label"], "Done")
-        self.assertEqual(meta["signup__stage_onboarded"]["description"], "Chart-specific wording")
+        self.assertEqual(meta["funnel__all"]["label"], "Total registered users")
+        self.assertEqual(meta["funnel__onboarded"]["label"], "Done")
+        self.assertEqual(meta["funnel__onboarded"]["description"], "Chart-specific wording")
         self.assertEqual(meta["merged__onboarding"]["label"], "Onboarding")
         self.assertEqual(meta["merged__onboarding"]["description"], "Started or finished")
 
