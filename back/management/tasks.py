@@ -817,19 +817,28 @@ def automatic_emails_m012_m013_m014():
 @shared_task
 def automatic_emails_m023():
     """
-    Notify user when they didn't respond to a chat message for 3 days
+    Notify user when they didn't respond to the first chat message for 3 days.
+    Only applies at the start of a conversation - once both users have sent a message, this no longer triggers.
     """
     from chat.models import Chat
     from django.conf import settings
-    from django.db.models import Max
+    from django.db.models import Count, F, Min, Q
 
     from management.models.matches import Match, MatchType
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M023)
 
     chats = (
-        Chat.objects.annotate(last_message_at=Max("message__created"))
-        .filter(last_message_at__lte=dj_timezone.now() - timedelta(days=3), three_days_inactive_email_send=False)
+        Chat.objects.annotate(
+            first_message_at=Min("message__created"),
+            u1_message_count=Count("message", filter=Q(message__sender=F("u1"))),
+            u2_message_count=Count("message", filter=Q(message__sender=F("u2"))),
+        )
+        .filter(
+            first_message_at__lte=dj_timezone.now() - timedelta(days=3),
+            three_days_inactive_email_send=False,
+        )
+        .filter(Q(u1_message_count=0) | Q(u2_message_count=0))
         .exclude(
             Q(u1__is_staff=True)
             | Q(u2__is_staff=True)
@@ -847,18 +856,19 @@ def automatic_emails_m023():
     )
     inactive_chats = []
     for chat in chats:
-        # the chat is for three days inactive, set the respective flag
+        first_message = chat.get_messages().order_by("created").first()
+        if not first_message:
+            continue
+
+        non_responder = chat.u1 if chat.u1_message_count == 0 else chat.u2
+        initiator = chat.u2 if non_responder == chat.u1 else chat.u1
+
         chat.three_days_inactive_email_send = True
         chat.save()
         inactive_chats.append(chat)
 
-        # send email to the user that received the last message
-        last_message = chat.get_newest_message()
-        if not last_message:
-            continue
-
         active_match = (
-            Match.get_match(last_message.sender, last_message.recipient)
+            Match.get_match(initiator, non_responder)
             .filter(match_type=MatchType.STANDARD)
             .order_by("-created_at")
             .first()
@@ -868,7 +878,7 @@ def automatic_emails_m023():
 
         send_email_background.delay(
             "automatic-emails-m023",
-            user_id=last_message.recipient.id,
+            user_id=non_responder.id,
             match_id=active_match.pk,
             emulated_send=emulated_send,
         )
