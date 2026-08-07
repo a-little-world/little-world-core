@@ -12,11 +12,12 @@ Top-level split of the cohort::
     is_active=True,  unresponsive=True       → past_unresponsive
     is_active=True,  unresponsive=False      → pre-onboarding  | post-onboarding buckets
 
-Post-onboarding priority, highest first: success match, ongoing match, match takeoff,
-open proposal, searching, idle. A user in a confirmed match with a *new* open proposal
-is therefore counted as being in the match, not as awaiting a proposal — the reverse of
-``journey_v2__pre_matching``, which had no state gate at all and took priority over
-``journey_v2__match_takeoff``.
+Post-onboarding priority, highest first: successful first match (absorbing 2×2) →
+first-match kickoff/ongoing (never succeeded) → open proposal / searching / idle
+(pre-match if never matched, else after failed first). A user in a live match with a
+*new* open proposal is therefore counted in the match, not as awaiting a proposal —
+the reverse of ``journey_v2__pre_matching``, which had no state gate at all and took
+priority over ``journey_v2__match_takeoff``.
 
 Fixes carried over the ``journey_v2__*`` lists these replace:
 
@@ -40,8 +41,6 @@ counts everyone who reached a stage, this counts only those who got no further. 
 answers are wanted; what must never diverge is the underlying trait, which is why
 eligibility comes from ``traits`` rather than being restated here.
 """
-
-from datetime import timedelta
 
 from django.db.models import Exists, F, OuterRef, Q, QuerySet, Subquery
 from django.utils import timezone
@@ -70,9 +69,6 @@ _FILLED = traits.FILLED
 _UNFILLED = traits.UNFILLED
 _SEARCHING = traits.SEARCHING
 _IDLE = traits.IDLE
-
-# How long a user may search without a match before they count as one we failed to match.
-UNMATCHED_AFTER_DAYS = 30
 
 
 def _now(as_of=None):
@@ -228,11 +224,16 @@ def signup_form_completed(qs: QuerySet, as_of=None) -> QuerySet:
 
 
 # ---------------------------------------------------------------------------
-# Match-state predicates (post-onboarding priority order)
+# Match-state predicates
 # ---------------------------------------------------------------------------
+#
+# Priority for live onboarded users (highest first):
+#   successful first match (absorbing) → first-match kickoff/ongoing →
+#   open proposal / searching / idle (pre-match if never matched, else after failed)
 
 
 def _has_success_match(qs: QuerySet) -> Q:
+    """Reached a successful match outcome (completed or free-play). Absorbing milestone."""
     matches = _cohort_matches(qs)
     return _participates_in(completed_match(matches)) | _participates_in(match_free_play(matches))
 
@@ -242,7 +243,7 @@ def _has_ongoing_match(qs: QuerySet) -> Q:
 
 
 def _has_takeoff_match(qs: QuerySet) -> Q:
-    """Confirmed or newly proposed match that has not reached sustained contact."""
+    """Confirmed or newly started match that has not reached sustained contact."""
     matches = _cohort_matches(qs)
     return (
         _participates_in(match_unviewed(matches))
@@ -253,8 +254,17 @@ def _has_takeoff_match(qs: QuerySet) -> Q:
     )
 
 
+def _has_live_match(qs: QuerySet) -> Q:
+    """Any match still in flight — kickoff, sustained, or free-play."""
+    return _has_takeoff_match(qs) | _has_ongoing_match(qs) | _participates_in(match_free_play(_cohort_matches(qs)))
+
+
 def _has_open_proposal(qs: QuerySet) -> Q:
     return _participates_in(matching_proposals())
+
+
+def _has_match_history(qs: QuerySet) -> Q:
+    return _participates_in(_non_support_matches(qs))
 
 
 def _has_failed_match(qs: QuerySet) -> Q:
@@ -268,139 +278,137 @@ def _has_failed_match(qs: QuerySet) -> Q:
     )
 
 
-def _still_matching(qs: QuerySet) -> QuerySet:
-    """Post-onboarding users claimed by a higher-priority match-state bucket."""
-    return post_onboarding(qs).filter(
-        _has_success_match(qs) | _has_ongoing_match(qs) | _has_takeoff_match(qs) | _has_open_proposal(qs)
-    )
+def _never_succeeded(qs: QuerySet) -> QuerySet:
+    return post_onboarding(qs).exclude(_has_success_match(qs))
 
 
-# ---------------------------------------------------------------------------
-# Phase: success
-# ---------------------------------------------------------------------------
-
-
-def success_free_play(qs: QuerySet) -> QuerySet:
-    """Still in contact past the target match duration.
-
-    ``journey_v2__happy_active`` was titled "Match Completed Free Play" and described as
-    "completed a match but is still in contact". The query tests neither: a free-play
-    match is one older than the target duration that is still ongoing.
-    """
-    return post_onboarding(qs).filter(_participates_in(match_free_play(_cohort_matches(qs))))
-
-
-def success_match_completed(qs: QuerySet) -> QuerySet:
-    """Completed a match and is not in a free-play continuation of one.
-
-    Unlike ``journey_v2__happy_inactive`` this does not also exclude users with an
-    ongoing match. That exclusion, combined with ``ongoing_non_completed_match``
-    excluding users with a completed match, meant anyone holding both fell out of V4
-    entirely. Here the completed match wins.
-    """
-    base = post_onboarding(qs)
-    return base.filter(_participates_in(completed_match(_cohort_matches(qs)))).exclude(
-        _participates_in(match_free_play(_cohort_matches(qs)))
-    )
-
-
-# ---------------------------------------------------------------------------
-# Phase: active
-# ---------------------------------------------------------------------------
-
-
-def active_match_ongoing(qs: QuerySet) -> QuerySet:
-    """In a match with sustained two-way contact."""
-    return post_onboarding(qs).filter(_has_ongoing_match(qs)).exclude(_has_success_match(qs))
-
-
-def active_match_takeoff(qs: QuerySet) -> QuerySet:
-    """Has a match that has not reached sustained contact yet."""
-    return (
-        post_onboarding(qs)
-        .filter(_has_takeoff_match(qs))
-        .exclude(_has_success_match(qs))
-        .exclude(_has_ongoing_match(qs))
-    )
-
-
-def active_proposed(qs: QuerySet) -> QuerySet:
-    """Has an open match proposal awaiting a decision, and no match of their own yet."""
-    return (
-        post_onboarding(qs)
-        .filter(_has_open_proposal(qs))
-        .exclude(_has_success_match(qs))
-        .exclude(_has_ongoing_match(qs))
-        .exclude(_has_takeoff_match(qs))
-    )
+def _claimed_by_live_match_or_proposal(qs: QuerySet) -> QuerySet:
+    return post_onboarding(qs).filter(_has_live_match(qs) | _has_open_proposal(qs) | _has_success_match(qs))
 
 
 def _searching_without_match(qs: QuerySet) -> QuerySet:
+    """Searching, never matched, nothing in flight — the pre-match searching pool."""
     return (
         post_onboarding(qs)
         .filter(state__searching_state=_SEARCHING)
-        .exclude(id__in=_still_matching(qs))
-        .exclude(_participates_in(_non_support_matches(qs)))
+        .exclude(id__in=_claimed_by_live_match_or_proposal(qs))
+        .exclude(_has_match_history(qs))
     )
 
 
-def active_searching_again(qs: QuerySet) -> QuerySet:
-    """Back in the pool after an earlier match, with nothing currently in flight."""
+# ---------------------------------------------------------------------------
+# Phase: successful first match (absorbing) — 2×2 live × searching
+# ---------------------------------------------------------------------------
+
+
+def _succeeded(qs: QuerySet) -> QuerySet:
+    return post_onboarding(qs).filter(_has_success_match(qs))
+
+
+def success_ongoing_searching(qs: QuerySet) -> QuerySet:
+    """Completed a successful first match; still in a live match and searching again."""
+    return _succeeded(qs).filter(_has_live_match(qs), state__searching_state=_SEARCHING)
+
+
+def success_ongoing_settled(qs: QuerySet) -> QuerySet:
+    """Completed a successful first match; still in a live match and not searching.
+
+    The quiet success cell — matched and settled, no rematch activity.
+    """
+    return _succeeded(qs).filter(_has_live_match(qs)).exclude(state__searching_state=_SEARCHING)
+
+
+def success_searching(qs: QuerySet) -> QuerySet:
+    """Completed a successful first match; no live match, back in the pool."""
+    return _succeeded(qs).filter(state__searching_state=_SEARCHING).exclude(_has_live_match(qs))
+
+
+def success_idle(qs: QuerySet) -> QuerySet:
+    """Completed a successful first match; no live match and not searching."""
+    return _succeeded(qs).exclude(_has_live_match(qs)).exclude(state__searching_state=_SEARCHING)
+
+
+# ---------------------------------------------------------------------------
+# Phase: first match in flight (never yet succeeded)
+# ---------------------------------------------------------------------------
+
+
+def first_match_kickoff(qs: QuerySet) -> QuerySet:
+    """In a first-success attempt that has not reached sustained contact yet."""
+    return _never_succeeded(qs).filter(_has_takeoff_match(qs))
+
+
+def first_match_ongoing(qs: QuerySet) -> QuerySet:
+    """In a first-success attempt with sustained contact, not yet completed/free-play."""
+    return _never_succeeded(qs).filter(_has_ongoing_match(qs)).exclude(_has_takeoff_match(qs))
+
+
+# ---------------------------------------------------------------------------
+# Phase: after failed first match(es) — never succeeded, has match history
+# ---------------------------------------------------------------------------
+
+
+def rematch_proposed(qs: QuerySet) -> QuerySet:
+    """Open rematch proposal after failed first match(es); nothing live yet."""
     return (
-        post_onboarding(qs)
+        _never_succeeded(qs)
+        .filter(_has_match_history(qs), _has_open_proposal(qs))
+        .exclude(_has_takeoff_match(qs))
+        .exclude(_has_ongoing_match(qs))
+    )
+
+
+def searching_after_failed(qs: QuerySet) -> QuerySet:
+    """Back in the pool after failed first match(es); no open proposal, nothing live."""
+    return (
+        _never_succeeded(qs)
         .filter(state__searching_state=_SEARCHING)
-        .filter(_participates_in(_non_support_matches(qs)))
-        .exclude(id__in=_still_matching(qs))
+        .filter(_has_match_history(qs))
+        .exclude(id__in=_claimed_by_live_match_or_proposal(qs))
+    )
+
+
+def stopped_after_failed(qs: QuerySet) -> QuerySet:
+    """Idle after failed first match(es); not searching, nothing in flight."""
+    return (
+        _never_succeeded(qs)
+        .filter(state__searching_state=_IDLE)
+        .filter(_has_match_history(qs))
+        .exclude(id__in=_claimed_by_live_match_or_proposal(qs))
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase: pre-match (never had a Match)
+# ---------------------------------------------------------------------------
+
+
+def proposed_never_matched(qs: QuerySet) -> QuerySet:
+    """Open proposal and has never had a real match."""
+    return (
+        _never_succeeded(qs)
+        .filter(_has_open_proposal(qs))
+        .exclude(_has_match_history(qs))
+        .exclude(_has_takeoff_match(qs))
+        .exclude(_has_ongoing_match(qs))
     )
 
 
 def active_search_blocked(qs: QuerySet) -> QuerySet:
-    """Searching for a first match but blocked from being matched by an eligibility rule.
-
-    A0 German level or residence outside Germany. V4 had no bucket for these users:
-    ``first_search_v2`` excluded them by default, so they left the partition and showed
-    up only in the ``journey_v2__too_low_german_level`` segment (A0 only — the
-    outside-Germany group was invisible entirely).
-    """
+    """Searching for a first match but blocked from being matched by an eligibility rule."""
     return _match_ineligible_learners(_searching_without_match(qs))
 
 
-def active_first_search(qs: QuerySet, as_of=None) -> QuerySet:
-    """Searching for a first match, eligible, and not yet overdue.
+def active_first_search(qs: QuerySet) -> QuerySet:
+    """Searching for a first match and eligible — never matched, nothing in flight.
 
-    Composite: the union of the five ``active_first_search_*`` cells below, which split
-    it by what happened to the user's most recent proposal. Not a partition cell itself —
-    it would double-count against its own members (``CatalogRole.COMPOSITE``).
+    Composite of the five proposal-outcome cells. Not a partition cell itself.
     """
     searching = _searching_without_match(qs)
-    return searching.exclude(id__in=_match_ineligible_learners(searching)).filter(
-        date_joined__gte=_now(as_of) - timedelta(days=UNMATCHED_AFTER_DAYS)
-    )
-
-
-# ---------------------------------------------------------------------------
-# First search, split by the outcome of the most recent proposal
-# ---------------------------------------------------------------------------
-#
-# A user in `active_first_search` has no `Match` and no *open* proposal — both are
-# excluded upstream by `_searching_without_match`. What they may have is a history of
-# proposals that came to nothing, and V4 could not see it: `matching_proposals()` is
-# `closed=False, expires_at >= now`, so anything rejected or expired simply stopped
-# counting and the user was reported as though nothing had ever been tried for them.
-#
-# Ties are broken by *most recent proposal*, ordered on `potential_matching_created_at`
-# — the only timestamp that is `auto_now_add` and therefore always populated
-# (`rejected_at` and `expires_at` are both nullable).
+    return searching.exclude(id__in=_match_ineligible_learners(searching))
 
 
 def _standard_proposals_for_outer_user() -> QuerySet:
-    """This user's STANDARD proposals, correlated to the outer query.
-
-    Random-call and temporary proposals are excluded: they are a different product
-    surface, and classifying a matching-funnel bucket by a random-call proposal would
-    misreport it. ``ProposedMatch.get_open_proposals`` excludes temporary for the same
-    reason.
-    """
     return ProposedMatch.objects.filter(
         Q(user1=OuterRef("pk")) | Q(user2=OuterRef("pk")),
         match_type=MatchType.STANDARD,
@@ -408,7 +416,6 @@ def _standard_proposals_for_outer_user() -> QuerySet:
 
 
 def _with_latest_proposal(qs: QuerySet) -> QuerySet:
-    """Annotate each user with the outcome of their most recent standard proposal."""
     latest = _standard_proposals_for_outer_user().order_by("-potential_matching_created_at")
     return qs.annotate(
         _has_proposal=Exists(_standard_proposals_for_outer_user()),
@@ -418,82 +425,33 @@ def _with_latest_proposal(qs: QuerySet) -> QuerySet:
     )
 
 
-def active_first_search_no_proposal(qs: QuerySet, as_of=None) -> QuerySet:
-    """Searching, and we have never proposed anyone to them."""
-    return _with_latest_proposal(active_first_search(qs, as_of)).filter(_has_proposal=False)
+def active_first_search_no_proposal(qs: QuerySet) -> QuerySet:
+    return _with_latest_proposal(active_first_search(qs)).filter(_has_proposal=False)
 
 
-def active_first_search_rejected_by_them(qs: QuerySet, as_of=None) -> QuerySet:
-    """Searching again after turning down the person we last proposed.
-
-    Only the proposal's ``confirming_user`` is ever shown a proposal, so only they can
-    reject one — every ``rejected_by`` in the data is that user. This cell is therefore
-    mostly learners, since the learner confirms a standard match.
-    """
-    return _with_latest_proposal(active_first_search(qs, as_of)).filter(
+def active_first_search_rejected_by_them(qs: QuerySet) -> QuerySet:
+    return _with_latest_proposal(active_first_search(qs)).filter(
         _has_proposal=True, _latest_rejected=True, _latest_rejected_by=F("id")
     )
 
 
-def active_first_search_rejected_by_partner(qs: QuerySet, as_of=None) -> QuerySet:
-    """Searching again after the person we last proposed turned *them* down.
-
-    The counterpart of ``active_first_search_rejected_by_them``, and mostly volunteers.
-    A rejected proposal with no ``rejected_by`` recorded would land here; there are none
-    today, and the alternative is dropping the user out of the partition entirely.
-    """
+def active_first_search_rejected_by_partner(qs: QuerySet) -> QuerySet:
     return (
-        _with_latest_proposal(active_first_search(qs, as_of))
+        _with_latest_proposal(active_first_search(qs))
         .filter(_has_proposal=True, _latest_rejected=True)
         .exclude(_latest_rejected_by=F("id"))
     )
 
 
-def active_first_search_proposal_expired(qs: QuerySet, as_of=None) -> QuerySet:
-    """Searching again because nobody decided on the last proposal in time."""
-    return _with_latest_proposal(active_first_search(qs, as_of)).filter(
+def active_first_search_proposal_expired(qs: QuerySet) -> QuerySet:
+    return _with_latest_proposal(active_first_search(qs)).filter(
         _has_proposal=True, _latest_rejected=False, _latest_expired=True
     )
 
 
-def active_first_search_proposal_closed(qs: QuerySet, as_of=None) -> QuerySet:
-    """Searching again after the last proposal was closed without a decision.
-
-    Not expiry and not a rejection — withdrawn, superseded, or closed by staff. Small
-    but real: 32 of the closed proposals in production ended this way without ever
-    becoming a match. Folding them into "expired" would put a wrong label on roughly a
-    tenth of the users who have proposal history.
-    """
-    return _with_latest_proposal(active_first_search(qs, as_of)).filter(
+def active_first_search_proposal_closed(qs: QuerySet) -> QuerySet:
+    return _with_latest_proposal(active_first_search(qs)).filter(
         _has_proposal=True, _latest_rejected=False, _latest_expired=False
-    )
-
-
-# ---------------------------------------------------------------------------
-# Phase: lapsed
-# ---------------------------------------------------------------------------
-
-
-def lapsed_unmatched(qs: QuerySet, as_of=None) -> QuerySet:
-    """Eligible and still searching for a first match well past signup — we failed them.
-
-    ``journey_v2__unmatched`` required a prematching appointment older than 30 days, so
-    self-onboarded users could never enter it however long they waited. This measures
-    from ``date_joined`` instead, which every user has.
-    """
-    searching = _searching_without_match(qs)
-    return searching.exclude(id__in=_match_ineligible_learners(searching)).filter(
-        date_joined__lt=_now(as_of) - timedelta(days=UNMATCHED_AFTER_DAYS)
-    )
-
-
-def lapsed_failed_matching(qs: QuerySet) -> QuerySet:
-    """Stopped searching after one or more matches, none of which worked out."""
-    return (
-        post_onboarding(qs)
-        .filter(state__searching_state=_IDLE)
-        .filter(_participates_in(_non_support_matches(qs)))
-        .exclude(id__in=_still_matching(qs))
     )
 
 
@@ -502,17 +460,13 @@ def lapsed_gave_up(qs: QuerySet) -> QuerySet:
     return (
         post_onboarding(qs)
         .filter(state__searching_state=_IDLE)
-        .exclude(id__in=_still_matching(qs))
-        .exclude(_participates_in(_non_support_matches(qs)))
+        .exclude(_has_match_history(qs))
+        .exclude(id__in=_claimed_by_live_match_or_proposal(qs))
     )
 
 
 def lapsed_failed_match_reasons(qs: QuerySet) -> QuerySet:
-    """Drill-down: users whose matches ended in a recorded failure state.
-
-    Not a partition bucket — it cuts across ``lapsed_failed_matching`` and the active
-    phase, since a user can hold both a failed and a live match.
-    """
+    """Drill-down: onboarded users with at least one match in a recorded failure state."""
     return post_onboarding(qs).filter(_has_failed_match(qs))
 
 
@@ -521,38 +475,26 @@ def lapsed_failed_match_reasons(qs: QuerySet) -> QuerySet:
 # ---------------------------------------------------------------------------
 
 
-def past_unresponsive(qs: QuerySet) -> QuerySet:
-    """Still registered but flagged unresponsive, so excluded from matching.
+def past_unresponsive_after_success(qs: QuerySet) -> QuerySet:
+    """Marked unresponsive after a successful first match."""
+    return qs.filter(is_active=True, state__unresponsive=True).filter(_has_success_match(qs))
 
-    ``journey_v2__marked_unresponsive`` overlapped the success buckets, because
-    ``happy_inactive`` and ``happy_active`` had no state gate at all.
-    """
-    return qs.filter(is_active=True, state__unresponsive=True)
+
+def past_unresponsive(qs: QuerySet) -> QuerySet:
+    """Marked unresponsive without a successful first match."""
+    return qs.filter(is_active=True, state__unresponsive=True).exclude(_has_success_match(qs))
 
 
 def past_deleted_after_success(qs: QuerySet) -> QuerySet:
-    """Left the platform having completed a match or reached free play.
-
-    V4 folded these users into ``happy_inactive`` and subtracted them from
-    ``journey_v2__user_deleted``, so the bucket labelled "User Was Deleted" excluded some
-    deleted users and the success buckets counted people who had left. They are split
-    out here so both readings are available and neither label lies.
-    """
+    """Left the platform after a successful first match."""
     return qs.filter(is_active=False).filter(_has_success_match(qs))
 
 
 def past_deleted(qs: QuerySet) -> QuerySet:
-    """Left the platform without completing a match."""
+    """Left the platform without a successful first match."""
     return qs.filter(is_active=False).exclude(_has_success_match(qs))
 
 
 def record_incomplete(qs: QuerySet) -> QuerySet:
-    """Still registered but has no ``State`` row, so no journey state can be read.
-
-    Every other live bucket filters on ``state__*``, which a null relation never matches.
-    Without a bucket of its own such a user is unclassifiable and the partition can never
-    balance — and a balance flag that is always false is one nobody reads (conventions §8).
-    Naming it turns a silent gap into a number support can act on. Deleted accounts are
-    counted as deleted whether or not they have a state row.
-    """
+    """Still registered but has no ``State`` row, so no journey state can be read."""
     return qs.filter(is_active=True, state__isnull=True)

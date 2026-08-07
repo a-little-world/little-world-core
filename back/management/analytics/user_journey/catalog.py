@@ -203,7 +203,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.COMPOSITE,
         queryset=s.active_first_search,
         description=(
-            "Onboarded and searching for a first match, signed up within the last 30 days. "
+            "Onboarded and searching for a first match, with nothing currently in flight. "
             "Rollup of the five cells below, which split this group by what happened to the "
             "user's most recent proposal."
         ),
@@ -271,7 +271,8 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.DROPOUT,
         queryset=s.active_search_blocked,
         description=(
-            "Onboarded and searching, but cannot be matched because of A0 German level or residence outside Germany."
+            "Onboarded and searching for a first match, but cannot be matched because of A0 "
+            "German level or residence outside Germany."
         ),
         display_name="Searching but not matchable",
         base_model=_USER,
@@ -279,67 +280,9 @@ CATALOG: dict[str, CatalogEntry] = {
     "state__proposed": CatalogEntry(
         list_id="state__proposed",
         role=CatalogRole.STAGE,
-        queryset=s.active_proposed,
-        description="Has an open match proposal awaiting a decision, and no match of their own yet.",
-        display_name="Match proposed",
-        base_model=_USER,
-    ),
-    "state__match_takeoff": CatalogEntry(
-        list_id="state__match_takeoff",
-        role=CatalogRole.STAGE,
-        queryset=s.active_match_takeoff,
-        description="In a match that has not reached sustained two-way contact yet.",
-        display_name="Match taking off",
-        base_model=_USER,
-    ),
-    "state__match_ongoing": CatalogEntry(
-        list_id="state__match_ongoing",
-        role=CatalogRole.STAGE,
-        queryset=s.active_match_ongoing,
-        description="In a match with sustained two-way messaging or video calls.",
-        display_name="Match ongoing",
-        base_model=_USER,
-    ),
-    "state__searching_again": CatalogEntry(
-        list_id="state__searching_again",
-        role=CatalogRole.STAGE,
-        queryset=s.active_searching_again,
-        description="Back in the matching pool after an earlier match, with nothing currently in flight.",
-        display_name="Searching again",
-        base_model=_USER,
-    ),
-    # --- Phase: success ---
-    "state__match_completed": CatalogEntry(
-        list_id="state__match_completed",
-        role=CatalogRole.STAGE,
-        queryset=s.success_match_completed,
-        description="Completed a match and is not continuing one past the target duration.",
-        display_name="Match completed",
-        base_model=_USER,
-    ),
-    "state__free_play": CatalogEntry(
-        list_id="state__free_play",
-        role=CatalogRole.STAGE,
-        queryset=s.success_free_play,
-        description="Still in regular contact with a match past the target match duration.",
-        display_name="Still in contact past target duration",
-        base_model=_USER,
-    ),
-    # --- Phase: lapsed ---
-    "state__unmatched": CatalogEntry(
-        list_id="state__unmatched",
-        role=CatalogRole.DROPOUT,
-        queryset=s.lapsed_unmatched,
-        description="Eligible and still searching for a first match more than 30 days after signing up.",
-        display_name="Never matched",
-        base_model=_USER,
-    ),
-    "state__failed_matching": CatalogEntry(
-        list_id="state__failed_matching",
-        role=CatalogRole.DROPOUT,
-        queryset=s.lapsed_failed_matching,
-        description="Stopped searching after one or more matches, none of which worked out.",
-        display_name="Stopped after a failed match",
+        queryset=s.proposed_never_matched,
+        description="Has an open match proposal and has never had a real match.",
+        display_name="Open proposal",
         base_model=_USER,
     ),
     "state__gave_up": CatalogEntry(
@@ -350,20 +293,113 @@ CATALOG: dict[str, CatalogEntry] = {
         display_name="Stopped searching",
         base_model=_USER,
     ),
+    # --- First match in flight (never yet succeeded) ---
+    "state__first_match_kickoff": CatalogEntry(
+        list_id="state__first_match_kickoff",
+        role=CatalogRole.STAGE,
+        queryset=s.first_match_kickoff,
+        description=(
+            "In a match that has not reached sustained two-way contact yet, and has never completed a successful match."
+        ),
+        display_name="First match — kickoff",
+        base_model=_USER,
+    ),
+    "state__first_match_ongoing": CatalogEntry(
+        list_id="state__first_match_ongoing",
+        role=CatalogRole.STAGE,
+        queryset=s.first_match_ongoing,
+        description=(
+            "In a match with sustained contact that is not yet completed or in free-play, "
+            "and has never completed a successful match."
+        ),
+        display_name="First match — ongoing",
+        base_model=_USER,
+    ),
+    # --- After failed first match(es) ---
+    "state__rematch_proposed": CatalogEntry(
+        list_id="state__rematch_proposed",
+        role=CatalogRole.STAGE,
+        queryset=s.rematch_proposed,
+        description=(
+            "Has an open rematch proposal after one or more matches that did not succeed; nothing currently live."
+        ),
+        display_name="Open proposal — after failed first match",
+        base_model=_USER,
+    ),
+    "state__searching_after_failed": CatalogEntry(
+        list_id="state__searching_after_failed",
+        role=CatalogRole.STAGE,
+        queryset=s.searching_after_failed,
+        description=("Back in the matching pool after failed first match(es); no open proposal and nothing live."),
+        display_name="Searching again — after failed first match",
+        base_model=_USER,
+    ),
+    "state__stopped_after_failed": CatalogEntry(
+        list_id="state__stopped_after_failed",
+        role=CatalogRole.DROPOUT,
+        queryset=s.stopped_after_failed,
+        description="Stopped searching after failed first match(es); nothing in flight.",
+        display_name="Stopped searching — after failed first match",
+        base_model=_USER,
+    ),
+    # --- Successful first match (absorbing) ---
+    "state__success_ongoing_searching": CatalogEntry(
+        list_id="state__success_ongoing_searching",
+        role=CatalogRole.STAGE,
+        queryset=s.success_ongoing_searching,
+        description=("Has completed a successful first match, still has a live match, and is searching again."),
+        display_name="Successful first match — ongoing & searching",
+        base_model=_USER,
+    ),
+    "state__success_ongoing_settled": CatalogEntry(
+        list_id="state__success_ongoing_settled",
+        role=CatalogRole.STAGE,
+        queryset=s.success_ongoing_settled,
+        description=(
+            "Has completed a successful first match, still has a live match, and is not "
+            "searching — matched and settled."
+        ),
+        display_name="Successful first match — settled",
+        base_model=_USER,
+    ),
+    "state__success_searching": CatalogEntry(
+        list_id="state__success_searching",
+        role=CatalogRole.STAGE,
+        queryset=s.success_searching,
+        description=("Has completed a successful first match, has no live match, and is searching again."),
+        display_name="Successful first match — searching",
+        base_model=_USER,
+    ),
+    "state__success_idle": CatalogEntry(
+        list_id="state__success_idle",
+        role=CatalogRole.STAGE,
+        queryset=s.success_idle,
+        description=("Has completed a successful first match, has no live match, and is not searching."),
+        display_name="Successful first match — idle",
+        base_model=_USER,
+    ),
     # --- Phase: past ---
+    "state__unresponsive_after_success": CatalogEntry(
+        list_id="state__unresponsive_after_success",
+        role=CatalogRole.DROPOUT,
+        queryset=s.past_unresponsive_after_success,
+        description="Marked unresponsive after completing a successful first match.",
+        display_name="Marked unresponsive — after success",
+        base_model=_USER,
+    ),
     "state__unresponsive": CatalogEntry(
         list_id="state__unresponsive",
         role=CatalogRole.DROPOUT,
         queryset=s.past_unresponsive,
-        description="Still registered but flagged unresponsive, so excluded from matching.",
-        display_name="Marked unresponsive",
+        description="Marked unresponsive without a successful first match.",
+        display_name="Marked unresponsive — no success",
         base_model=_USER,
     ),
     "state__deleted_after_success": CatalogEntry(
         list_id="state__deleted_after_success",
         role=CatalogRole.DROPOUT,
         queryset=s.past_deleted_after_success,
-        description="Left the platform having completed a match or continued one past the target duration.",
+        description="Left the platform after completing a successful first match.",
         display_name="Left after a successful match",
         base_model=_USER,
     ),
@@ -371,7 +407,7 @@ CATALOG: dict[str, CatalogEntry] = {
         list_id="state__deleted",
         role=CatalogRole.DROPOUT,
         queryset=s.past_deleted,
-        description="Left the platform without completing a match.",
+        description="Left the platform without a successful first match.",
         display_name="Left the platform",
         base_model=_USER,
     ),

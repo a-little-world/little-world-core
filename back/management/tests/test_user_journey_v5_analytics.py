@@ -65,7 +65,7 @@ class JourneyV5StructureTests(SimpleTestCase):
     def test_phase_order_matches_the_journey(self):
         self.assertEqual(
             [phase.id for phase in USER_JOURNEY_V5.phases],
-            ["signup", "active", "success", "lapsed", "past"],
+            ["signup", "pre_match", "first_match", "after_failed_first", "successful_first", "past"],
         )
 
     def test_no_bucket_appears_in_two_phases(self):
@@ -397,11 +397,11 @@ class JourneyV5PartitionBalanceTests(TestCase):
             expires_at=timezone.now() + timedelta(days=3),
         )
 
-        takeoff = cls._onboarded("active_match_takeoff", user_type=Profile.TypeChoices.VOLUNTEER)
-        takeoff_partner = cls._onboarded("takeoff_partner", user_type=Profile.TypeChoices.LEARNER)
+        takeoff = cls._onboarded("first_match_kickoff", user_type=Profile.TypeChoices.VOLUNTEER)
+        takeoff_partner = cls._onboarded("kickoff_partner", user_type=Profile.TypeChoices.LEARNER)
         cls._match(takeoff, takeoff_partner, active=True, confirmed=False, created_days_ago=2)
 
-        ongoing = cls._onboarded("active_match_ongoing", user_type=Profile.TypeChoices.VOLUNTEER)
+        ongoing = cls._onboarded("first_match_ongoing", user_type=Profile.TypeChoices.VOLUNTEER)
         ongoing_partner = cls._onboarded("ongoing_partner", user_type=Profile.TypeChoices.LEARNER)
         cls._match(
             ongoing,
@@ -414,11 +414,22 @@ class JourneyV5PartitionBalanceTests(TestCase):
             latest_interaction_at=timezone.now() - timedelta(days=1),
         )
 
-        again = cls._onboarded("active_searching_again", user_type=Profile.TypeChoices.VOLUNTEER)
+        again = cls._onboarded("searching_after_failed", user_type=Profile.TypeChoices.VOLUNTEER)
         again_partner = cls._onboarded(
-            "searching_again_partner", searching=False, user_type=Profile.TypeChoices.LEARNER
+            "searching_after_failed_partner", searching=False, user_type=Profile.TypeChoices.LEARNER
         )
         cls._match(again, again_partner, active=False, confirmed=True, created_days_ago=60)
+
+        rematch = cls._onboarded("rematch_proposed", user_type=Profile.TypeChoices.VOLUNTEER)
+        rematch_old = cls._onboarded("rematch_old_partner", searching=False, user_type=Profile.TypeChoices.LEARNER)
+        rematch_new = cls._onboarded("rematch_proposal_partner", user_type=Profile.TypeChoices.LEARNER)
+        cls._match(rematch, rematch_old, active=False, confirmed=False, created_days_ago=40)
+        ProposedMatch.objects.create(
+            user1=rematch,
+            user2=rematch_new,
+            closed=False,
+            expires_at=timezone.now() + timedelta(days=3),
+        )
 
         cls._first_search_users()
 
@@ -467,12 +478,18 @@ class JourneyV5PartitionBalanceTests(TestCase):
 
     @classmethod
     def _success_users(cls):
-        completed = cls._onboarded("success_match_completed", searching=False, user_type=Profile.TypeChoices.VOLUNTEER)
-        completed_partner = cls._onboarded("completed_partner", searching=False, user_type=Profile.TypeChoices.LEARNER)
+        # Completed flag, no live activity → idle success cell.
+        completed = cls._onboarded("success_idle", searching=False, user_type=Profile.TypeChoices.VOLUNTEER)
+        completed_partner = cls._onboarded(
+            "success_idle_partner", searching=False, user_type=Profile.TypeChoices.LEARNER
+        )
         cls._match(completed, completed_partner, active=True, confirmed=True, completed=True, created_days_ago=90)
 
-        free_play = cls._onboarded("success_free_play", searching=False, user_type=Profile.TypeChoices.VOLUNTEER)
-        free_play_partner = cls._onboarded("free_play_partner", searching=False, user_type=Profile.TypeChoices.LEARNER)
+        # Free-play still counts as live → settled success cell.
+        free_play = cls._onboarded("success_ongoing_settled", searching=False, user_type=Profile.TypeChoices.VOLUNTEER)
+        free_play_partner = cls._onboarded(
+            "success_ongoing_settled_partner", searching=False, user_type=Profile.TypeChoices.LEARNER
+        )
         cls._match(
             free_play,
             free_play_partner,
@@ -484,13 +501,41 @@ class JourneyV5PartitionBalanceTests(TestCase):
             latest_interaction_at=timezone.now() - timedelta(days=2),
         )
 
+        # Successful then searching again with nothing live.
+        searching = cls._onboarded("success_searching", user_type=Profile.TypeChoices.VOLUNTEER)
+        searching_partner = cls._onboarded(
+            "success_searching_partner", searching=False, user_type=Profile.TypeChoices.LEARNER
+        )
+        cls._match(searching, searching_partner, active=False, confirmed=True, completed=True, created_days_ago=95)
+
+        # Successful, still live, and searching for another.
+        both = cls._onboarded("success_ongoing_searching", user_type=Profile.TypeChoices.VOLUNTEER)
+        both_done = cls._onboarded(
+            "success_ongoing_searching_done", searching=False, user_type=Profile.TypeChoices.LEARNER
+        )
+        both_live = cls._onboarded("success_ongoing_searching_live", user_type=Profile.TypeChoices.LEARNER)
+        cls._match(both, both_done, active=True, confirmed=True, completed=True, created_days_ago=95)
+        cls._match(
+            both,
+            both_live,
+            active=True,
+            confirmed=True,
+            created_days_ago=14,
+            total_messages_counter=6,
+            total_mutal_video_calls_counter=2,
+            latest_interaction_at=timezone.now() - timedelta(days=1),
+        )
+
     @classmethod
     def _lapsed_users(cls):
-        cls._onboarded("lapsed_unmatched", joined_days_ago=120, user_type=Profile.TypeChoices.VOLUNTEER)
+        # Long-waiting first searcher — still pre-match, not a separate time-based bucket.
+        cls._onboarded("first_search_long_waiting", joined_days_ago=120, user_type=Profile.TypeChoices.VOLUNTEER)
         cls._onboarded("lapsed_gave_up", searching=False, user_type=Profile.TypeChoices.VOLUNTEER)
 
-        failed = cls._onboarded("lapsed_failed_matching", searching=False, user_type=Profile.TypeChoices.VOLUNTEER)
-        failed_partner = cls._onboarded("failed_partner", searching=False, user_type=Profile.TypeChoices.LEARNER)
+        failed = cls._onboarded("stopped_after_failed", searching=False, user_type=Profile.TypeChoices.VOLUNTEER)
+        failed_partner = cls._onboarded(
+            "stopped_after_failed_partner", searching=False, user_type=Profile.TypeChoices.LEARNER
+        )
         cls._match(failed, failed_partner, active=False, confirmed=False, created_days_ago=40)
 
     @classmethod
@@ -640,11 +685,15 @@ class JourneyV5PartitionBalanceTests(TestCase):
     def test_learner_without_a_country_is_not_treated_as_living_abroad(self):
         self.assertEqual(self._bucket_of("learner_without_country"), ["state__first_search_no_proposal"])
 
-    def test_completed_and_ongoing_counts_as_completed(self):
-        self.assertEqual(self._bucket_of("completed_and_ongoing"), ["state__match_completed"])
+    def test_completed_and_ongoing_counts_as_success_settled(self):
+        self.assertEqual(self._bucket_of("completed_and_ongoing"), ["state__success_ongoing_settled"])
 
-    def test_unresponsive_with_a_completed_match_counts_as_unresponsive(self):
-        self.assertEqual(self._bucket_of("unresponsive_with_completed_match"), ["state__unresponsive"])
+    def test_unresponsive_after_success_is_split_from_plain_unresponsive(self):
+        self.assertEqual(
+            self._bucket_of("unresponsive_with_completed_match"),
+            ["state__unresponsive_after_success"],
+        )
+        self.assertEqual(self._bucket_of("past_unresponsive"), ["state__unresponsive"])
 
     def test_deleted_after_success_is_split_from_plain_deletion(self):
         self.assertEqual(self._bucket_of("past_deleted_after_success"), ["state__deleted_after_success"])
@@ -653,8 +702,13 @@ class JourneyV5PartitionBalanceTests(TestCase):
     def test_blocked_searcher_has_a_bucket_of_their_own(self):
         self.assertEqual(self._bucket_of("active_search_blocked"), ["state__search_blocked"])
 
-    def test_searcher_overdue_for_a_match_is_lapsed_not_first_search(self):
-        self.assertEqual(self._bucket_of("lapsed_unmatched"), ["state__unmatched"])
+    def test_long_waiting_searcher_stays_in_first_search(self):
+        self.assertEqual(self._bucket_of("first_search_long_waiting"), ["state__first_search_no_proposal"])
+
+    def test_stopped_searching_sits_in_pre_match(self):
+        self.assertEqual(self._bucket_of("lapsed_gave_up"), ["state__gave_up"])
+        pre_match = next(phase for phase in USER_JOURNEY_V5.phases if phase.id == "pre_match")
+        self.assertIn("state__gave_up", [bucket.list_id for bucket in pre_match.buckets])
 
     def test_account_without_a_state_row_has_a_bucket_of_its_own(self):
         self.assertEqual(self._bucket_of("record_incomplete"), ["state__record_incomplete"])
@@ -662,6 +716,33 @@ class JourneyV5PartitionBalanceTests(TestCase):
     def test_ineligible_learners_land_in_the_ineligible_bucket(self):
         self.assertEqual(self._bucket_of("signup_ineligible_a0"), ["state__onboarding_ineligible"])
         self.assertEqual(self._bucket_of("signup_ineligible_abroad"), ["state__onboarding_ineligible"])
+
+    # -- first-match KPI placement -----------------------------------------
+
+    def test_open_proposal_before_any_match_is_pre_match(self):
+        self.assertEqual(self._bucket_of("active_proposed"), ["state__proposed"])
+        self.assertEqual(self._bucket_of("proposal_partner"), ["state__proposed"])
+
+    def test_first_match_in_flight_cells(self):
+        self.assertEqual(self._bucket_of("first_match_kickoff"), ["state__first_match_kickoff"])
+        self.assertEqual(self._bucket_of("kickoff_partner"), ["state__first_match_kickoff"])
+        self.assertEqual(self._bucket_of("first_match_ongoing"), ["state__first_match_ongoing"])
+        self.assertEqual(self._bucket_of("ongoing_partner"), ["state__first_match_ongoing"])
+
+    def test_after_failed_first_cells(self):
+        self.assertEqual(self._bucket_of("rematch_proposed"), ["state__rematch_proposed"])
+        self.assertEqual(self._bucket_of("searching_after_failed"), ["state__searching_after_failed"])
+        self.assertEqual(
+            self._bucket_of("searching_after_failed_partner"),
+            ["state__stopped_after_failed"],
+        )
+        self.assertEqual(self._bucket_of("stopped_after_failed"), ["state__stopped_after_failed"])
+
+    def test_successful_first_match_two_by_two(self):
+        self.assertEqual(self._bucket_of("success_ongoing_searching"), ["state__success_ongoing_searching"])
+        self.assertEqual(self._bucket_of("success_ongoing_settled"), ["state__success_ongoing_settled"])
+        self.assertEqual(self._bucket_of("success_searching"), ["state__success_searching"])
+        self.assertEqual(self._bucket_of("success_idle"), ["state__success_idle"])
 
     # -- first search, split by the last proposal's outcome ----------------
 

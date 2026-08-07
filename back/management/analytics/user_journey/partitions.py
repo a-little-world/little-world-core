@@ -161,12 +161,10 @@ USER_JOURNEY_V5 = PartitionDefinition(
             ),
         ),
         PartitionPhase(
-            id="active",
-            title="Active users",
+            id="pre_match",
+            title="Pre-match",
             buckets=(
-                # `state__first_search` itself is COMPOSITE and deliberately not a
-                # cell — it is the sum of the five below, and including both would
-                # double-count. Query it when you want the group as a whole.
+                PartitionBucket(list_id="state__gave_up"),
                 PartitionBucket(list_id="state__first_search_no_proposal"),
                 PartitionBucket(list_id="state__first_search_proposal_expired"),
                 PartitionBucket(list_id="state__first_search_rejected_by_them"),
@@ -174,32 +172,40 @@ USER_JOURNEY_V5 = PartitionDefinition(
                 PartitionBucket(list_id="state__first_search_proposal_closed"),
                 PartitionBucket(list_id="state__search_blocked"),
                 PartitionBucket(list_id="state__proposed"),
-                PartitionBucket(list_id="state__match_takeoff"),
-                PartitionBucket(list_id="state__match_ongoing"),
-                PartitionBucket(list_id="state__searching_again"),
             ),
         ),
         PartitionPhase(
-            id="success",
-            title="Success",
+            id="first_match",
+            title="First match",
             buckets=(
-                PartitionBucket(list_id="state__match_completed"),
-                PartitionBucket(list_id="state__free_play"),
+                PartitionBucket(list_id="state__first_match_kickoff"),
+                PartitionBucket(list_id="state__first_match_ongoing"),
             ),
         ),
         PartitionPhase(
-            id="lapsed",
-            title="Lapsed",
+            id="after_failed_first",
+            title="After failed first match",
             buckets=(
-                PartitionBucket(list_id="state__unmatched"),
-                PartitionBucket(list_id="state__failed_matching"),
-                PartitionBucket(list_id="state__gave_up"),
+                PartitionBucket(list_id="state__rematch_proposed"),
+                PartitionBucket(list_id="state__searching_after_failed"),
+                PartitionBucket(list_id="state__stopped_after_failed"),
+            ),
+        ),
+        PartitionPhase(
+            id="successful_first",
+            title="Successful first match",
+            buckets=(
+                PartitionBucket(list_id="state__success_ongoing_searching"),
+                PartitionBucket(list_id="state__success_ongoing_settled"),
+                PartitionBucket(list_id="state__success_searching"),
+                PartitionBucket(list_id="state__success_idle"),
             ),
         ),
         PartitionPhase(
             id="past",
             title="Past users",
             buckets=(
+                PartitionBucket(list_id="state__unresponsive_after_success"),
                 PartitionBucket(list_id="state__unresponsive"),
                 PartitionBucket(list_id="state__deleted_after_success"),
                 PartitionBucket(list_id="state__deleted"),
