@@ -1,6 +1,3 @@
-import inspect
-from dataclasses import dataclass
-
 from management.api.match_journey_filters import (
     EXTRA__suggestion_match_completed_off_plattform,
     EXTRA__suggestion_match_completed_on_plattform,
@@ -28,48 +25,12 @@ from management.api.match_journey_filters import (
     support_matching,
     user_ghosted,
 )
+from management.api.user_advanced_filter_lists import FilterListEntry, get_queryset_source_reference  # noqa: F401
 from management.models.matches import Match
 from management.models.unconfirmed_matches import MatchType
 
-GITHUB_API_SOURCE_ROOT = "https://github.com/a-little-world/little-world-core/blob/main/back/management/api"
-
-
-def get_queryset_source_reference(queryset: callable) -> dict:
-    if queryset is None:
-        return {"source_file": None, "source_line": None, "source_url": None}
-
-    try:
-        source_line = inspect.getsourcelines(queryset)[1]
-    except (OSError, TypeError):
-        source_line = None
-
-    module_name = getattr(queryset, "__module__", "")
-    source_file = f"back/{module_name.replace('.', '/')}.py" if module_name else None
-    source_url = None
-    if source_file and source_line and source_file.startswith("back/management/api/"):
-        source_url = f"{GITHUB_API_SOURCE_ROOT}/{source_file.removeprefix('back/management/api/')}#L{source_line}"
-
-    return {"source_file": source_file, "source_line": source_line, "source_url": source_url}
-
-
-@dataclass
-class FilterListEntry:
-    name: str
-    description: str | None
-    queryset: callable = None
-
-    def to_dict(self):
-        description = self.description
-        if description is None and self.queryset and self.queryset.__doc__:
-            description = self.queryset.__doc__.strip()
-        source_reference = get_queryset_source_reference(self.queryset)
-        return {
-            "name": self.name,
-            "description": description,
-            **source_reference,
-        }
-
-
+# One definition of a filter list entry, shared with the user lists — promoted here on
+# the second caller rather than kept as a near-identical copy (conventions §1).
 MATCH_JOURNEY_FILTERS = [
     FilterListEntry("match_journey_v2__all", None, all_matches),
     FilterListEntry(

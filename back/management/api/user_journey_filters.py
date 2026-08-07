@@ -776,7 +776,7 @@ def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
     """
     Community Calls filter
     """
-    selected_fields = ["id"]  # Adjust these fields as needed for your User model
+    selected_fields = ["id"]
 
     onboarded_unmatched_users = qs.filter(state__is_onboarded=True, state__has_received_first_match=False).values(
         *selected_fields
