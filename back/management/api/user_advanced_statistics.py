@@ -756,6 +756,32 @@ def bucket_statistics(request):
         },
     ),
 )
+@extend_schema(
+    responses=inline_serializer(
+        name="UserJourneyV5DefinitionResponse",
+        fields={"definition": serializers.DictField()},
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def user_journey_v5_definition(request):
+    """The journey shape — phases, bucket order, labels, descriptions. No database access.
+
+    Split out from the counts so the admin panel can paint the whole journey immediately
+    and fill each number in as it arrives, instead of holding a spinner for the length of
+    the slowest bucket. V4 felt faster only because it rendered from a client-side copy of
+    this; serving it as its own cheap call gets the same responsiveness while the server
+    keeps sole ownership of the definition (conventions §17).
+    """
+    from management.analytics.registry import ALL_CATALOG, get_partition
+
+    partition = get_partition(USER_JOURNEY_V5_ID)
+    if partition is None:
+        return Response({"detail": f"Unknown partition {USER_JOURNEY_V5_ID!r}."}, status=500)
+
+    return Response({"definition": partition.as_payload(ALL_CATALOG)})
+
+
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 def user_journey_v5_statistics(request):
@@ -790,7 +816,13 @@ def user_journey_v5_statistics(request):
         end_date=end_date,
         volunteers_only=request.data.get("volunteers_only", False),
     )
-    result = compute_partition(partition, cohort.apply(_get_accessible_users(request.user)))
+    # One instant for every bucket, so a booking expiring mid-request cannot show up as a
+    # partition overlap (conventions §10).
+    result = compute_partition(
+        partition,
+        cohort.apply(_get_accessible_users(request.user)),
+        as_of=display_time.now(),
+    )
 
     return Response(
         {
@@ -2589,6 +2621,7 @@ api_urls = [
     path("api/matching/users/statistics/video_call_summary/<int:user_id>/", user_video_call_summary),
     path("api/matching/users/statistics/user_journey_buckets/", bucket_statistics),
     path("api/matching/users/statistics/user_journey_v5/", user_journey_v5_statistics),
+    path("api/matching/users/statistics/user_journey_v5/definition/", user_journey_v5_definition),
     path("api/matching/users/statistics/match_journey_buckets/", match_bucket_statistics),
     path("api/matching/users/statistics/user_signup_loss/", user_signup_loss_statistics),
     path("api/matching/users/statistics/match_quality/", match_quality_statistics),

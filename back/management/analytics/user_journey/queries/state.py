@@ -28,7 +28,8 @@ Fixes carried over the ``journey_v2__*`` lists these replace:
   a subquery instead of counting.
 - ``get_user_involved`` materialised every ``(user1, user2)`` pair of *all* matches into
   a Python set per call — ``failed_matching`` did it ten times. V5 keeps them as
-  subqueries scoped to the cohort.
+  correlated ``EXISTS`` subqueries (see ``_participates_in``), so nothing is pulled into
+  Python and the participation lookup uses the ``user1_id`` / ``user2_id`` indexes.
 - A0-German and outside-Germany learners were excluded from some buckets and not
   others, so they were double-counted in one phase and absent from another. V5 gives
   them explicit state buckets and no bucket silently drops them.
@@ -83,22 +84,29 @@ def _now(as_of=None):
 def _participates_in(pair_qs) -> Q:
     """``Q`` matching users on either side of ``pair_qs`` rows (``Match`` or ``ProposedMatch``).
 
-    Both sides stay as ``id__in`` subqueries against a single-valued column, so nothing
-    is materialised in Python and no multi-valued join is added to the outer query.
+    One correlated ``EXISTS`` rather than ``id__in(user1) | id__in(user2)``. Both forms
+    are correct, but the ``id__in`` pair emits the whole of ``pair_qs`` twice, and these
+    predicates compose — ``_has_live_match`` is fourteen of them. Nesting that made
+    ``state__first_search_no_proposal`` a 34 KB query with 48 scans of the match table.
+    ``EXISTS`` keeps one copy and drives off the ``user1_id`` / ``user2_id`` indexes.
     """
-    return Q(id__in=pair_qs.values("user1")) | Q(id__in=pair_qs.values("user2"))
+    return Q(Exists(pair_qs.filter(Q(user1=OuterRef("pk")) | Q(user2=OuterRef("pk")))))
 
 
-def _cohort_matches(qs: QuerySet) -> QuerySet:
-    """Matches with at least one participant in the cohort.
+def _all_matches() -> QuerySet:
+    """Every match. The cohort restriction lives in the outer query, not here.
 
-    Scoping first is what keeps the match-state subqueries off a full table scan.
+    These predicates are always composed onto a queryset that is already the cohort, so a
+    cohort member's matches are found whether or not the match set was pre-filtered.
+    Pre-filtering with ``Q(user1__in=qs) | Q(user2__in=qs)`` embedded the cohort subquery
+    inside all fourteen nested predicates and roughly doubled the cost of every
+    match-state bucket, for no change in membership (conventions §6).
     """
-    return Match.objects.filter(Q(user1__in=qs) | Q(user2__in=qs))
+    return Match.objects.all()
 
 
-def _non_support_matches(qs: QuerySet) -> QuerySet:
-    return _cohort_matches(qs).filter(support_matching=False)
+def _non_support_matches() -> QuerySet:
+    return _all_matches().filter(support_matching=False)
 
 
 def _match_ineligible_learners(qs: QuerySet) -> QuerySet:
@@ -232,19 +240,25 @@ def signup_form_completed(qs: QuerySet, as_of=None) -> QuerySet:
 #   open proposal / searching / idle (pre-match if never matched, else after failed)
 
 
-def _has_success_match(qs: QuerySet) -> Q:
+# Each of these is a correlated predicate about the user in the outer query, so none of
+# them takes the cohort — see ``_all_matches``. The uniform zero-argument signature is the
+# point: when some took ``qs`` and some did not, ``_has_open_proposal`` was silently the
+# only unscoped one and nothing said whether that was a decision or an oversight.
+
+
+def _has_success_match() -> Q:
     """Reached a successful match outcome (completed or free-play). Absorbing milestone."""
-    matches = _cohort_matches(qs)
+    matches = _all_matches()
     return _participates_in(completed_match(matches)) | _participates_in(match_free_play(matches))
 
 
-def _has_ongoing_match(qs: QuerySet) -> Q:
-    return _participates_in(match_ongoing(_cohort_matches(qs)))
+def _has_ongoing_match() -> Q:
+    return _participates_in(match_ongoing(_all_matches()))
 
 
-def _has_takeoff_match(qs: QuerySet) -> Q:
+def _has_takeoff_match() -> Q:
     """Confirmed or newly started match that has not reached sustained contact."""
-    matches = _cohort_matches(qs)
+    matches = _all_matches()
     return (
         _participates_in(match_unviewed(matches))
         | _participates_in(match_one_user_viewed(matches))
@@ -254,21 +268,21 @@ def _has_takeoff_match(qs: QuerySet) -> Q:
     )
 
 
-def _has_live_match(qs: QuerySet) -> Q:
+def _has_live_match() -> Q:
     """Any match still in flight — kickoff, sustained, or free-play."""
-    return _has_takeoff_match(qs) | _has_ongoing_match(qs) | _participates_in(match_free_play(_cohort_matches(qs)))
+    return _has_takeoff_match() | _has_ongoing_match() | _participates_in(match_free_play(_all_matches()))
 
 
-def _has_open_proposal(qs: QuerySet) -> Q:
+def _has_open_proposal() -> Q:
     return _participates_in(matching_proposals())
 
 
-def _has_match_history(qs: QuerySet) -> Q:
-    return _participates_in(_non_support_matches(qs))
+def _has_match_history() -> Q:
+    return _participates_in(_non_support_matches())
 
 
-def _has_failed_match(qs: QuerySet) -> Q:
-    matches = _cohort_matches(qs)
+def _has_failed_match() -> Q:
+    matches = _all_matches()
     return (
         _participates_in(never_confirmed(matches))
         | _participates_in(no_contact(matches))
@@ -279,11 +293,11 @@ def _has_failed_match(qs: QuerySet) -> Q:
 
 
 def _never_succeeded(qs: QuerySet) -> QuerySet:
-    return post_onboarding(qs).exclude(_has_success_match(qs))
+    return post_onboarding(qs).exclude(_has_success_match())
 
 
 def _claimed_by_live_match_or_proposal(qs: QuerySet) -> QuerySet:
-    return post_onboarding(qs).filter(_has_live_match(qs) | _has_open_proposal(qs) | _has_success_match(qs))
+    return post_onboarding(qs).filter(_has_live_match() | _has_open_proposal() | _has_success_match())
 
 
 def _searching_without_match(qs: QuerySet) -> QuerySet:
@@ -292,7 +306,7 @@ def _searching_without_match(qs: QuerySet) -> QuerySet:
         post_onboarding(qs)
         .filter(state__searching_state=_SEARCHING)
         .exclude(id__in=_claimed_by_live_match_or_proposal(qs))
-        .exclude(_has_match_history(qs))
+        .exclude(_has_match_history())
     )
 
 
@@ -302,12 +316,12 @@ def _searching_without_match(qs: QuerySet) -> QuerySet:
 
 
 def _succeeded(qs: QuerySet) -> QuerySet:
-    return post_onboarding(qs).filter(_has_success_match(qs))
+    return post_onboarding(qs).filter(_has_success_match())
 
 
 def success_ongoing_searching(qs: QuerySet) -> QuerySet:
     """Completed a successful first match; still in a live match and searching again."""
-    return _succeeded(qs).filter(_has_live_match(qs), state__searching_state=_SEARCHING)
+    return _succeeded(qs).filter(_has_live_match(), state__searching_state=_SEARCHING)
 
 
 def success_ongoing_settled(qs: QuerySet) -> QuerySet:
@@ -315,17 +329,17 @@ def success_ongoing_settled(qs: QuerySet) -> QuerySet:
 
     The quiet success cell — matched and settled, no rematch activity.
     """
-    return _succeeded(qs).filter(_has_live_match(qs)).exclude(state__searching_state=_SEARCHING)
+    return _succeeded(qs).filter(_has_live_match()).exclude(state__searching_state=_SEARCHING)
 
 
 def success_searching(qs: QuerySet) -> QuerySet:
     """Completed a successful first match; no live match, back in the pool."""
-    return _succeeded(qs).filter(state__searching_state=_SEARCHING).exclude(_has_live_match(qs))
+    return _succeeded(qs).filter(state__searching_state=_SEARCHING).exclude(_has_live_match())
 
 
 def success_idle(qs: QuerySet) -> QuerySet:
     """Completed a successful first match; no live match and not searching."""
-    return _succeeded(qs).exclude(_has_live_match(qs)).exclude(state__searching_state=_SEARCHING)
+    return _succeeded(qs).exclude(_has_live_match()).exclude(state__searching_state=_SEARCHING)
 
 
 # ---------------------------------------------------------------------------
@@ -335,12 +349,12 @@ def success_idle(qs: QuerySet) -> QuerySet:
 
 def first_match_kickoff(qs: QuerySet) -> QuerySet:
     """In a first-success attempt that has not reached sustained contact yet."""
-    return _never_succeeded(qs).filter(_has_takeoff_match(qs))
+    return _never_succeeded(qs).filter(_has_takeoff_match())
 
 
 def first_match_ongoing(qs: QuerySet) -> QuerySet:
     """In a first-success attempt with sustained contact, not yet completed/free-play."""
-    return _never_succeeded(qs).filter(_has_ongoing_match(qs)).exclude(_has_takeoff_match(qs))
+    return _never_succeeded(qs).filter(_has_ongoing_match()).exclude(_has_takeoff_match())
 
 
 # ---------------------------------------------------------------------------
@@ -352,9 +366,9 @@ def rematch_proposed(qs: QuerySet) -> QuerySet:
     """Open rematch proposal after failed first match(es); nothing live yet."""
     return (
         _never_succeeded(qs)
-        .filter(_has_match_history(qs), _has_open_proposal(qs))
-        .exclude(_has_takeoff_match(qs))
-        .exclude(_has_ongoing_match(qs))
+        .filter(_has_match_history(), _has_open_proposal())
+        .exclude(_has_takeoff_match())
+        .exclude(_has_ongoing_match())
     )
 
 
@@ -363,7 +377,7 @@ def searching_after_failed(qs: QuerySet) -> QuerySet:
     return (
         _never_succeeded(qs)
         .filter(state__searching_state=_SEARCHING)
-        .filter(_has_match_history(qs))
+        .filter(_has_match_history())
         .exclude(id__in=_claimed_by_live_match_or_proposal(qs))
     )
 
@@ -373,7 +387,7 @@ def stopped_after_failed(qs: QuerySet) -> QuerySet:
     return (
         _never_succeeded(qs)
         .filter(state__searching_state=_IDLE)
-        .filter(_has_match_history(qs))
+        .filter(_has_match_history())
         .exclude(id__in=_claimed_by_live_match_or_proposal(qs))
     )
 
@@ -387,10 +401,10 @@ def proposed_never_matched(qs: QuerySet) -> QuerySet:
     """Open proposal and has never had a real match."""
     return (
         _never_succeeded(qs)
-        .filter(_has_open_proposal(qs))
-        .exclude(_has_match_history(qs))
-        .exclude(_has_takeoff_match(qs))
-        .exclude(_has_ongoing_match(qs))
+        .filter(_has_open_proposal())
+        .exclude(_has_match_history())
+        .exclude(_has_takeoff_match())
+        .exclude(_has_ongoing_match())
     )
 
 
@@ -460,14 +474,14 @@ def lapsed_gave_up(qs: QuerySet) -> QuerySet:
     return (
         post_onboarding(qs)
         .filter(state__searching_state=_IDLE)
-        .exclude(_has_match_history(qs))
+        .exclude(_has_match_history())
         .exclude(id__in=_claimed_by_live_match_or_proposal(qs))
     )
 
 
 def lapsed_failed_match_reasons(qs: QuerySet) -> QuerySet:
     """Drill-down: onboarded users with at least one match in a recorded failure state."""
-    return post_onboarding(qs).filter(_has_failed_match(qs))
+    return post_onboarding(qs).filter(_has_failed_match())
 
 
 # ---------------------------------------------------------------------------
@@ -477,22 +491,22 @@ def lapsed_failed_match_reasons(qs: QuerySet) -> QuerySet:
 
 def past_unresponsive_after_success(qs: QuerySet) -> QuerySet:
     """Marked unresponsive after a successful first match."""
-    return qs.filter(is_active=True, state__unresponsive=True).filter(_has_success_match(qs))
+    return qs.filter(is_active=True, state__unresponsive=True).filter(_has_success_match())
 
 
 def past_unresponsive(qs: QuerySet) -> QuerySet:
     """Marked unresponsive without a successful first match."""
-    return qs.filter(is_active=True, state__unresponsive=True).exclude(_has_success_match(qs))
+    return qs.filter(is_active=True, state__unresponsive=True).exclude(_has_success_match())
 
 
 def past_deleted_after_success(qs: QuerySet) -> QuerySet:
     """Left the platform after a successful first match."""
-    return qs.filter(is_active=False).filter(_has_success_match(qs))
+    return qs.filter(is_active=False).filter(_has_success_match())
 
 
 def past_deleted(qs: QuerySet) -> QuerySet:
     """Left the platform without a successful first match."""
-    return qs.filter(is_active=False).exclude(_has_success_match(qs))
+    return qs.filter(is_active=False).exclude(_has_success_match())
 
 
 def record_incomplete(qs: QuerySet) -> QuerySet:

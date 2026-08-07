@@ -7,6 +7,8 @@ inherits by registering here (see ``dev/docs/analytics_conventions.md`` §8).
 
 import logging
 
+from django.utils import timezone
+
 from management.analytics.core.catalog import CatalogEntry
 from management.analytics.core.funnels import FUNNEL_ALLOWED_ROLES, FunnelDefinition
 from management.analytics.core.roles import CatalogRole
@@ -230,21 +232,22 @@ def assert_composites_valid_strict() -> None:
         raise AssertionError(f"Composite catalog entries are misdeclared: {problems}")
 
 
-def assert_composite_equals_members_strict(list_id: str, qs) -> None:
+def assert_composite_equals_members_strict(list_id: str, qs, *, as_of=None) -> None:
     """Check on real data that a composite is exactly the disjoint union of its members.
 
     Structural checks cannot see this: the composite and its members are independent
     querysets, and a predicate added to one and not the others would leave the shape
     intact while the numbers silently stopped adding up.
     """
+    as_of = as_of or timezone.now()
     entry = ALL_CATALOG[list_id]
-    composite_ids = set(entry.queryset(qs).values_list("id", flat=True))
+    composite_ids = set(entry.build(qs, as_of=as_of).values_list("id", flat=True))
 
     seen: dict[int, str] = {}
     overlaps: dict[str, list[str]] = {}
     member_ids: set[int] = set()
     for member in entry.members:
-        ids = set(ALL_CATALOG[member].queryset(qs).values_list("id", flat=True))
+        ids = set(ALL_CATALOG[member].build(qs, as_of=as_of).values_list("id", flat=True))
         for uid in ids & seen.keys():
             overlaps.setdefault(f"{seen[uid]} & {member}", []).append(str(uid))
         seen.update(dict.fromkeys(ids, member))
@@ -326,7 +329,13 @@ def assert_partition_valid_strict(partition: PartitionDefinition) -> None:
 PARTITION_ID_SAMPLE_LIMIT = 50
 
 
-def compute_partition(partition: PartitionDefinition, qs, *, sample_limit: int = PARTITION_ID_SAMPLE_LIMIT) -> dict:
+def compute_partition(
+    partition: PartitionDefinition,
+    qs,
+    *,
+    as_of=None,
+    sample_limit: int = PARTITION_ID_SAMPLE_LIMIT,
+) -> dict:
     """Count every bucket over ``qs`` and check that they partition the baseline.
 
     Two things can break and both are reported rather than raised, because one bad row
@@ -334,15 +343,24 @@ def compute_partition(partition: PartitionDefinition, qs, *, sample_limit: int =
     two buckets, and ``uncovered`` when a baseline member is claimed by none. The counts
     are still correct per bucket when either is non-empty, so the caller can render.
 
-    IDs are materialised in Python because the overlap check is pairwise set
-    intersection; this is an admin analytics path over one signup cohort, not a hot read.
+    ``as_of`` is resolved once and passed to every time-dependent bucket, so the whole
+    partition is evaluated at one instant (conventions §10). Letting each query call
+    ``timezone.now()`` for itself makes an appointment expiring mid-request look like a
+    partition overlap.
+
+    Cost: one query per bucket plus ``n(n-1)/2`` set intersections — for the 29-cell user
+    journey that is 30 queries and 406 intersections over ID sets held in memory at once.
+    Fine for an admin page over one signup cohort; not something to put behind a hot read
+    or to point at a cohort an order of magnitude larger without revisiting.
     """
+    as_of = as_of or timezone.now()
+
     baseline_entry = ALL_CATALOG[partition.baseline_list_id]
-    baseline_ids = set(baseline_entry.queryset(qs).values_list("id", flat=True))
+    baseline_ids = set(baseline_entry.build(qs, as_of=as_of).values_list("id", flat=True))
 
     bucket_ids: dict[str, set[int]] = {}
     for list_id in partition.bucket_ids():
-        bucket_ids[list_id] = set(ALL_CATALOG[list_id].queryset(qs).values_list("id", flat=True))
+        bucket_ids[list_id] = set(ALL_CATALOG[list_id].build(qs, as_of=as_of).values_list("id", flat=True))
 
     ordered = partition.bucket_ids()
     overlaps: dict[str, list[int]] = {}
@@ -392,9 +410,9 @@ def compute_partition(partition: PartitionDefinition, qs, *, sample_limit: int =
     }
 
 
-def assert_partition_balances_strict(partition: PartitionDefinition, qs) -> None:
+def assert_partition_balances_strict(partition: PartitionDefinition, qs, *, as_of=None) -> None:
     """Raise if the partition does not balance over ``qs``. For tests and batch jobs only."""
-    result = compute_partition(partition, qs)
+    result = compute_partition(partition, qs, as_of=as_of)
     if result["balanced"]:
         return
     raise AssertionError(

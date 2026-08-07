@@ -202,6 +202,66 @@ class JourneyV5PayloadTests(SimpleTestCase):
         self.assertEqual(meta["state__deleted"]["description"], "Chart-specific wording")
 
 
+class CatalogAsOfTests(SimpleTestCase):
+    """``as_of`` has to reach the queries, or it is decoration (conventions §10).
+
+    Without this, each of the 30 buckets calls ``timezone.now()`` for itself and a booking
+    expiring mid-request lands in ``state__onboarding_booked`` for one query and
+    ``state__onboarding_no_show`` for another — a self-inflicted partition overlap.
+    """
+
+    def test_time_dependent_entries_are_detected_from_the_signature(self):
+        self.assertTrue(ALL_CATALOG["state__onboarding_booked"].is_time_dependent)
+        self.assertTrue(ALL_CATALOG["state__onboarding_no_show"].is_time_dependent)
+
+    def test_entries_that_do_not_take_as_of_are_not_flagged(self):
+        self.assertFalse(ALL_CATALOG["state__deleted"].is_time_dependent)
+        self.assertFalse(ALL_CATALOG["funnel__all"].is_time_dependent)
+
+    def test_build_forwards_as_of_to_time_dependent_queries(self):
+        seen = {}
+
+        def query(qs, as_of=None):
+            seen["as_of"] = as_of
+            return qs
+
+        entry = CatalogEntry(
+            list_id="state__probe",
+            role=CatalogRole.STAGE,
+            queryset=query,
+            description="",
+            display_name="Probe",
+            base_model=User,
+        )
+        moment = timezone.now()
+        entry.build(User.objects.none(), as_of=moment)
+        self.assertEqual(seen["as_of"], moment)
+
+    def test_build_does_not_pass_as_of_to_queries_that_cannot_take_it(self):
+        """A uniform call would break every list shared with the panel's filter lists."""
+
+        def query(qs):
+            return qs
+
+        entry = CatalogEntry(
+            list_id="state__probe",
+            role=CatalogRole.STAGE,
+            queryset=query,
+            description="",
+            display_name="Probe",
+            base_model=User,
+        )
+        # Would raise TypeError if `as_of` were forwarded blindly.
+        entry.build(User.objects.none(), as_of=timezone.now())
+
+    def test_every_time_dependent_bucket_is_reachable_with_as_of(self):
+        """Any bucket that reads the clock must be able to be pinned to the run's instant."""
+        for list_id in USER_JOURNEY_V5.all_list_ids():
+            entry = ALL_CATALOG[list_id]
+            if entry.is_time_dependent:
+                self.assertIn("as_of", entry.queryset.__code__.co_varnames)
+
+
 class PartitionValidationRejectsBadDefinitionsTests(SimpleTestCase):
     """Negative side of the validation — without these, "all green" proves nothing."""
 

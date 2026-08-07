@@ -222,7 +222,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.STAGE,
         queryset=s.active_first_search_no_proposal,
         description="Searching for a first match, and nobody has ever been proposed to them.",
-        display_name="Searching — never proposed anyone",
+        display_name="Searching - never proposed anyone",
         base_model=_USER,
     ),
     "state__first_search_proposal_expired": CatalogEntry(
@@ -230,7 +230,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.STAGE,
         queryset=s.active_first_search_proposal_expired,
         description="Searching again because their most recent proposal expired undecided.",
-        display_name="Searching — last proposal expired",
+        display_name="Searching - last proposal expired",
         base_model=_USER,
     ),
     "state__first_search_rejected_by_them": CatalogEntry(
@@ -241,7 +241,7 @@ CATALOG: dict[str, CatalogEntry] = {
             "Searching again after turning down their most recent proposal. Only the user who "
             "confirms a proposal can reject it, so this group is mostly learners."
         ),
-        display_name="Searching — they rejected the last proposal",
+        display_name="Searching - rejected the last proposal",
         base_model=_USER,
     ),
     "state__first_search_rejected_by_partner": CatalogEntry(
@@ -252,7 +252,7 @@ CATALOG: dict[str, CatalogEntry] = {
             "Searching again after the person proposed to them turned them down. Mostly "
             "volunteers, since the learner is the one who confirms a standard match."
         ),
-        display_name="Searching — partner rejected them",
+        display_name="Searching - partner rejected them",
         base_model=_USER,
     ),
     "state__first_search_proposal_closed": CatalogEntry(
@@ -263,7 +263,7 @@ CATALOG: dict[str, CatalogEntry] = {
             "Searching again after their most recent proposal was closed without a decision — "
             "withdrawn, superseded, or closed by staff, rather than rejected or expired."
         ),
-        display_name="Searching — last proposal closed",
+        display_name="Searching - last proposal closed",
         base_model=_USER,
     ),
     "state__search_blocked": CatalogEntry(
@@ -301,7 +301,7 @@ CATALOG: dict[str, CatalogEntry] = {
         description=(
             "In a match that has not reached sustained two-way contact yet, and has never completed a successful match."
         ),
-        display_name="First match — kickoff",
+        display_name="First match - kickoff",
         base_model=_USER,
     ),
     "state__first_match_ongoing": CatalogEntry(
@@ -309,10 +309,9 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.STAGE,
         queryset=s.first_match_ongoing,
         description=(
-            "In a match with sustained contact that is not yet completed or in free-play, "
-            "and has never completed a successful match."
+            "In a match with sustained contact that is not yet completed, and has never completed a successful match."
         ),
-        display_name="First match — ongoing",
+        display_name="First match - ongoing",
         base_model=_USER,
     ),
     # --- After failed first match(es) ---
@@ -323,7 +322,7 @@ CATALOG: dict[str, CatalogEntry] = {
         description=(
             "Has an open rematch proposal after one or more matches that did not succeed; nothing currently live."
         ),
-        display_name="Open proposal — after failed first match",
+        display_name="Open proposal - after failed first match",
         base_model=_USER,
     ),
     "state__searching_after_failed": CatalogEntry(
@@ -331,7 +330,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.STAGE,
         queryset=s.searching_after_failed,
         description=("Back in the matching pool after failed first match(es); no open proposal and nothing live."),
-        display_name="Searching again — after failed first match",
+        display_name="Searching again - after failed first match",
         base_model=_USER,
     ),
     "state__stopped_after_failed": CatalogEntry(
@@ -339,7 +338,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.DROPOUT,
         queryset=s.stopped_after_failed,
         description="Stopped searching after failed first match(es); nothing in flight.",
-        display_name="Stopped searching — after failed first match",
+        display_name="Stopped searching - after failed first match",
         base_model=_USER,
     ),
     # --- Successful first match (absorbing) ---
@@ -348,18 +347,15 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.STAGE,
         queryset=s.success_ongoing_searching,
         description=("Has completed a successful first match, still has a live match, and is searching again."),
-        display_name="Successful first match — ongoing & searching",
+        display_name="Live match(es) & searching",
         base_model=_USER,
     ),
     "state__success_ongoing_settled": CatalogEntry(
         list_id="state__success_ongoing_settled",
         role=CatalogRole.STAGE,
         queryset=s.success_ongoing_settled,
-        description=(
-            "Has completed a successful first match, still has a live match, and is not "
-            "searching — matched and settled."
-        ),
-        display_name="Successful first match — settled",
+        description=("Has completed a successful first match, still has a live match, and is not searching"),
+        display_name="Live match(es) & not searching",
         base_model=_USER,
     ),
     "state__success_searching": CatalogEntry(
@@ -367,7 +363,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.STAGE,
         queryset=s.success_searching,
         description=("Has completed a successful first match, has no live match, and is searching again."),
-        display_name="Successful first match — searching",
+        display_name="No live match & searching",
         base_model=_USER,
     ),
     "state__success_idle": CatalogEntry(
@@ -375,7 +371,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.STAGE,
         queryset=s.success_idle,
         description=("Has completed a successful first match, has no live match, and is not searching."),
-        display_name="Successful first match — idle",
+        display_name="No live match & not searching",
         base_model=_USER,
     ),
     # --- Phase: past ---
@@ -384,7 +380,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.DROPOUT,
         queryset=s.past_unresponsive_after_success,
         description="Marked unresponsive after completing a successful first match.",
-        display_name="Marked unresponsive — after success",
+        display_name="Marked unresponsive - successful",
         base_model=_USER,
     ),
     "state__unresponsive": CatalogEntry(
@@ -392,23 +388,23 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.DROPOUT,
         queryset=s.past_unresponsive,
         description="Marked unresponsive without a successful first match.",
-        display_name="Marked unresponsive — no success",
+        display_name="Marked unresponsive - unsuccessful",
         base_model=_USER,
     ),
     "state__deleted_after_success": CatalogEntry(
         list_id="state__deleted_after_success",
         role=CatalogRole.DROPOUT,
         queryset=s.past_deleted_after_success,
-        description="Left the platform after completing a successful first match.",
-        display_name="Left after a successful match",
+        description="Deleted account after completing a successful first match.",
+        display_name="Deleted account - successful",
         base_model=_USER,
     ),
     "state__deleted": CatalogEntry(
         list_id="state__deleted",
         role=CatalogRole.DROPOUT,
         queryset=s.past_deleted,
-        description="Left the platform without a successful first match.",
-        display_name="Left the platform",
+        description="Deleted account without a successful first match.",
+        display_name="Deleted account - unsuccessful",
         base_model=_USER,
     ),
     "state__record_incomplete": CatalogEntry(
@@ -429,7 +425,7 @@ CATALOG: dict[str, CatalogEntry] = {
         queryset=s.lapsed_failed_match_reasons,
         description=(
             "Onboarded users with at least one match in a recorded failure state (never confirmed, "
-            "no contact, ghosted, contact stopped, reported or removed). Cuts across the partition — "
+            "no contact, ghosted, contact stopped, reported or removed). Cuts across the partition - "
             "a user can hold both a failed and a live match."
         ),
         display_name="Has a failed match",
