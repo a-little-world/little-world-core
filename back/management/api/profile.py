@@ -66,7 +66,7 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
         if params.options:
             _s = transform_add_options_serializer(_s)
 
-        return Response(_s(getattr(self.request.user, "profile")).data)
+        return Response(_s(self.request.user.profile).data)
 
     def get_object(self):
         return self.get_queryset()[0]
@@ -79,7 +79,7 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
 
     def get_queryset(self):
         user = self.request.user
-        return [getattr(user, "profile")]
+        return [user.profile]
 
 
 class ProfileCompletedApi(APIView):

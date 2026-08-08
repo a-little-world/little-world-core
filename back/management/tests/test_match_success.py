@@ -1,32 +1,34 @@
 """Match token / success versions: banding, accrual, registry, and session eligibility."""
 
+import dataclasses
 from datetime import timedelta
 from uuid import uuid4
 
 from django.test import SimpleTestCase, TestCase
 from video.models import LivekitSession
 
-from management.match_tokens import (
+from management.match_success import (
     ACTIVE_VERSION_ID,
     activatable_version_ids,
     annotate_match_tokens,
     get_version,
     list_versions,
+    match_is_successful,
     match_tokens,
     match_tokens_by_id,
     match_total_minutes,
-    success_target,
+    success_token_threshold,
     successful_match_ids,
     tokens_from_total_minutes,
 )
-from management.match_tokens.sessions import qualifying_sessions
-from management.match_tokens.versions import _assert_active_version_is_activatable
-from management.match_tokens.versions.base import SuccessVersion
-from management.match_tokens.versions.v1_total_minutes import (
+from management.match_success.sessions import qualifying_sessions
+from management.match_success.versions import _assert_active_version_is_activatable
+from management.match_success.versions.base import MatchOutcomeVersion
+from management.match_success.versions.v1_total_minutes import (
     MINUTE_TOKEN_THRESHOLDS,
     MINUTES_PER_TOKEN_AFTER_SUCCESS,
     SUCCESS_MINUTES,
-    SUCCESS_TARGET,
+    SUCCESS_TOKEN_THRESHOLD,
 )
 from management.models.matches import Match
 from management.models.user import User
@@ -83,8 +85,8 @@ class V1TotalMinutesBandingTests(SimpleTestCase):
     def test_accrual_is_continuous_at_the_success_boundary(self):
         just_under = tokens_from_total_minutes(SUCCESS_MINUTES - 0.1)
         at = tokens_from_total_minutes(SUCCESS_MINUTES)
-        self.assertEqual(just_under, SUCCESS_TARGET - 1)
-        self.assertEqual(at, SUCCESS_TARGET)
+        self.assertEqual(just_under, SUCCESS_TOKEN_THRESHOLD - 1)
+        self.assertEqual(at, SUCCESS_TOKEN_THRESHOLD)
 
     def test_tokens_never_decrease_as_minutes_grow(self):
         previous = 0
@@ -93,9 +95,9 @@ class V1TotalMinutesBandingTests(SimpleTestCase):
             self.assertGreaterEqual(current, previous, f"went backwards at {minutes} minutes")
             previous = current
 
-    def test_success_target_is_eight(self):
-        self.assertEqual(success_target("v1"), 8)
-        self.assertEqual(tokens_from_total_minutes(SUCCESS_MINUTES), success_target("v1"))
+    def test_success_token_threshold_is_eight(self):
+        self.assertEqual(success_token_threshold("v1"), 8)
+        self.assertEqual(tokens_from_total_minutes(SUCCESS_MINUTES), success_token_threshold("v1"))
 
     def test_thresholds_are_ordered_ascending(self):
         """The banding loop stops at the first unmet band, so order is load-bearing."""
@@ -114,11 +116,11 @@ class VersionRegistryTests(SimpleTestCase):
     def test_v0_is_legacy_completed_match_not_tokens(self):
         v0 = get_version("v0")
         self.assertFalse(v0.uses_tokens)
-        self.assertIsNone(v0.success_target)
+        self.assertIsNone(v0.success_token_threshold)
         with self.assertRaisesRegex(ValueError, "not a token system"):
             match_tokens(object(), version="v0")
         with self.assertRaisesRegex(ValueError, "no token target"):
-            success_target("v0")
+            success_token_threshold("v0")
 
     def test_v0_is_comparison_only(self):
         self.assertFalse(get_version("v0").can_be_active)
@@ -133,7 +135,7 @@ class VersionRegistryTests(SimpleTestCase):
 
     def test_activating_a_comparison_only_version_is_rejected(self):
         """Guards the boot landmine: selecting v0 must fail loudly, at import, saying why."""
-        from management.match_tokens import versions
+        from management.match_success import versions
 
         original = versions.ACTIVE_VERSION_ID
         try:
@@ -144,7 +146,7 @@ class VersionRegistryTests(SimpleTestCase):
             versions.ACTIVE_VERSION_ID = original
 
     def test_activating_an_unregistered_version_is_rejected(self):
-        from management.match_tokens import versions
+        from management.match_success import versions
 
         original = versions.ACTIVE_VERSION_ID
         try:
@@ -157,29 +159,35 @@ class VersionRegistryTests(SimpleTestCase):
     def test_an_activatable_version_must_define_tokens(self):
         """A version production can select has to be able to answer match_tokens."""
         with self.assertRaisesRegex(ValueError, "must define both"):
-            SuccessVersion(
+            MatchOutcomeVersion(
                 id="broken",
                 title="Broken",
                 description="",
-                is_successful_fn=lambda match: False,
-                successful_ids_fn=lambda qs: set(),
+                successful_matches_fn=lambda qs: qs.none(),
             )
 
     def test_every_activatable_version_has_a_token_scale(self):
         for version in list_versions():
             if version.can_be_active:
                 self.assertTrue(version.uses_tokens, f"{version.id} is activatable without tokens")
-                self.assertIsNotNone(version.success_target)
+                self.assertIsNotNone(version.success_token_threshold)
 
     def test_every_version_answers_in_bulk(self):
         """Comparing two versions across the match table must not be one query per match."""
         for version in list_versions():
-            self.assertIsNotNone(version.successful_ids_fn, f"{version.id} has no batch predicate")
+            self.assertIsNotNone(version.successful_matches_fn, f"{version.id} has no batch predicate")
 
-    def test_single_row_success_is_derived_from_the_batch_predicate(self):
-        """One implementation per version — a separate single-row path would drift from it."""
-        v0 = get_version("v0")
-        self.assertIs(v0.successful_ids_fn.__module__, v0.is_successful_fn.__module__)
+    def test_success_has_exactly_one_implementation_per_version(self):
+        """No row-form override exists, so `is_successful` cannot disagree with the batch form.
+
+        v1 briefly carried both, written independently — the row form checked
+        `completed_off_plattform or tokens >= threshold` while the queryset form filtered
+        on minutes. Editing one and forgetting the other is the drift this package exists
+        to prevent, so the field is gone and the base derives the row answer.
+        """
+        fields = {f.name for f in dataclasses.fields(MatchOutcomeVersion)}
+        self.assertIn("successful_matches_fn", fields)
+        self.assertNotIn("is_successful_fn", fields)
 
 
 class QualifyingSessionTests(TestCase):
@@ -276,6 +284,13 @@ class BatchTokenTests(TestCase):
         with self.assertNumQueries(0):
             for match in rows:
                 match_tokens(match)
+
+    def test_row_and_batch_success_always_agree(self):
+        """The derivation is the point — assert it on data, not just on the dataclass."""
+        qs = Match.objects.filter(pk__in=[m.pk for m, _ in self.matches])
+        batch = successful_match_ids(qs)
+        for match, _ in self.matches:
+            self.assertEqual(match_is_successful(match), match.pk in batch, f"match {match.pk}")
 
     def test_successful_ids_agrees_with_the_threshold(self):
         qs = Match.objects.filter(pk__in=[m.pk for m, _ in self.matches])

@@ -6,21 +6,23 @@ inherits by registering here (see ``dev/docs/analytics_conventions.md`` §8).
 """
 
 import logging
+from contextlib import contextmanager
 
 from django.utils import timezone
 
 from management.analytics.core.catalog import CatalogEntry
 from management.analytics.core.funnels import FUNNEL_ALLOWED_ROLES, FunnelDefinition
+from management.analytics.core.partitions import PARTITION_ALLOWED_ROLES, PartitionDefinition
 from management.analytics.core.roles import CatalogRole
+from management.analytics.match_journey.catalog import CATALOG as MATCH_JOURNEY_CATALOG
+from management.analytics.match_journey.catalog import DOMAIN_PREFIXES as MATCH_JOURNEY_PREFIXES
+from management.analytics.match_journey.partitions import MATCH_JOURNEY_V5
 from management.analytics.user_journey.catalog import CATALOG as USER_JOURNEY_CATALOG
 from management.analytics.user_journey.catalog import DOMAIN_PREFIXES as USER_JOURNEY_PREFIXES
 from management.analytics.user_journey.funnels import SIGNUP_FUNNEL
-from management.analytics.user_journey.partitions import (
-    PARTITION_ALLOWED_ROLES,
-    USER_JOURNEY_V5,
-    PartitionDefinition,
-)
+from management.analytics.user_journey.partitions import USER_JOURNEY_V5
 from management.analytics.user_journey.queries import funnel as signup_q
+from management.models.matches import Match
 from management.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -99,23 +101,30 @@ LEGACY_CATALOG: dict[str, CatalogEntry] = {
     ),
 }
 
-ALL_CATALOG: dict[str, CatalogEntry] = {**USER_JOURNEY_CATALOG, **LEGACY_CATALOG}
+ALL_CATALOG: dict[str, CatalogEntry] = {
+    **USER_JOURNEY_CATALOG,
+    **MATCH_JOURNEY_CATALOG,
+    **LEGACY_CATALOG,
+}
 
 ALL_FUNNELS: tuple[FunnelDefinition, ...] = (SIGNUP_FUNNEL,)
 
-ALL_PARTITIONS: tuple[PartitionDefinition, ...] = (USER_JOURNEY_V5,)
+ALL_PARTITIONS: tuple[PartitionDefinition, ...] = (USER_JOURNEY_V5, MATCH_JOURNEY_V5)
 
 # Domain → the ID namespaces it owns. A domain may own several: ``user_journey`` keeps
 # cumulative funnel stages under ``funnel__`` and current-state cells under ``state__``
 # because conflating the two is the likeliest way to misread these numbers (§3).
-# The prefix is a namespace the domain claims, not a restatement of its name, so
-# ``assert_all_domains_strict`` checks that no two domains claim the same one.
+# Match journey uses entity-qualified constructs (``match_funnel__`` / ``match_state__``)
+# so it does not contest the user-journey prefixes.
+# ``assert_all_domains_strict`` checks that no two domains claim the same prefix.
 DOMAIN_PREFIXES: dict[str, tuple[str, ...]] = {
     "user_journey": USER_JOURNEY_PREFIXES,
+    "match_journey": MATCH_JOURNEY_PREFIXES,
 }
 
 DOMAIN_CATALOGS: dict[str, dict[str, CatalogEntry]] = {
     "user_journey": USER_JOURNEY_CATALOG,
+    "match_journey": MATCH_JOURNEY_CATALOG,
 }
 
 
@@ -329,6 +338,47 @@ def assert_partition_valid_strict(partition: PartitionDefinition) -> None:
 PARTITION_ID_SAMPLE_LIMIT = 50
 
 
+def classify_partition(partition: PartitionDefinition, qs, *, as_of=None) -> dict[int, str]:
+    """Row ID → the partition cell it belongs to, for every row in ``qs``.
+
+    One pass over the cells for the whole queryset, rather than every cell re-evaluated
+    for every row. The per-row form (`determine_match_buckets`) ran ~51 queries and 1.4s
+    *per match*, so a 20-row admin page spent 28 seconds deciding what to label its rows;
+    this classifies all 3,117 matches in about the same time one row used to take.
+
+    Rows the partition does not claim are absent from the result — callers decide what to
+    show for them (the match list tags support matches, which are outside the baseline).
+    Overlaps resolve to the first cell in partition order, so a caller always gets one
+    label; ``compute_partition`` is what reports overlaps as a problem.
+    """
+    as_of = as_of or timezone.now()
+    with _partition_run(partition):
+        assigned: dict[int, str] = {}
+        for list_id in partition.bucket_ids():
+            entry = ALL_CATALOG.get(list_id)
+            if entry is None:
+                continue
+            for row_id in entry.build(qs, as_of=as_of).values_list("id", flat=True):
+                assigned.setdefault(row_id, list_id)
+    return assigned
+
+
+@contextmanager
+def _partition_run(partition: PartitionDefinition):
+    """Let a domain share derived state across the cells of one pass, if it wants to.
+
+    Only ``match_journey`` needs this today (its cells share a token map and an inactive
+    breakdown). Domains without a run scope are unaffected.
+    """
+    if partition.base_model is Match:
+        from management.analytics.match_journey.queries.state import classification_run
+
+        with classification_run():
+            yield
+    else:
+        yield
+
+
 def compute_partition(
     partition: PartitionDefinition,
     qs,
@@ -355,6 +405,11 @@ def compute_partition(
     """
     as_of = as_of or timezone.now()
 
+    with _partition_run(partition):
+        return _compute_partition_inner(partition, qs, as_of=as_of, sample_limit=sample_limit)
+
+
+def _compute_partition_inner(partition: PartitionDefinition, qs, *, as_of, sample_limit: int) -> dict:
     baseline_entry = ALL_CATALOG[partition.baseline_list_id]
     baseline_ids = set(baseline_entry.build(qs, as_of=as_of).values_list("id", flat=True))
 
@@ -426,13 +481,14 @@ def assert_partition_balances_strict(partition: PartitionDefinition, qs, *, as_o
 def _filter_list_entries() -> dict[str, object]:
     """Public list name → the ``FilterListEntry`` the API serves it with.
 
-    Imported lazily: ``management.api.user_advanced_filter_lists`` imports the query
-    modules that ``signup.queries`` also imports, and a module-level import here would
-    make the analytics package depend on the API surface it is meant to feed.
+    Merges user and match filter lists. Imported lazily: those modules import query
+    functions the analytics package also owns, and a module-level import here would
+    make analytics depend on the API surface it is meant to feed.
     """
+    from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
     from management.api.user_advanced_filter_lists import FILTER_LISTS
 
-    return {entry.name: entry for entry in FILTER_LISTS}
+    return {entry.name: entry for entry in (*FILTER_LISTS, *MATCH_JOURNEY_FILTERS)}
 
 
 def catalog_keys_not_servable() -> list[str]:

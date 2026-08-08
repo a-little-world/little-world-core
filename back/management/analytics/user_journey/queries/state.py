@@ -48,7 +48,6 @@ from django.utils import timezone
 
 from management.analytics.user_journey.queries import traits
 from management.api.match_journey_filters import (
-    completed_match,
     contact_stopped,
     match_confirmed_no_contact,
     match_confirmed_single_party_contact,
@@ -247,9 +246,18 @@ def signup_form_completed(qs: QuerySet, as_of=None) -> QuerySet:
 
 
 def _has_success_match() -> Q:
-    """Reached a successful match outcome (completed or free-play). Absorbing milestone."""
-    matches = _all_matches()
-    return _participates_in(completed_match(matches)) | _participates_in(match_free_play(matches))
+    """In a match that reached success. Absorbing milestone.
+
+    Delegates to ``match_success`` — the one definition of match success — rather than
+    restating it. This used to be the V4 ``completed_match | match_free_play`` pair, which
+    is the *comparison-only* v0 rule, while ``match_journey`` classified the same matches
+    with the active v1 rule. The two disagreed about 381 matches and produced users sitting
+    in "stopped searching — after failed first match" whose match read "Successful —
+    dormant". Non-support only, matching the match-journey baseline.
+    """
+    from management.match_success import successful_matches
+
+    return _participates_in(successful_matches(_non_support_matches()))
 
 
 def _has_ongoing_match() -> Q:

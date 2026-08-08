@@ -7,7 +7,7 @@ from django.db.models.functions import Extract
 from django.utils import timezone
 
 from management import controller
-from management.match_tokens import successful_match_ids
+from management.match_success import successful_match_ids
 from management.models.management_tasks import MangementTask
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment

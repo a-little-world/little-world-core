@@ -1353,7 +1353,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         email_html = email_log.data.get("html", "")
 
         # Check that the URL contains the correct match UUID
-        expected_url_part = f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+        expected_url_part = f"/api/still_in_contact/{self.match.uuid!s}/yes/"
         assert expected_url_part in email_html, (
             f"Email should contain still_in_contact URL with match UUID. Expected: {expected_url_part}"
         )
@@ -1397,7 +1397,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         email_html = email_log.data.get("html", "")
 
         # Check that the URL contains the correct match UUID
-        expected_url_part = f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+        expected_url_part = f"/api/still_in_contact/{self.match.uuid!s}/yes/"
         assert expected_url_part in email_html, "Email should contain still_in_contact URL with match UUID"
 
         # Check that the URL contains the user hash and token
@@ -1432,7 +1432,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         email_html = email_log.data.get("html", "")
 
         # Check that the URL contains the correct match UUID
-        expected_url_part = f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+        expected_url_part = f"/api/still_in_contact/{self.match.uuid!s}/yes/"
         assert expected_url_part in email_html, "Email should contain still_in_contact URL with match UUID"
 
         # Check that the URL contains the user hash and token
@@ -1447,7 +1447,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
 
         # Build the URL with proper parameters
         url = (
-            f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+            f"/api/still_in_contact/{self.match.uuid!s}/yes/"
             f"?user_uuid={self.user1.uuid}"
             f"&user_token={self.user1.state.still_in_contact_form_access_token_user}"
             f"&redirect_slug=match-form1"
@@ -1469,7 +1469,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         assert f"entry.1868418501={self.user1.uuid}" in redirect_url, (
             "Redirect URL should contain user hash as form parameter"
         )
-        assert f"entry.1064841735={str(self.match.uuid)}" in redirect_url, (
+        assert f"entry.1064841735={self.match.uuid!s}" in redirect_url, (
             "Redirect URL should contain match UUID as form parameter"
         )
 
@@ -1485,7 +1485,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
 
         # Build the URL with info-screen redirect
         url = (
-            f"/api/still_in_contact/{str(self.match.uuid)}/no/"
+            f"/api/still_in_contact/{self.match.uuid!s}/no/"
             f"?user_uuid={self.user1.uuid}"
             f"&user_token={self.user1.state.still_in_contact_form_access_token_user}"
             f"&redirect_slug=info-screen"
@@ -1509,7 +1509,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
 
         # Build the URL with an invalid token
         url = (
-            f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+            f"/api/still_in_contact/{self.match.uuid!s}/yes/"
             f"?user_uuid={self.user1.uuid}"
             f"&user_token=invalid-token-12345"
             f"&redirect_slug=match-form1"
@@ -1554,8 +1554,8 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         assert f"user_uuid={self.user2.uuid}" in email_html_user2
 
         # Both emails should reference the same match UUID
-        assert f"/api/still_in_contact/{str(self.match.uuid)}/yes/" in email_html_user1
-        assert f"/api/still_in_contact/{str(self.match.uuid)}/yes/" in email_html_user2
+        assert f"/api/still_in_contact/{self.match.uuid!s}/yes/" in email_html_user1
+        assert f"/api/still_in_contact/{self.match.uuid!s}/yes/" in email_html_user2
 
 
 class TestPrematchingCheckoffEmailQueue(TestCase):

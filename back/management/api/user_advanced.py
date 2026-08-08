@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, time
 from typing import Literal, cast
 
@@ -56,30 +57,36 @@ from management.permissions import (
 )
 from management.tasks import matching_algo_v2
 
-user_category_buckets = [
-    "journey_v2__user_created",
-    "journey_v2__email_verified",
-    "journey_v2__user_form_completed",
-    "journey_v2__booked_onboarding_call",
-    "journey_v2__self_onboarding_started",
-    "journey_v2__too_low_german_level",
-    "journey_v2__pre_matching",
-    "journey_v2__match_takeoff",
-    "journey_v2__ongoing_non_completed_match",
-    "journey_v2__first_search_v2",
-    "journey_v2__happy_inactive",
-    "journey_v2__happy_active",
-    "journey_v2__no_show",
-    "journey_v2__failed_matching",
-    "journey_v2__gave_up_searching",
-    "journey_v2__user_deleted",
-    "journey_v2__marked_unresponsive",
-]
+logger = logging.getLogger(__name__)
+
+
+def _user_journey_category_buckets() -> list[str]:
+    """Exclusive User Journey V5 partition cells — primary tag on user rows."""
+    from management.analytics.user_journey.partitions import USER_JOURNEY_V5
+
+    return list(USER_JOURNEY_V5.bucket_ids())
+
+
+def user_bucket_map(user_ids) -> dict[int, str]:
+    """User ID → its primary V5 bucket, for a whole page in one pass.
+
+    The partition cells are mutually exclusive, so each user resolves to exactly one.
+    """
+    from management.analytics.registry import USER_JOURNEY_V5, classify_partition
+
+    return classify_partition(USER_JOURNEY_V5, User.objects.filter(id__in=list(user_ids)))
 
 
 def get_user_bucket_label(bucket_name: str | None) -> str:
     if not bucket_name or bucket_name == "unknown":
         return "Unknown"
+
+    from management.analytics.registry import get_catalog_entry
+
+    entry = get_catalog_entry(bucket_name)
+    if entry is not None:
+        return entry.display_name
+
     slug = bucket_name.split("__")[-1]
     return slug.replace("_", " ").strip().title()
 
@@ -102,7 +109,7 @@ def determine_user_buckets(user_pk, all_lists: bool = False) -> list[str]:
     if all_lists:
         names_to_check = [entry.name for entry in FILTER_LISTS + get_dynamic_userlists()]
     else:
-        names_to_check = user_category_buckets
+        names_to_check = _user_journey_category_buckets()
 
     bucket_map = {entry.name: entry for entry in FILTER_LISTS + get_dynamic_userlists()}
     for name in names_to_check:
@@ -113,6 +120,10 @@ def determine_user_buckets(user_pk, all_lists: bool = False) -> list[str]:
             if entry.queryset(base_qs).exists():
                 buckets.append(entry.name)
         except Exception:
+            # Logged rather than swallowed: a list whose query breaks is otherwise
+            # indistinguishable from the user genuinely not being in it, and the row just
+            # shows no bucket (conventions §9).
+            logger.exception("User bucket list %r failed for user %s; treating as no match", name, user_pk)
             continue
     return buckets
 
@@ -296,7 +307,14 @@ class UserTableSerializer(serializers.ModelSerializer):
         determine_bucket = context.get("determine_bucket", False)
         all_buckets = context.get("all_buckets", False)
         if determine_bucket or all_buckets:
-            category_buckets = determine_user_buckets(instance.pk, all_lists=False)
+            # Page-wide map built once in the view; the per-row fallback costs ~30 queries
+            # and 3.6s per user, so a list view must never reach it.
+            bucket_map = context.get("bucket_map")
+            if bucket_map is not None and not all_buckets:
+                bucket = bucket_map.get(instance.pk)
+                category_buckets = [bucket] if bucket else []
+            else:
+                category_buckets = determine_user_buckets(instance.pk, all_lists=False)
             all_bucket_names = determine_user_buckets(instance.pk, all_lists=True) if all_buckets else None
             apply_journey_bucket_fields(
                 representation,
@@ -712,8 +730,19 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             determine_bucket = True
 
         if self.action in {"list", "retrieve"} and (determine_bucket or all_buckets):
-            return {"determine_bucket": determine_bucket, "all_buckets": all_buckets}
+            context = {"determine_bucket": determine_bucket, "all_buckets": all_buckets}
+            bucket_map = getattr(self, "_bucket_map", None)
+            if bucket_map is not None:
+                context["bucket_map"] = bucket_map
+            return context
         return {}
+
+    def paginate_queryset(self, queryset):
+        """Classify the page's buckets in one pass, once the page rows are known."""
+        page = super().paginate_queryset(queryset)
+        if page is not None and self.get_serializer_context().get("determine_bucket"):
+            self._bucket_map = user_bucket_map([u.pk for u in page])
+        return page
 
     def get_serializer_class(self):
         if self.action == "list":

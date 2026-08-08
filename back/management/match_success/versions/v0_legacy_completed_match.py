@@ -28,8 +28,7 @@ reason it is not activatable: the active version has to work everywhere the app 
 
 from django.db.models import QuerySet
 
-from management.match_tokens.versions.base import SuccessVersion
-from management.models.matches import Match
+from management.match_success.versions.base import MatchOutcomeVersion
 
 VERSION_ID = "v0"
 
@@ -42,23 +41,15 @@ _CONTACT_SPAN_DAYS = 4 * 7  # 28 days
 _DAYS_SINCE_LAST_INTERACTION = 21  # LAST_INTERACTION_DAYS
 
 
-def successful_ids(qs: QuerySet) -> set[int]:
-    """One query for the whole queryset — ``completed_match`` is already a filter.
-
-    The per-match form used to re-run this filter once per row, which made a full
-    comparison against v1 take ~0.7s per match.
-    """
-    # Lazy import: match_journey_filters imports match_is_successful from this package.
+def successful_matches(qs: QuerySet) -> QuerySet:
+    """``completed_match`` is already a queryset filter, so this is just a delegation."""
+    # Lazy import: match_journey_filters imports from this package.
     from management.api.match_journey_filters import completed_match
 
-    return set(completed_match(qs).values_list("id", flat=True))
+    return completed_match(qs)
 
 
-def is_successful(match) -> bool:
-    return bool(successful_ids(Match.objects.filter(pk=match.pk)))
-
-
-VERSION = SuccessVersion(
+VERSION = MatchOutcomeVersion(
     id=VERSION_ID,
     title="Legacy completed_match (v0)",
     description=(
@@ -70,7 +61,6 @@ VERSION = SuccessVersion(
         f"interaction ≥{_DAYS_SINCE_LAST_INTERACTION} days ago. Not a token system; "
         "comparison only."
     ),
-    is_successful_fn=is_successful,
-    successful_ids_fn=successful_ids,
+    successful_matches_fn=successful_matches,
     can_be_active=False,
 )

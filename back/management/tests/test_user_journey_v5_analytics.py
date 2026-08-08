@@ -6,6 +6,7 @@ page load and nothing ever failed, so the fixtures here deliberately build the f
 combinations that produced them (conventions §13).
 """
 
+import inspect
 from dataclasses import replace
 from datetime import timedelta
 from uuid import uuid4
@@ -131,8 +132,35 @@ class CompositeDeclarationTests(SimpleTestCase):
     def test_every_composite_declares_usable_members(self):
         assert_composites_valid_strict()
 
-    def test_first_search_is_the_only_composite_so_far(self):
-        self.assertEqual(sorted(composite_entries()), ["state__first_search"])
+    def test_served_list_ids_are_the_catalog(self):
+        """Every catalog cell must be servable — an unservable one is a 500 on the chart.
+
+        The IDs are listed by hand in ``user_advanced_filter_lists`` rather than derived
+        from the catalog, because deriving them there imports
+        ``user_journey.queries.funnel``, which imports ``management.api`` and closes an
+        import cycle. So this check is the guard, alongside
+        ``registry.catalog_keys_not_servable``.
+        """
+        from management.analytics.user_journey.catalog import CATALOG as UJ
+        from management.api.user_advanced_filter_lists import FUNNEL_LIST_IDS, STATE_LIST_IDS
+
+        self.assertEqual(set(FUNNEL_LIST_IDS) | set(STATE_LIST_IDS), set(UJ))
+
+    def test_record_incomplete_is_a_positive_definition(self):
+        """Not a complement of the other cells, so no parallel list has to be kept in step.
+
+        The match journey's catch-all *is* a complement and needed deriving from the
+        partition; this one states its own membership, which is the sturdier shape.
+        """
+        from management.analytics.user_journey.queries import state as ustate
+
+        source = inspect.getsource(ustate.record_incomplete)
+        self.assertIn("state__isnull=True", source)
+        self.assertNotIn("exclude", source)
+
+    def test_registered_composites(self):
+        """Pinned so a new rollup is a deliberate addition, not a surprise in a chart."""
+        self.assertEqual(sorted(composite_entries()), ["match_state__in_flight", "state__first_search"])
 
     def test_composite_members_are_all_partition_cells(self):
         """Otherwise the rollup and the chart would be counting different populations."""

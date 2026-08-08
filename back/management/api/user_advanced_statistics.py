@@ -391,8 +391,7 @@ def livekit_session_statistics(request):
 
     min_start_date = date(2024, 4, 4)
     start_date = request.data.get("start_date", f"{min_start_date}")
-    if start_date < f"{min_start_date}":
-        start_date = f"{min_start_date}"
+    start_date = max(start_date, f"{min_start_date}")
 
     end_date = request.data.get("end_date", today)
 
@@ -549,9 +548,10 @@ def statistics_highlights(request):
 # domain package is the next slice; until then this is the one place the ID is named.
 MATCH_JOURNEY_BASELINE_LIST_ID = "match_journey_v2__all"
 
-# The partition ``user_journey_v5_statistics`` serves. Resolved through the registry so a
+# Partitions served by the V5 statistics views. Resolved through the registry so a
 # second journey needs a route, not a second copy of the view.
 USER_JOURNEY_V5_ID = "user-journey-v5"
+MATCH_JOURNEY_V5_ID = "match-journey-v5"
 
 
 def _compute_bucket_statistics(pre_filtered_qs, selected_entries, baseline_list_id, exclude_intersection_check):
@@ -821,6 +821,80 @@ def user_journey_v5_statistics(request):
     result = compute_partition(
         partition,
         cohort.apply(_get_accessible_users(request.user)),
+        as_of=display_time.now(),
+    )
+
+    return Response(
+        {
+            "definition": partition.as_payload(ALL_CATALOG),
+            "start_date": start_date,
+            "end_date": end_date,
+            **result,
+        }
+    )
+
+
+def _get_accessible_matches(caller):
+    users = _get_accessible_users(caller)
+    return Match.objects.filter(Q(user1__in=users) | Q(user2__in=users))
+
+
+@extend_schema(
+    responses=inline_serializer(
+        name="MatchJourneyV5DefinitionResponse",
+        fields={"definition": serializers.DictField()},
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def match_journey_v5_definition(request):
+    """Match-journey shape only — no database counting (conventions §17)."""
+    from management.analytics.registry import ALL_CATALOG, get_partition
+
+    partition = get_partition(MATCH_JOURNEY_V5_ID)
+    if partition is None:
+        return Response({"detail": f"Unknown partition {MATCH_JOURNEY_V5_ID!r}."}, status=500)
+
+    return Response({"definition": partition.as_payload(ALL_CATALOG)})
+
+
+@extend_schema(
+    request=inline_serializer(
+        name="MatchJourneyV5Request",
+        fields={
+            "start_date": serializers.DateField(required=False, allow_null=True),
+            "end_date": serializers.DateField(required=False, allow_null=True),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def match_journey_v5_statistics(request):
+    """Current-state partition of a match cohort (all-time if dates omitted)."""
+    from management.analytics.core import display_time
+    from management.analytics.match_journey.cohorts import MatchPartitionCohort
+    from management.analytics.registry import ALL_CATALOG, compute_partition, get_partition
+
+    partition = get_partition(MATCH_JOURNEY_V5_ID)
+    if partition is None:
+        return Response({"detail": f"Unknown partition {MATCH_JOURNEY_V5_ID!r}."}, status=500)
+
+    raw_start = request.data.get("start_date")
+    raw_end = request.data.get("end_date")
+    start_date = end_date = None
+    if raw_start is not None or raw_end is not None:
+        try:
+            start_date = _parse_date_input(raw_start, date(2018, 1, 1))
+            end_date = _parse_date_input(raw_end, display_time.today())
+        except (TypeError, ValueError):
+            return Response({"detail": "start_date and end_date must be YYYY-MM-DD."}, status=400)
+        if start_date > end_date:
+            return Response({"detail": "start_date must not be after end_date."}, status=400)
+
+    cohort = MatchPartitionCohort(start_date=start_date, end_date=end_date)
+    result = compute_partition(
+        partition,
+        cohort.apply(_get_accessible_matches(request.user)),
         as_of=display_time.now(),
     )
 
@@ -1584,14 +1658,14 @@ def kpi_dashboard_statistics_searching_users(request):
 
 def get_match_bucket_statistics_cluster(pre_filtered_matches):
     all_buckets = []
-    for bucket_cluster in match_journey_bucket_clusters.keys():
+    for bucket_cluster in match_journey_bucket_clusters:
         all_buckets.extend(match_journey_bucket_clusters[bucket_cluster])
 
     match_bucket_counts = get_match_bucket_statistics(pre_filtered_matches, selected_filters=all_buckets)
     match_bucket_count_map = {bucket["name"]: bucket for bucket in match_bucket_counts["buckets"]}
 
     cluster_sums = {}
-    for bucket_cluster in match_journey_bucket_clusters.keys():
+    for bucket_cluster in match_journey_bucket_clusters:
         cluster_sums[bucket_cluster] = 0
         for bucket in match_journey_bucket_clusters[bucket_cluster]:
             if bucket not in match_journey_exclude_sum_buckets:
@@ -2622,6 +2696,8 @@ api_urls = [
     path("api/matching/users/statistics/user_journey_buckets/", bucket_statistics),
     path("api/matching/users/statistics/user_journey_v5/", user_journey_v5_statistics),
     path("api/matching/users/statistics/user_journey_v5/definition/", user_journey_v5_definition),
+    path("api/matching/users/statistics/match_journey_v5/", match_journey_v5_statistics),
+    path("api/matching/users/statistics/match_journey_v5/definition/", match_journey_v5_definition),
     path("api/matching/users/statistics/match_journey_buckets/", match_bucket_statistics),
     path("api/matching/users/statistics/user_signup_loss/", user_signup_loss_statistics),
     path("api/matching/users/statistics/match_quality/", match_quality_statistics),

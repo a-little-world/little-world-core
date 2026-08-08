@@ -83,7 +83,7 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
         if "status" in self.context:
             representation["status"] = self.context["status"]
 
-        if ("determine_bucket" in self.context) and self.context["determine_bucket"]:
+        if self.context.get("determine_bucket"):
             match_context = {
                 "determine_bucket": self.context.get("determine_bucket", False),
                 "all_buckets": self.context.get("all_buckets", False),

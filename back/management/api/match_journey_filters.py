@@ -13,7 +13,7 @@ from django.db.models import (
 from django.db.models.functions import ExtractDay, Greatest
 from django.utils import timezone
 
-from management.match_tokens import successful_match_ids
+from management.match_success import successful_match_ids
 from management.models.matches import Match
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
 

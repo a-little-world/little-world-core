@@ -1,6 +1,5 @@
 import urllib.parse
 from dataclasses import dataclass
-from typing import Optional
 
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
@@ -151,7 +150,7 @@ class AutoLoginData:
     u: str  # user
     lookup: str  # lookup: uuid | email | id
     token: str  # auto login token
-    n: Optional[str] = None  # next page
+    n: str | None = None  # next page
 
 
 class AutoLoginSerializer(serializers.Serializer):
