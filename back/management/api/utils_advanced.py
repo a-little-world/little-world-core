@@ -155,9 +155,7 @@ def filterset_schema_dict(filterset, include_lookup_expr=False, view_key="/api/m
         }
 
         choices = getattr(filter_instance, "extra", {}).get("choices", [])
-        if filter_instance.field_name == "userfilter_list":
-            choices = choices()
-        elif callable(choices):
+        if filter_instance.field_name == "userfilter_list" or callable(choices):
             choices = choices()
 
         if len(choices):

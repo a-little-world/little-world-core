@@ -24,10 +24,17 @@ Thresholds are listed explicitly so tweaks stay reviewable. When the meaning of 
 changes enough to break comparisons, add a new version rather than editing history here.
 """
 
-from django.db.models import QuerySet
+from datetime import timedelta
 
-from management.match_tokens.sessions import total_call_minutes, total_call_minutes_by_match_id
-from management.match_tokens.versions.base import SuccessVersion
+from django.db.models import Q, QuerySet
+
+from management.match_success.sessions import (
+    TOTAL_CALL_TIME_ANNOTATION,
+    annotate_total_call_minutes,
+    total_call_minutes,
+    total_call_minutes_by_match_id,
+)
+from management.match_success.versions.base import MatchOutcomeVersion
 
 VERSION_ID = "v1"
 
@@ -49,7 +56,7 @@ MINUTE_TOKEN_THRESHOLDS: tuple[tuple[float, int], ...] = (
 if [minutes for minutes, _ in MINUTE_TOKEN_THRESHOLDS] != sorted(minutes for minutes, _ in MINUTE_TOKEN_THRESHOLDS):
     raise ValueError("MINUTE_TOKEN_THRESHOLDS must be ordered by ascending minutes")
 
-SUCCESS_MINUTES, SUCCESS_TARGET = MINUTE_TOKEN_THRESHOLDS[-1]
+SUCCESS_MINUTES, SUCCESS_TOKEN_THRESHOLD = MINUTE_TOKEN_THRESHOLDS[-1]
 
 #: Minutes per additional token once the success threshold is reached.
 MINUTES_PER_TOKEN_AFTER_SUCCESS = 30
@@ -59,7 +66,7 @@ def tokens_from_total_minutes(total_minutes: float) -> int:
     """Map aggregated mutual call minutes to tokens. Pure — safe for unit tests."""
     if total_minutes >= SUCCESS_MINUTES:
         beyond = total_minutes - SUCCESS_MINUTES
-        return SUCCESS_TARGET + int(beyond // MINUTES_PER_TOKEN_AFTER_SUCCESS)
+        return SUCCESS_TOKEN_THRESHOLD + int(beyond // MINUTES_PER_TOKEN_AFTER_SUCCESS)
 
     tokens = 0
     for minimum, value in MINUTE_TOKEN_THRESHOLDS:
@@ -79,26 +86,36 @@ def tokens_by_match_id(qs: QuerySet) -> dict[int, int]:
     }
 
 
-def is_successful(match) -> bool:
-    return tokens_for_match(match) >= SUCCESS_TARGET
+def successful_matches(qs: QuerySet) -> QuerySet:
+    """The subset of ``qs`` that succeeded, as a queryset.
+
+    Two ways to succeed, and both belong here rather than in whichever chart happens to
+    ask. ``completed_off_plattform`` is an explicit signal that the pair carried on
+    away from the platform: the minute bands structurally cannot see those calls, so
+    without this arm a successful off-platform match reads as a failure.
+
+    Expressed as a filter rather than an ID set so callers can compose it as a subquery —
+    ``user_journey`` asks "is this user in a successful match?" per row, and inlining
+    ~900 IDs into that predicate would be silly. ``>= SUCCESS_MINUTES`` is exactly
+    ``tokens >= SUCCESS_TOKEN_THRESHOLD`` by the banding above.
+    """
+    return annotate_total_call_minutes(qs).filter(
+        Q(completed_off_plattform=True)
+        | Q(**{f"{TOTAL_CALL_TIME_ANNOTATION}__gte": timedelta(minutes=SUCCESS_MINUTES)})
+    )
 
 
-def successful_ids(qs: QuerySet) -> set[int]:
-    return {match_id for match_id, tokens in tokens_by_match_id(qs).items() if tokens >= SUCCESS_TARGET}
-
-
-VERSION = SuccessVersion(
+VERSION = MatchOutcomeVersion(
     id=VERSION_ID,
     title="Total mutual call minutes (v1)",
     description=(
         "Sum minutes from finished LiveKit sessions where both users were active, then "
-        f"apply the minute→token bands. {SUCCESS_TARGET} tokens (≥ {SUCCESS_MINUTES:g} minutes) = "
-        f"successful. Tokens keep accruing after that, one per further "
-        f"{MINUTES_PER_TOKEN_AFTER_SUCCESS} minutes."
+        f"apply the minute→token bands. {SUCCESS_TOKEN_THRESHOLD} tokens (≥ {SUCCESS_MINUTES:g} minutes) = "
+        f"successful, as is an explicit off-platform completion. Tokens keep accruing "
+        f"after that, one per further {MINUTES_PER_TOKEN_AFTER_SUCCESS} minutes."
     ),
-    is_successful_fn=is_successful,
-    successful_ids_fn=successful_ids,
+    successful_matches_fn=successful_matches,
     tokens_fn=tokens_for_match,
     tokens_by_match_id_fn=tokens_by_match_id,
-    success_target=SUCCESS_TARGET,
+    success_token_threshold=SUCCESS_TOKEN_THRESHOLD,
 )

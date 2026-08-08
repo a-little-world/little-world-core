@@ -101,7 +101,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.DROPOUT,
         queryset=f.learners_ineligible_for_onboarding_due_to_a0_german,
         description="Form-complete learners ineligible due to A0 German (force_match_eligible=False).",
-        display_name="Ineligible — A0 German",
+        display_name="Ineligible - A0 German",
         base_model=_USER,
     ),
     "funnel__ineligible_outside_germany": CatalogEntry(
@@ -111,7 +111,7 @@ CATALOG: dict[str, CatalogEntry] = {
         description=(
             "Form-complete learners ineligible due to residence outside Germany (force_match_eligible=False)."
         ),
-        display_name="Ineligible — outside Germany",
+        display_name="Ineligible - outside Germany",
         base_model=_USER,
     ),
     "funnel__ineligible_for_onboarding": CatalogEntry(
@@ -130,7 +130,7 @@ CATALOG: dict[str, CatalogEntry] = {
         list_id="funnel__form_completed_awaiting_onboarding",
         role=CatalogRole.STAGE,
         queryset=f.users_with_form_complete_awaiting_onboarding,
-        description="Form completed, awaiting onboarding — all users including A0 (stuck bucket).",
+        description="Form completed, awaiting onboarding - all users including A0 (stuck bucket).",
         display_name="Form completed (awaiting onboarding)",
         base_model=_USER,
     ),
@@ -260,7 +260,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.STAGE,
         queryset=s.active_first_search_proposal_closed,
         description=(
-            "Searching again after their most recent proposal was closed without a decision — "
+            "Searching again after their most recent proposal was closed without a decision - "
             "withdrawn, superseded, or closed by staff, rather than rejected or expired."
         ),
         display_name="Searching - last proposal closed",
@@ -363,7 +363,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.STAGE,
         queryset=s.success_searching,
         description=("Has completed a successful first match, has no live match, and is searching again."),
-        display_name="No live match & searching",
+        display_name="Successful dormant match(es) & searching",
         base_model=_USER,
     ),
     "state__success_idle": CatalogEntry(
@@ -371,7 +371,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.STAGE,
         queryset=s.success_idle,
         description=("Has completed a successful first match, has no live match, and is not searching."),
-        display_name="No live match & not searching",
+        display_name="Successful dormant match(es) & not searching",
         base_model=_USER,
     ),
     # --- Phase: past ---

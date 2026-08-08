@@ -30,12 +30,29 @@ from management.api.utils_advanced import (
 )
 from management.controller import unmatch_users
 from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
-from management.match_tokens import ACTIVE_VERSION_ID, annotate_match_tokens, match_tokens
+from management.match_success import ACTIVE_VERSION_ID, annotate_match_tokens, match_tokens
 from management.models.matches import Match
 from management.models.profile import MinimalProfileSerializer, Profile
 from management.models.unconfirmed_matches import MatchType
 from management.models.user import User
 from management.permissions import ManagementPermission
+
+
+def match_bucket_map(match_ids) -> dict[int, str]:
+    """Match ID → its primary V5 bucket, for a whole page in one pass.
+
+    Support matches sit outside the partition baseline, so they are tagged separately;
+    everything else comes from ``classify_partition``.
+    """
+    from management.analytics.registry import MATCH_JOURNEY_V5, classify_partition
+
+    scoped = Match.objects.filter(id__in=list(match_ids))
+    buckets = dict.fromkeys(
+        scoped.filter(support_matching=True).values_list("id", flat=True),
+        "special__support_matching",
+    )
+    buckets.update(classify_partition(MATCH_JOURNEY_V5, scoped))
+    return buckets
 
 
 def _apply_match_bucket_representation(representation: dict, match_pk: int, context: dict) -> None:
@@ -44,7 +61,15 @@ def _apply_match_bucket_representation(representation: dict, match_pk: int, cont
     if not determine_bucket and not all_buckets:
         return
 
-    category_buckets = determine_match_buckets(match_pk, all_lists=False)
+    # Prefer the page-wide map built once in the view. Falling back to the per-row lookup
+    # keeps single-match paths (retrieve, export) working, but that path costs ~51 queries
+    # per match — never let a list view reach it.
+    bucket_map = context.get("bucket_map")
+    if bucket_map is not None and not all_buckets:
+        bucket = bucket_map.get(match_pk)
+        category_buckets = [bucket] if bucket else []
+    else:
+        category_buckets = determine_match_buckets(match_pk, all_lists=False)
     all_bucket_names = determine_match_buckets(match_pk, all_lists=True) if all_buckets else None
     apply_journey_bucket_fields(
         representation,
@@ -780,7 +805,23 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         determine_bucket = (
             parse_bool_query_param(determine_bucket_param) if determine_bucket_param is not None else True
         )
-        return {"determine_bucket": determine_bucket, "all_buckets": all_buckets}
+        context = {"determine_bucket": determine_bucket, "all_buckets": all_buckets}
+        bucket_map = getattr(self, "_bucket_map", None)
+        if bucket_map is not None:
+            context["bucket_map"] = bucket_map
+        return context
+
+    def paginate_queryset(self, queryset):
+        """Classify the page's buckets in one pass, once the page rows are known.
+
+        Here rather than in ``get_queryset`` because only the paginated slice needs
+        classifying — the full queryset is thousands of matches. DRF calls this before
+        building the serializer, so ``get_serializer_context`` picks the map up.
+        """
+        page = super().paginate_queryset(queryset)
+        if page is not None and self.get_serializer_context().get("determine_bucket"):
+            self._bucket_map = match_bucket_map([m.pk for m in page])
+        return page
 
     def get_queryset(self):
         user = self.request.user

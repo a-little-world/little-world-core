@@ -1,5 +1,3 @@
-from typing import Optional
-
 from multiselectfield.db.fields import MSFList
 
 from management.models.user import (
@@ -30,7 +28,7 @@ SUBJECT_MAPPINGS = {
 
 
 def _check_operation_condition(
-    operation, prop, compare_value: Optional[str] = None, compare_list: "Optional[list[str]]" = None
+    operation, prop, compare_value: str | None = None, compare_list: "list[str] | None" = None
 ):
     assert compare_value or compare_list, "Always require list or value!"
     if _filter_slug_meta[operation]["kind"] == "single":
@@ -70,7 +68,7 @@ def get_filter_slug_filtered_users_multiple(
 
 
 def get_users_by_slug_filter(
-    filter_slug: Optional[str] = None,
+    filter_slug: str | None = None,
     # Per default this would operate on **all** users
     # But when we want to apply multiple filters
     # we will have to be able to pass a limited user list:
@@ -148,7 +146,7 @@ def get_users_by_slug_filter(
                 else:
                     model_value = model_value.split(",")
         except Exception as e:
-            assert False, f"Getting model value failed for '{py_attr[1]}' {repr(e)}"
+            assert False, f"Getting model value failed for '{py_attr[1]}' {e!r}"
 
         assert model_value is not None, "Model value lookup failed"
 
@@ -165,5 +163,5 @@ def get_users_by_slug_filter(
         try:
             _check_for_user(user)
         except Exception as e:
-            print(f"Exception for user {user} '{repr(e)}' skipping...")
+            print(f"Exception for user {user} '{e!r}' skipping...")
     return filtered_user_list

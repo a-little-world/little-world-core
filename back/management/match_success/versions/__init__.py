@@ -11,18 +11,18 @@ as an unrelated error from the first caller that asks for a token count.
 Pass ``version=`` to compare without changing the default.
 """
 
-from management.match_tokens.versions import v0_legacy_completed_match, v1_total_minutes
-from management.match_tokens.versions.base import SuccessVersion
+from management.match_success.versions import v0_legacy_completed_match, v1_total_minutes
+from management.match_success.versions.base import MatchOutcomeVersion
 
 ACTIVE_VERSION_ID = v1_total_minutes.VERSION_ID
 
-VERSIONS: dict[str, SuccessVersion] = {
+VERSIONS: dict[str, MatchOutcomeVersion] = {
     v0_legacy_completed_match.VERSION.id: v0_legacy_completed_match.VERSION,
     v1_total_minutes.VERSION.id: v1_total_minutes.VERSION,
 }
 
 
-def get_version(version_id: str | None = None) -> SuccessVersion:
+def get_version(version_id: str | None = None) -> MatchOutcomeVersion:
     resolved = version_id or ACTIVE_VERSION_ID
     try:
         return VERSIONS[resolved]
@@ -31,7 +31,7 @@ def get_version(version_id: str | None = None) -> SuccessVersion:
         raise ValueError(f"Unknown match-success version {resolved!r}. Known: {known}") from exc
 
 
-def list_versions() -> tuple[SuccessVersion, ...]:
+def list_versions() -> tuple[MatchOutcomeVersion, ...]:
     return tuple(VERSIONS[key] for key in sorted(VERSIONS))
 
 
