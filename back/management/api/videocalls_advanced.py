@@ -32,16 +32,18 @@ def _format_session_duration(created_at, end_time):
     return f"{minutes} minutes ({seconds}s)"
 
 
-def _video_call_success_units(created_at, end_time):
-    if not created_at or not end_time:
-        return 0
+def _session_minutes(created_at, end_time) -> float:
+    """Length of this one call, in minutes.
 
-    call_duration_seconds = (end_time - created_at).total_seconds()
-    if call_duration_seconds < 25 * 60:
-        return 0
-    if call_duration_seconds < 55 * 60:
-        return 1
-    return 2 + int((call_duration_seconds - 55 * 60) // (25 * 60))
+    Deliberately not tokens. Tokens are a property of the *match*, banded on minutes
+    summed across all its calls, so a per-session token figure does not add up to the
+    match's total — three 205-minute calls would read 8 + 8 + 8 against a match showing 8.
+    Reporting the raw minutes leaves the column meaningful and additive.
+    """
+    if not created_at or not end_time:
+        return 0.0
+
+    return round((end_time - created_at).total_seconds() / 60.0, 1)
 
 
 class AdvancedLivekitSessionSerializer(serializers.ModelSerializer):
@@ -89,7 +91,7 @@ class AdvancedLivekitSessionSerializer(serializers.ModelSerializer):
         representation["u1_was_active"] = instance.u1_was_active
         representation["u2_was_active"] = instance.u2_was_active
         representation["duration"] = _format_session_duration(instance.created_at, instance.end_time)
-        representation["success_units"] = _video_call_success_units(instance.created_at, instance.end_time)
+        representation["call_minutes"] = _session_minutes(instance.created_at, instance.end_time)
         return representation
 
 

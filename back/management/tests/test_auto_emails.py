@@ -156,7 +156,7 @@ class TestAutomaticEmails_m12_m13_m14(TestCase):
         with freeze_time(dj_timezone.now() - timedelta(days=15)):
             self.valid_user_m14 = create_test_user(20002, None, "Test123!", "email-test-valid-025@test.de")
 
-        # Too recent for m012 (< 2 days) — unconfirmed is fine now, age is what excludes it
+        # Too recent for m012 (< 2 days)
         with freeze_time(dj_timezone.now() - timedelta(days=1)):
             self.invalid_user_m12 = create_test_user(20003, None, "Test123!", "email-test-invalid-023@test.de")
 
@@ -303,6 +303,27 @@ class TestAutomaticEmails_m023(TestCase):
 
         self.invalid_chat_no_messages = Chat.objects.create(u1=self.no_msg_user_1, u2=self.no_msg_user_2)
 
+        # Both users exchanged messages but have been inactive 3+ days — should be excluded
+        with freeze_time(dj_timezone.now() - timedelta(days=10)):
+            self.replied_user_1 = create_user("m023-replied-user1@test.de", "RepliedOne")
+            self.replied_user_2 = create_user("m023-replied-user2@test.de", "RepliedTwo")
+
+        self.invalid_chat_both_replied = Chat.objects.create(u1=self.replied_user_1, u2=self.replied_user_2)
+        with freeze_time(dj_timezone.now() - timedelta(days=5)):
+            Message.objects.create(
+                chat=self.invalid_chat_both_replied,
+                sender=self.replied_user_1,
+                recipient=self.replied_user_2,
+                text="First message",
+            )
+        with freeze_time(dj_timezone.now() - timedelta(days=4)):
+            Message.objects.create(
+                chat=self.invalid_chat_both_replied,
+                sender=self.replied_user_2,
+                recipient=self.replied_user_1,
+                text="Reply",
+            )
+
     def test_m023_identifies_inactive_chats(self):
         result = automatic_emails_m023()
 
@@ -320,6 +341,9 @@ class TestAutomaticEmails_m023(TestCase):
         self.invalid_chat_recent.refresh_from_db()
         assert self.invalid_chat_recent.three_days_inactive_email_send is False
 
+        self.invalid_chat_both_replied.refresh_from_db()
+        assert self.invalid_chat_both_replied.three_days_inactive_email_send is False
+
     def test_m023_excludes_staff_and_matching_users(self):
         result = automatic_emails_m023()
 
@@ -328,6 +352,13 @@ class TestAutomaticEmails_m023(TestCase):
         # Staff and matching user chats should not be in results
         assert self.invalid_chat_staff not in inactive_chats
         assert self.invalid_chat_matching not in inactive_chats
+
+    def test_m023_excludes_two_way_conversations(self):
+        result = automatic_emails_m023()
+
+        assert self.invalid_chat_both_replied not in result["inactive_chats"]
+        self.invalid_chat_both_replied.refresh_from_db()
+        assert self.invalid_chat_both_replied.three_days_inactive_email_send is False
 
     def test_m023_does_not_resend(self):
         # First run
@@ -1322,7 +1353,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         email_html = email_log.data.get("html", "")
 
         # Check that the URL contains the correct match UUID
-        expected_url_part = f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+        expected_url_part = f"/api/still_in_contact/{self.match.uuid!s}/yes/"
         assert expected_url_part in email_html, (
             f"Email should contain still_in_contact URL with match UUID. Expected: {expected_url_part}"
         )
@@ -1366,7 +1397,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         email_html = email_log.data.get("html", "")
 
         # Check that the URL contains the correct match UUID
-        expected_url_part = f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+        expected_url_part = f"/api/still_in_contact/{self.match.uuid!s}/yes/"
         assert expected_url_part in email_html, "Email should contain still_in_contact URL with match UUID"
 
         # Check that the URL contains the user hash and token
@@ -1401,7 +1432,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         email_html = email_log.data.get("html", "")
 
         # Check that the URL contains the correct match UUID
-        expected_url_part = f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+        expected_url_part = f"/api/still_in_contact/{self.match.uuid!s}/yes/"
         assert expected_url_part in email_html, "Email should contain still_in_contact URL with match UUID"
 
         # Check that the URL contains the user hash and token
@@ -1416,7 +1447,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
 
         # Build the URL with proper parameters
         url = (
-            f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+            f"/api/still_in_contact/{self.match.uuid!s}/yes/"
             f"?user_uuid={self.user1.uuid}"
             f"&user_token={self.user1.state.still_in_contact_form_access_token_user}"
             f"&redirect_slug=match-form1"
@@ -1438,7 +1469,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         assert f"entry.1868418501={self.user1.uuid}" in redirect_url, (
             "Redirect URL should contain user hash as form parameter"
         )
-        assert f"entry.1064841735={str(self.match.uuid)}" in redirect_url, (
+        assert f"entry.1064841735={self.match.uuid!s}" in redirect_url, (
             "Redirect URL should contain match UUID as form parameter"
         )
 
@@ -1454,7 +1485,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
 
         # Build the URL with info-screen redirect
         url = (
-            f"/api/still_in_contact/{str(self.match.uuid)}/no/"
+            f"/api/still_in_contact/{self.match.uuid!s}/no/"
             f"?user_uuid={self.user1.uuid}"
             f"&user_token={self.user1.state.still_in_contact_form_access_token_user}"
             f"&redirect_slug=info-screen"
@@ -1478,7 +1509,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
 
         # Build the URL with an invalid token
         url = (
-            f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+            f"/api/still_in_contact/{self.match.uuid!s}/yes/"
             f"?user_uuid={self.user1.uuid}"
             f"&user_token=invalid-token-12345"
             f"&redirect_slug=match-form1"
@@ -1523,8 +1554,8 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         assert f"user_uuid={self.user2.uuid}" in email_html_user2
 
         # Both emails should reference the same match UUID
-        assert f"/api/still_in_contact/{str(self.match.uuid)}/yes/" in email_html_user1
-        assert f"/api/still_in_contact/{str(self.match.uuid)}/yes/" in email_html_user2
+        assert f"/api/still_in_contact/{self.match.uuid!s}/yes/" in email_html_user1
+        assert f"/api/still_in_contact/{self.match.uuid!s}/yes/" in email_html_user2
 
 
 class TestPrematchingCheckoffEmailQueue(TestCase):

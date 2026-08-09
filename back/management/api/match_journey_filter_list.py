@@ -1,5 +1,4 @@
-import inspect
-from dataclasses import dataclass
+import logging
 
 from management.api.match_journey_filters import (
     EXTRA__suggestion_match_completed_off_plattform,
@@ -28,48 +27,44 @@ from management.api.match_journey_filters import (
     support_matching,
     user_ghosted,
 )
+from management.api.user_advanced_filter_lists import FilterListEntry, get_queryset_source_reference  # noqa: F401
 from management.models.matches import Match
 from management.models.unconfirmed_matches import MatchType
 
-GITHUB_API_SOURCE_ROOT = "https://github.com/a-little-world/little-world-core/blob/main/back/management/api"
+logger = logging.getLogger(__name__)
 
 
-def get_queryset_source_reference(queryset: callable) -> dict:
-    if queryset is None:
-        return {"source_file": None, "source_line": None, "source_url": None}
+def _match_catalog_queryset(list_id: str):
+    """Bind a match-journey catalog entry as a FilterListEntry queryset."""
 
-    try:
-        source_line = inspect.getsourcelines(queryset)[1]
-    except (OSError, TypeError):
-        source_line = None
+    def fn(qs=None):
+        from management.analytics.registry import get_catalog_entry
 
-    module_name = getattr(queryset, "__module__", "")
-    source_file = f"back/{module_name.replace('.', '/')}.py" if module_name else None
-    source_url = None
-    if source_file and source_line and source_file.startswith("back/management/api/"):
-        source_url = f"{GITHUB_API_SOURCE_ROOT}/{source_file.removeprefix('back/management/api/')}#L{source_line}"
+        return get_catalog_entry(list_id).queryset(Match.objects.all() if qs is None else qs)
 
-    return {"source_file": source_file, "source_line": source_line, "source_url": source_url}
+    fn.__name__ = list_id
+    fn.__qualname__ = list_id
+    fn._catalog_list_id = list_id
+    return fn
 
 
-@dataclass
-class FilterListEntry:
-    name: str
-    description: str | None
-    queryset: callable = None
+def _match_state_list_ids() -> tuple[str, ...]:
+    """Every match-journey catalog key, served as a filter list.
 
-    def to_dict(self):
-        description = self.description
-        if description is None and self.queryset and self.queryset.__doc__:
-            description = self.queryset.__doc__.strip()
-        source_reference = get_queryset_source_reference(self.queryset)
-        return {
-            "name": self.name,
-            "description": description,
-            **source_reference,
-        }
+    Derived from the catalog rather than re-listed: a hand-maintained copy has to be
+    edited in step with the catalog, and the failure is silent — a cell the API cannot
+    serve is a 500 on the funnel that requests it, not a validation error.
+    ``assert_all_domains_strict`` checks the two agree.
+    """
+    from management.analytics.match_journey.catalog import CATALOG
+
+    return tuple(CATALOG)
 
 
+MATCH_STATE_LIST_IDS = _match_state_list_ids()
+
+# One definition of a filter list entry, shared with the user lists — promoted here on
+# the second caller rather than kept as a near-identical copy (conventions §1).
 MATCH_JOURNEY_FILTERS = [
     FilterListEntry("match_journey_v2__all", None, all_matches),
     FilterListEntry(
@@ -197,6 +192,8 @@ MATCH_JOURNEY_FILTERS = [
         "Non-support matches marked as completed off platform",
         EXTRA__suggestion_match_completed_off_plattform,
     ),
+    # V5 partition cells (catalog-backed). V4 IDs above stay untouched.
+    *[FilterListEntry(list_id, None, _match_catalog_queryset(list_id)) for list_id in MATCH_STATE_LIST_IDS],
 ]
 
 
@@ -208,12 +205,17 @@ def get_match_list_by_name(name):
 
 
 def get_match_bucket_label(bucket_name: str | None) -> str:
-    if not bucket_name:
+    if not bucket_name or bucket_name == "unknown":
         return "Unknown"
 
-    if bucket_name == "unknown":
-        return "Unknown"
+    from management.analytics.registry import get_catalog_entry
 
+    entry = get_catalog_entry(bucket_name)
+    if entry is not None:
+        return entry.display_name
+
+    if bucket_name == "special__support_matching":
+        return "Support matching"
     if bucket_name == "match_journey_v2__organic_match":
         return "Organic Match"
 
@@ -221,23 +223,12 @@ def get_match_bucket_label(bucket_name: str | None) -> str:
     return slug.replace("_", " ").strip().title()
 
 
-MATCH_JOURNEY_CATEGORY_BUCKETS = [
-    "special__support_matching",
-    "match_journey_v2__organic_match",
-    "match_journey_v2__unviewed",
-    "match_journey_v2__one_user_viewed",
-    "match_journey_v2__confirmed_no_contact",
-    "match_journey_v2__confirmed_single_party_contact",
-    "match_journey_v2__first_contact",
-    "match_journey_v2__match_ongoing",
-    "match_journey_v2__completed_match",
-    "match_journey_v2__match_free_play",
-    "match_journey_v2__never_confirmed",
-    "match_journey_v2__no_contact",
-    "match_journey_v2__user_ghosted",
-    "match_journey_v2__contact_stopped",
-    "match_journey_v2__reported_or_removed",
-]
+# Primary tag on match rows: support (outside V5 baseline) then exclusive V5 cells.
+def _match_journey_category_buckets() -> list[str]:
+    from management.analytics.match_journey.partitions import MATCH_JOURNEY_V5
+
+    return ["special__support_matching", *MATCH_JOURNEY_V5.bucket_ids()]
+
 
 # Proposal filters operate on ProposedMatch and ignore the incoming Match queryset.
 MATCH_BUCKET_SKIP_LISTS = frozenset(
@@ -247,6 +238,9 @@ MATCH_BUCKET_SKIP_LISTS = frozenset(
     }
 )
 
+# Legacy V4 category lists were STANDARD-only except organic. V5 ``match_state__*``
+# and support scope themselves.
+MATCH_BUCKET_STANDARD_ONLY_PREFIX = "match_journey_v2__"
 MATCH_BUCKET_NON_STANDARD_LISTS = frozenset(
     {
         "match_journey_v2__organic_match",
@@ -259,15 +253,22 @@ def _match_bucket_entry_applies(entry: FilterListEntry, match_pk: int) -> bool:
         return False
     try:
         scoped_matches = Match.objects.filter(pk=match_pk)
-        if entry.name not in MATCH_BUCKET_NON_STANDARD_LISTS:
+        if (
+            entry.name.startswith(MATCH_BUCKET_STANDARD_ONLY_PREFIX)
+            and entry.name not in MATCH_BUCKET_NON_STANDARD_LISTS
+        ):
             scoped_matches = scoped_matches.filter(match_type=MatchType.STANDARD)
         return entry.queryset(scoped_matches).exists()
     except Exception:
+        # Logged rather than swallowed: without this a cell whose query breaks is
+        # indistinguishable from a match genuinely not being in it, and the row just
+        # shows no bucket (conventions §9).
+        logger.exception("Match bucket list %r failed for match %s; treating as no match", entry.name, match_pk)
         return False
 
 
 def determine_match_buckets(match_pk, all_lists: bool = False) -> list[str]:
-    bucket_names = [entry.name for entry in MATCH_JOURNEY_FILTERS] if all_lists else MATCH_JOURNEY_CATEGORY_BUCKETS
+    bucket_names = [entry.name for entry in MATCH_JOURNEY_FILTERS] if all_lists else _match_journey_category_buckets()
     bucket_map = {entry.name: entry for entry in MATCH_JOURNEY_FILTERS}
     return [
         name

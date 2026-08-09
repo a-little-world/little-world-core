@@ -182,7 +182,7 @@ class ScoringBase:
                 matchable=False,
                 score=0,
                 weight=1.0,
-                markdown_info=f"Common slots: ({str(amnt_common_slots)}) {str(common_slots)} (unmatchable: no overlap)",
+                markdown_info=f"Common slots: ({amnt_common_slots!s}) {common_slots!s} (unmatchable: no overlap)",
             )
 
         conditions = [
@@ -199,13 +199,13 @@ class ScoringBase:
                     matchable=True,
                     score=cond[1],
                     weight=1.0,
-                    markdown_info=f"Common slots: ({str(amnt_common_slots)}) {str(common_slots)} (score: {cond[1]})",
+                    markdown_info=f"Common slots: ({amnt_common_slots!s}) {common_slots!s} (score: {cond[1]})",
                 )
         return ScoringFuctionResult(
             matchable=True,
             score=0,
             weight=1.0,
-            markdown_info=f"Common slots: ({str(amnt_common_slots)}) {str(common_slots)} (score: 0)",
+            markdown_info=f"Common slots: ({amnt_common_slots!s}) {common_slots!s} (score: 0)",
         )
 
     def score__volunteer_vs_learner(self):
@@ -382,7 +382,7 @@ class ScoringBase:
                     matchable=True,
                     score=cond[1],
                     weight=1.0,
-                    markdown_info=f"Interests Overlap: {str(common_interests)} (score: {cond[1]})",
+                    markdown_info=f"Interests Overlap: {common_interests!s} (score: {cond[1]})",
                 )
 
         return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info="Interests Overlap (score: 0)")

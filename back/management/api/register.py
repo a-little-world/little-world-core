@@ -1,6 +1,5 @@
 from dataclasses import dataclass, fields
 from datetime import datetime
-from typing import Optional
 
 import django.contrib.auth.password_validation as pw_validation
 from django.conf import settings
@@ -40,10 +39,10 @@ class RegistrationData:
 @dataclass
 class RegistrationDataNative(RegistrationData):
     challenge_id: str = ""
-    key_id: Optional[str] = None
-    attestation_object: Optional[str] = None
-    integrity_token: Optional[str] = None
-    bypass_token: Optional[str] = None
+    key_id: str | None = None
+    attestation_object: str | None = None
+    integrity_token: str | None = None
+    bypass_token: str | None = None
 
 
 @dataclass
@@ -129,7 +128,7 @@ class RegistrationSerializer(serializers.Serializer):
         if data["password1"] != data["password2"]:
             raise serializers.ValidationError({"password1": get_translation("api.passwords_must_match")})  # Updated key
 
-        return super(RegistrationSerializer, self).validate(data)
+        return super().validate(data)
 
 
 class RegistrationSerializerNative(RegistrationSerializer):
@@ -187,7 +186,7 @@ class Register(APIView):
         methods=["POST"],
         request=RegistrationSerializer(many=False),
     )
-    def post(self, request) -> Optional[Response]:
+    def post(self, request) -> Response | None:
         serializer = RegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         # The types are secure, we checked that using the 'Registration Serializer'
@@ -242,7 +241,7 @@ class RegisterAndroid(APIView):
         methods=["POST"],
         request=RegistrationSerializerNative(many=False),
     )
-    def post(self, request) -> Optional[Response]:
+    def post(self, request) -> Response | None:
         serializer = RegistrationSerializerNative(data=request.data)
         serializer.is_valid(raise_exception=True)
         # The types are secure, we checked that using the 'Registration Serializer'
@@ -274,7 +273,7 @@ class RegisterIOS(APIView):
         methods=["POST"],
         request=RegistrationSerializerNative(many=False),
     )
-    def post(self, request) -> Optional[Response]:
+    def post(self, request) -> Response | None:
         serializer = RegistrationSerializerNative(data=request.data)
         serializer.is_valid(raise_exception=True)
         # The types are secure, we checked that using the 'Registration Serializer'
@@ -307,7 +306,7 @@ class RegisterWebNative(APIView):
         methods=["POST"],
         request=RegistrationSerializerNativeWeb(many=False),
     )
-    def post(self, request) -> Optional[Response]:
+    def post(self, request) -> Response | None:
         if settings.IS_PROD:
             return Response(
                 {"detail": "This endpoint is disabled in production environments"},

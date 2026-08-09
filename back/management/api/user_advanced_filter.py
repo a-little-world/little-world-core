@@ -5,9 +5,9 @@ from django.db import connection
 from django.db.models import Case, Count, F, OuterRef, Q, Subquery, When
 from django.db.models.functions import Extract
 from django.utils import timezone
-from video.models import LivekitSession
 
 from management import controller
+from management.match_success import successful_match_ids
 from management.models.management_tasks import MangementTask
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment
@@ -16,40 +16,9 @@ from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User
 
-MATCH_SUCCESS_UNITS_TARGET = 8
-
 
 def three_weeks_ago():
     return timezone.now() - timedelta(weeks=3)
-
-
-def _video_call_success_units(call_duration):
-    call_duration_seconds = call_duration.total_seconds()
-
-    if call_duration_seconds < 25 * 60:
-        return 0
-
-    if call_duration_seconds < 55 * 60:
-        return 1
-
-    return 2 + int((call_duration_seconds - 55 * 60) // (25 * 60))
-
-
-def _match_success_units(match):
-    sessions = LivekitSession.objects.filter(
-        Q(u1=match.user1, u2=match.user2) | Q(u1=match.user2, u2=match.user1),
-        both_have_been_active=True,
-        created_at__gte=match.created_at,
-        end_time__isnull=False,
-    )
-
-    success_units = 0
-    for session in sessions:
-        if session.end_time is None:
-            continue
-        success_units += _video_call_success_units(session.end_time - session.created_at)
-
-    return success_units
 
 
 def all_users(qs=User.objects.all()):
@@ -533,22 +502,19 @@ def EXTRA__onboarded_volunteers_with_activity_in_last3weeks(qs=User.objects.all(
 
 def EXTRA__suggestion_match_completed_on_plattform(qs=User.objects.all()):
     """
-    Users with a non-support match that reached 8 on-platform video-call units.
+    Users with a non-support match that reached the active match-token success target.
     """
-    candidate_matches = (
-        Match.objects.filter(
-            Q(user1__in=qs) | Q(user2__in=qs),
-            support_matching=False,
-            completed_off_plattform=False,
-        )
-        .select_related("user1", "user2")
-        .distinct()
-    )
+    candidate_matches = Match.objects.filter(
+        Q(user1__in=qs) | Q(user2__in=qs),
+        support_matching=False,
+        completed_off_plattform=False,
+    ).distinct()
 
+    # Resolved in bulk rather than one query per candidate match.
+    successful = successful_match_ids(candidate_matches)
     completed_user_ids = set()
-    for match in candidate_matches.iterator(chunk_size=500):
-        if _match_success_units(match) >= MATCH_SUCCESS_UNITS_TARGET:
-            completed_user_ids.update([match.user1.pk, match.user2.pk])
+    for user1_id, user2_id in Match.objects.filter(id__in=successful).values_list("user1_id", "user2_id"):
+        completed_user_ids.update((user1_id, user2_id))
 
     return qs.filter(id__in=completed_user_ids).order_by("-date_joined")
 
