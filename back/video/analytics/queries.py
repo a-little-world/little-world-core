@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timedelta
+from datetime import timezone as datetime_timezone
 from typing import Literal
 
 from django.db.models import Min, Q
@@ -257,6 +258,11 @@ def serialize_lobby_participant_profile(profile):
     }
 
 
+#: Sort sentinel for proposals with no ``accepted_at``. Uses ``datetime.timezone.utc`` —
+#: ``django.utils.timezone.utc`` was removed in Django 5.0 and raises AttributeError.
+_EPOCH = datetime.min.replace(tzinfo=datetime_timezone.utc)
+
+
 def _lobby_call_start_window(lobby: RandomCallLobby) -> tuple[datetime | None, datetime | None]:
     """Lobby bounds apply to when a call may *start*, not when it may end."""
     return lobby.start_time, lobby.end_time
@@ -271,44 +277,63 @@ def _pair_key_for_users(u1_id: int, u2_id: int) -> tuple[int, int]:
 
 
 def _proposal_accept_sort_key(proposal: RandomCallMatching):
-    accepted_at = proposal.accepted_at
-    if accepted_at is None:
-        return (0, datetime.min.replace(tzinfo=timezone.utc), proposal.pk)
-    return (1, accepted_at, proposal.pk)
+    """Order a pair's proposals by acceptance time, unaccepted ones first.
+
+    ``accepted_at`` is nullable and frequently unset even when ``accepted`` is True, so
+    the key has to tolerate ``None`` — sorting a tuple whose second element is sometimes
+    ``None`` and sometimes a datetime would raise.
+    """
+    if proposal.accepted_at is None:
+        return (0, _EPOCH, proposal.pk)
+    return (1, proposal.accepted_at, proposal.pk)
 
 
-def _pick_session_for_proposal(
+def _sessions_for_proposal(
     sessions,
     proposal: RandomCallMatching,
     lobby: RandomCallLobby,
     *,
     next_accepted_at: datetime | None = None,
-):
-    """Pick the LiveKit session for a completed proposal (pair + start-time window).
+    pair_has_other_proposals: bool = False,
+) -> list:
+    """Sessions belonging to one completed proposal, by pair and start-time window.
 
-    Window is [accepted_at, next_same_pair_accepted_at) when the pair rematches,
-    otherwise [accepted_at, lobby.end_time]. Within that window, take the longest
-    session so short reconnect attempts do not hide the real call duration.
+    Window is ``[accepted_at, next_same_pair_accepted_at)`` when the pair rematches within
+    the lobby, otherwise ``[accepted_at, lobby.end_time]``. The half-open upper bound is
+    what stops a rematch's session being attributed to the earlier proposal.
+
+    ``accepted_at`` is NULL on every row created before migration ``video.0024``
+    (2026-04-23) added the column without a backfill; the write path has always set it
+    since. Those rows still get a duration when the pair has only this one proposal in the
+    lobby — the lobby window identifies the call on its own, so nothing is ambiguous and
+    no timestamp has to be invented. With a *second* proposal for the same pair there is
+    no way to tell which call belongs to which, and guessing is how one session ended up
+    counted against two proposals, so those report nothing.
+
+    Returns *all* sessions in the window, not one: a call that drops and reconnects is one
+    conversation split across rows, and the caller sums them.
     """
     lobby_start, lobby_end = _lobby_call_start_window(lobby)
-    earliest_start = proposal.accepted_at or lobby_start
 
-    candidates = []
+    if proposal.accepted_at is None:
+        if pair_has_other_proposals:
+            return []
+        earliest_start = lobby_start
+    else:
+        earliest_start = proposal.accepted_at
+
+    windowed = []
     for session in sessions:
         if earliest_start is not None and session.created_at < earliest_start:
             continue
         if next_accepted_at is not None:
-            # Exclusive upper bound so the rematch's own session is not stolen.
             if session.created_at >= next_accepted_at:
                 continue
         elif lobby_end is not None and session.created_at > lobby_end:
             continue
-        candidates.append(session)
+        windowed.append(session)
 
-    if not candidates:
-        return None
-
-    return max(candidates, key=_session_duration_seconds)
+    return windowed
 
 
 def build_completed_call_durations(completed_proposals, *, lobby: RandomCallLobby):
@@ -348,19 +373,24 @@ def build_completed_call_durations(completed_proposals, *, lobby: RandomCallLobb
         pair_proposals.sort(key=_proposal_accept_sort_key)
         pair_sessions = sessions_by_pair.get(pair_key, [])
         for index, proposal in enumerate(pair_proposals):
+            # Only a *later* acceptance closes this proposal's window. Unaccepted
+            # proposals sort first and carry no time, so they cannot bound anything.
             next_accepted_at = None
-            if index + 1 < len(pair_proposals):
-                next_accepted_at = pair_proposals[index + 1].accepted_at
-            session = _pick_session_for_proposal(
+            for later in pair_proposals[index + 1 :]:
+                if later.accepted_at is not None:
+                    next_accepted_at = later.accepted_at
+                    break
+
+            windowed = _sessions_for_proposal(
                 pair_sessions,
                 proposal,
                 lobby,
                 next_accepted_at=next_accepted_at,
+                pair_has_other_proposals=len(pair_proposals) > 1,
             )
-            if session is None:
-                proposal_durations[proposal.pk] = 0
-                continue
-            proposal_durations[proposal.pk] = _session_duration_seconds(session)
+            # Summed, not maxed: a dropped call that reconnects is one conversation split
+            # across rows, and reporting only the longest leg silently discards the rest.
+            proposal_durations[proposal.pk] = sum(_session_duration_seconds(s) for s in windowed)
 
     return proposal_durations
 

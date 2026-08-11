@@ -1101,6 +1101,7 @@ SKIP_EMAIL_VERIFICATION_COMPANIES = [] + EXTRA_SKIP_EMAIL_VERIFICATION_COMPANIES
 EXTRA_MATCH_PRIORITY_COMPANIES = string_list_env("DJ_EXTRA_MATCH_PRIORITY_COMPANIES", ["odoo-eip-fms"])
 MATCH_PRIORITY_COMPANIES = [
     "accenture",
+    "amazon",
     "generali",
     "lingoda",
     "fh-aachen",
