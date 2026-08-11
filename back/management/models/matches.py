@@ -189,7 +189,7 @@ class Match(models.Model):
         return True
 
     @classmethod
-    def get_confirmed_matches(cls, user, order_by="created_at"):
+    def get_confirmed_matches(cls, user, order_by="-created_at"):
         return (
             cls.objects.filter(Q(user1=user) | Q(user2=user), active=True, confirmed_by=user, support_matching=False)
             .exclude(match_type=MatchType.TEMPORARY)
