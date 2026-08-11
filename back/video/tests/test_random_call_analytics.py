@@ -515,6 +515,194 @@ class RandomCallAnalyticsTests(TestCase):
         durations = build_completed_call_durations([proposal], lobby=lobby)
         self.assertEqual(durations[proposal.pk], 28 * 60)
 
+    def test_longest_call_uses_longest_session_not_first_reconnect(self):
+        """Short reconnect near acceptance must not hide a longer call in the same proposal."""
+        learner = self._create_user("reconnect_learner")
+        volunteer = self._create_user("reconnect_volunteer")
+        now = timezone.now()
+        lobby = self._create_lobby(
+            start_time=now - timezone.timedelta(hours=2),
+            end_time=now - timezone.timedelta(minutes=30),
+        )
+        accepted_at = now - timezone.timedelta(hours=1, minutes=30)
+        proposal = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=True,
+            accepted_at=accepted_at,
+            completed_at=accepted_at + timezone.timedelta(minutes=55),
+        )
+        RandomCallLobbyUser.objects.create(user=learner, lobby=lobby, is_active=False)
+        RandomCallLobbyUser.objects.create(user=volunteer, lobby=lobby, is_active=False)
+
+        short_start = accepted_at + timezone.timedelta(seconds=30)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=short_start,
+            end_time=short_start + timezone.timedelta(seconds=209),  # 0h 3m 29s
+            is_active=False,
+        )
+        long_start = accepted_at + timezone.timedelta(minutes=5)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=long_start,
+            end_time=long_start + timezone.timedelta(minutes=52),
+            is_active=False,
+        )
+
+        durations = build_completed_call_durations([proposal], lobby=lobby)
+        self.assertEqual(durations[proposal.pk], 52 * 60)
+
+        participants = build_lobby_participants(
+            RandomCallLobbyUser.objects.filter(lobby=lobby),
+            [proposal],
+            lobby,
+            set(),
+            as_of=now,
+        )
+        learner_row = next(row for row in participants if row["user_id"] == learner.pk)
+        self.assertEqual(learner_row["longest_call_duration_seconds"], 52 * 60)
+        self.assertEqual(learner_row["completed_calls"], 1)
+
+    def test_longest_call_across_multiple_partners_uses_max(self):
+        learner = self._create_user("multi_partner_learner")
+        volunteer_a = self._create_user("multi_partner_a")
+        volunteer_b = self._create_user("multi_partner_b")
+        now = timezone.now()
+        lobby = self._create_lobby(
+            start_time=now - timezone.timedelta(hours=2),
+            end_time=now - timezone.timedelta(minutes=30),
+        )
+        first_accepted = now - timezone.timedelta(hours=1, minutes=40)
+        second_accepted = now - timezone.timedelta(hours=1)
+        proposal_a = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer_a,
+            accepted=True,
+            completed=True,
+            accepted_at=first_accepted,
+            completed_at=first_accepted + timezone.timedelta(minutes=10),
+        )
+        proposal_b = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer_b,
+            accepted=True,
+            completed=True,
+            accepted_at=second_accepted,
+            completed_at=second_accepted + timezone.timedelta(minutes=55),
+        )
+        for user in (learner, volunteer_a, volunteer_b):
+            RandomCallLobbyUser.objects.create(user=user, lobby=lobby, is_active=False)
+
+        short_start = first_accepted + timezone.timedelta(minutes=1)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer_a,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=short_start,
+            end_time=short_start + timezone.timedelta(seconds=209),
+            is_active=False,
+        )
+        long_start = second_accepted + timezone.timedelta(minutes=1)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer_b,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=long_start,
+            end_time=long_start + timezone.timedelta(minutes=52),
+            is_active=False,
+        )
+
+        participants = build_lobby_participants(
+            RandomCallLobbyUser.objects.filter(lobby=lobby),
+            [proposal_a, proposal_b],
+            lobby,
+            set(),
+            as_of=now,
+        )
+        learner_row = next(row for row in participants if row["user_id"] == learner.pk)
+        self.assertEqual(learner_row["completed_calls"], 2)
+        self.assertEqual(learner_row["longest_call_duration_seconds"], 52 * 60)
+
+    def test_same_pair_rematch_keeps_each_proposal_duration(self):
+        learner = self._create_user("rematch_learner")
+        volunteer = self._create_user("rematch_volunteer")
+        now = timezone.now()
+        lobby = self._create_lobby(
+            start_time=now - timezone.timedelta(hours=2),
+            end_time=now - timezone.timedelta(minutes=30),
+        )
+        first_accepted = now - timezone.timedelta(hours=1, minutes=40)
+        second_accepted = now - timezone.timedelta(hours=1)
+        proposal_1 = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=True,
+            accepted_at=first_accepted,
+            completed_at=first_accepted + timezone.timedelta(minutes=20),
+        )
+        proposal_2 = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=True,
+            accepted_at=second_accepted,
+            completed_at=second_accepted + timezone.timedelta(minutes=55),
+        )
+        RandomCallLobbyUser.objects.create(user=learner, lobby=lobby, is_active=False)
+        RandomCallLobbyUser.objects.create(user=volunteer, lobby=lobby, is_active=False)
+
+        first_start = first_accepted + timezone.timedelta(minutes=1)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=first_start,
+            end_time=first_start + timezone.timedelta(minutes=15),
+            is_active=False,
+        )
+        second_start = second_accepted + timezone.timedelta(minutes=1)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=second_start,
+            end_time=second_start + timezone.timedelta(minutes=52),
+            is_active=False,
+        )
+
+        durations = build_completed_call_durations([proposal_1, proposal_2], lobby=lobby)
+        self.assertEqual(durations[proposal_1.pk], 15 * 60)
+        self.assertEqual(durations[proposal_2.pk], 52 * 60)
+
+        participants = build_lobby_participants(
+            RandomCallLobbyUser.objects.filter(lobby=lobby),
+            [proposal_1, proposal_2],
+            lobby,
+            set(),
+            as_of=now,
+        )
+        learner_row = next(row for row in participants if row["user_id"] == learner.pk)
+        self.assertEqual(learner_row["completed_calls"], 2)
+        self.assertEqual(learner_row["longest_call_duration_seconds"], 52 * 60)
+
     def test_list_lobby_analytics_api(self):
         learner = self._create_user("api_learner", Profile.TypeChoices.LEARNER)
         volunteer = self._create_user("api_volunteer", Profile.TypeChoices.VOLUNTEER)

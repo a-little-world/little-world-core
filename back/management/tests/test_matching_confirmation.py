@@ -37,13 +37,13 @@ valid_create_data = dict(
 class MatchConfirmationTests(TestCase):
     required_params = api.register.Register.required_args
 
-    def _some_confirm_deny_match_call(self, data: dict, user=None) -> Response:
+    def _respond_to_proposed_match(self, data: dict, user=None) -> Response:
         factory = APIRequestFactory(enforce_csrf_checks=True)
 
-        request = factory.post("user/match/confirm_deny/", data)
+        request = factory.post("user/match/proposal/respond/", data)
         if user:
             force_authenticate(request, user=user)
-        response = api.confirm_match.confirm_match(request)
+        response = api.proposed_match_response.respond_to_proposed_match(request)
         assert response, isinstance(response, Response)
         return response  # type: ignore
 
@@ -189,7 +189,7 @@ class MatchConfirmationTests(TestCase):
         assert str(u1.uuid) == prematch_uuid, "The prematch UUID must be the UUID of the volunteer"
 
         # now we emulate the two cases of the learner accepting or denying the pre-match
-        res = self._some_confirm_deny_match_call(dict(unconfirmed_match_uuid=unconf_hash, confirm=False), user=u2)
+        res = self._respond_to_proposed_match(dict(unconfirmed_match_uuid=unconf_hash, confirm=False), user=u2)
 
         res.render()
         assert res.status_code == 200, f"Request error {res.status_code}, {res.content}"
@@ -212,7 +212,7 @@ class MatchConfirmationTests(TestCase):
         assert str(u1.uuid) == prematch_uuid, "The prematch UUID must be the UUID of the volunteer"
         # now we emulate the two cases of the learner accepting or denying the pre-match
         confirm_message = "Hi, I would be happy to connect with you."
-        res = self._some_confirm_deny_match_call(
+        res = self._respond_to_proposed_match(
             dict(unconfirmed_match_uuid=unconf_hash, confirm=True, confirm_message=confirm_message), user=u2
         )
 
@@ -223,6 +223,16 @@ class MatchConfirmationTests(TestCase):
         assert match.total_messages_counter == 1
         assert match.first_interaction_at is not None
         assert Message.objects.filter(sender=u2, recipient=u1, text=confirm_message).exists()
+        # Learner (u2) who accepted the proposal is recorded in confirmed_by immediately.
+        assert u2 in match.confirmed_by.all()
+        assert u1 not in match.confirmed_by.all()
+        assert match.confirmed is False
+
+        # Volunteer viewing/confirming completes confirmation.
+        match.confirm(u1)
+        match.refresh_from_db()
+        assert u1 in match.confirmed_by.all()
+        assert match.confirmed is True
         # now check if the user is in the matches
         # TODO: test need to be updated using the new 'Match' model
         # TODO: Test ending was removed since we change how we handlel matching & matching confirmations
@@ -235,7 +245,7 @@ class MatchConfirmationTests(TestCase):
 
         unconf_hash = u2_unconf[0]["hash"]
 
-        res = self._some_confirm_deny_match_call(dict(unconfirmed_match_uuid=unconf_hash, confirm=True), user=u2)
+        res = self._respond_to_proposed_match(dict(unconfirmed_match_uuid=unconf_hash, confirm=True), user=u2)
 
         res.render()
         assert res.status_code == 200, f"Request error {res.status_code}, {res.content}"
@@ -244,3 +254,46 @@ class MatchConfirmationTests(TestCase):
         assert match.total_messages_counter == 0
         assert match.first_interaction_at is None
         assert not Message.objects.filter(sender=u2, recipient=u1).exists()
+        assert u2 in match.confirmed_by.all()
+        assert match.confirmed is False
+
+    def test_mutual_messages_confirm_and_backfill_confirmed_by(self):
+        u1, u2 = self._create_two_user_prematching()
+        u2_unconf = get_unconfirmed_matches(u2)
+        unconf_hash = u2_unconf[0]["hash"]
+
+        res = self._respond_to_proposed_match({"unconfirmed_match_uuid": unconf_hash, "confirm": True}, user=u2)
+        res.render()
+        assert res.status_code == 200
+
+        match = Match.get_match(u1, u2).first()
+        assert match is not None
+        assert match.confirmed is False
+        assert set(match.confirmed_by.all()) == {u2}
+
+        from chat.helpers import create_and_deliver_message
+        from chat.models import Chat
+
+        chat = Chat.get_or_create_chat(u1, u2)
+        create_and_deliver_message(
+            chat=chat,
+            sender=u2,
+            recipient=u1,
+            text="Hello from learner",
+            send_websocket=False,
+            send_email=False,
+        )
+        match.refresh_from_db()
+        assert match.confirmed is False
+
+        create_and_deliver_message(
+            chat=chat,
+            sender=u1,
+            recipient=u2,
+            text="Hello from volunteer",
+            send_websocket=False,
+            send_email=False,
+        )
+        match.refresh_from_db()
+        assert match.confirmed is True
+        assert set(match.confirmed_by.all()) == {u1, u2}
