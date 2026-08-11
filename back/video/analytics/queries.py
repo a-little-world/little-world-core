@@ -262,36 +262,53 @@ def _lobby_call_start_window(lobby: RandomCallLobby) -> tuple[datetime | None, d
     return lobby.start_time, lobby.end_time
 
 
-def _session_started_in_window(
-    session,
+def _session_duration_seconds(session) -> int:
+    return int((session.end_time - session.created_at).total_seconds())
+
+
+def _pair_key_for_users(u1_id: int, u2_id: int) -> tuple[int, int]:
+    return (min(u1_id, u2_id), max(u1_id, u2_id))
+
+
+def _proposal_accept_sort_key(proposal: RandomCallMatching):
+    accepted_at = proposal.accepted_at
+    if accepted_at is None:
+        return (0, datetime.min.replace(tzinfo=timezone.utc), proposal.pk)
+    return (1, accepted_at, proposal.pk)
+
+
+def _pick_session_for_proposal(
+    sessions,
+    proposal: RandomCallMatching,
+    lobby: RandomCallLobby,
     *,
-    earliest_start: datetime | None,
-    latest_start: datetime | None,
-) -> bool:
-    if earliest_start is not None and session.created_at < earliest_start:
-        return False
-    return latest_start is None or session.created_at <= latest_start
+    next_accepted_at: datetime | None = None,
+):
+    """Pick the LiveKit session for a completed proposal (pair + start-time window).
 
-
-def _pick_session_for_proposal(sessions, proposal: RandomCallMatching, lobby: RandomCallLobby):
-    """Pick the LiveKit session for a completed proposal (pair + start-time window)."""
+    Window is [accepted_at, next_same_pair_accepted_at) when the pair rematches,
+    otherwise [accepted_at, lobby.end_time]. Within that window, take the longest
+    session so short reconnect attempts do not hide the real call duration.
+    """
     lobby_start, lobby_end = _lobby_call_start_window(lobby)
     earliest_start = proposal.accepted_at or lobby_start
-    # latest_start = lobby end only — calls may run past lobby.end_time once started.
-    latest_start = lobby_end
 
-    candidates = [
-        session
-        for session in sessions
-        if _session_started_in_window(session, earliest_start=earliest_start, latest_start=latest_start)
-    ]
+    candidates = []
+    for session in sessions:
+        if earliest_start is not None and session.created_at < earliest_start:
+            continue
+        if next_accepted_at is not None:
+            # Exclusive upper bound so the rematch's own session is not stolen.
+            if session.created_at >= next_accepted_at:
+                continue
+        elif lobby_end is not None and session.created_at > lobby_end:
+            continue
+        candidates.append(session)
+
     if not candidates:
         return None
 
-    if proposal.accepted_at is not None:
-        # Same pair may rematch in one lobby; take the session that started closest after acceptance.
-        return min(candidates, key=lambda session: abs((session.created_at - proposal.accepted_at).total_seconds()))
-    return min(candidates, key=lambda session: session.created_at)
+    return max(candidates, key=_session_duration_seconds)
 
 
 def build_completed_call_durations(completed_proposals, *, lobby: RandomCallLobby):
@@ -302,9 +319,7 @@ def build_completed_call_durations(completed_proposals, *, lobby: RandomCallLobb
     user_ids = {proposal.u1_id for proposal in completed_proposals} | {
         proposal.u2_id for proposal in completed_proposals
     }
-    expected_pairs = {
-        (min(proposal.u1_id, proposal.u2_id), max(proposal.u1_id, proposal.u2_id)) for proposal in completed_proposals
-    }
+    expected_pairs = {_pair_key_for_users(proposal.u1_id, proposal.u2_id) for proposal in completed_proposals}
 
     sessions = LivekitSession.objects.filter(
         random_call_session=True,
@@ -320,18 +335,32 @@ def build_completed_call_durations(completed_proposals, *, lobby: RandomCallLobb
 
     sessions_by_pair: dict[tuple[int, int], list] = defaultdict(list)
     for session in sessions:
-        pair_key = (min(session.u1_id, session.u2_id), max(session.u1_id, session.u2_id))
+        pair_key = _pair_key_for_users(session.u1_id, session.u2_id)
         if pair_key in expected_pairs:
             sessions_by_pair[pair_key].append(session)
 
-    proposal_durations = {}
+    proposals_by_pair: dict[tuple[int, int], list[RandomCallMatching]] = defaultdict(list)
     for proposal in completed_proposals:
-        pair_key = (min(proposal.u1_id, proposal.u2_id), max(proposal.u1_id, proposal.u2_id))
-        session = _pick_session_for_proposal(sessions_by_pair.get(pair_key, []), proposal, lobby)
-        if session is None:
-            proposal_durations[proposal.pk] = 0
-            continue
-        proposal_durations[proposal.pk] = int((session.end_time - session.created_at).total_seconds())
+        proposals_by_pair[_pair_key_for_users(proposal.u1_id, proposal.u2_id)].append(proposal)
+
+    proposal_durations = {}
+    for pair_key, pair_proposals in proposals_by_pair.items():
+        pair_proposals.sort(key=_proposal_accept_sort_key)
+        pair_sessions = sessions_by_pair.get(pair_key, [])
+        for index, proposal in enumerate(pair_proposals):
+            next_accepted_at = None
+            if index + 1 < len(pair_proposals):
+                next_accepted_at = pair_proposals[index + 1].accepted_at
+            session = _pick_session_for_proposal(
+                pair_sessions,
+                proposal,
+                lobby,
+                next_accepted_at=next_accepted_at,
+            )
+            if session is None:
+                proposal_durations[proposal.pk] = 0
+                continue
+            proposal_durations[proposal.pk] = _session_duration_seconds(session)
 
     return proposal_durations
 
