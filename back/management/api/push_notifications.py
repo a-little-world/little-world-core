@@ -36,6 +36,20 @@ class PushNotificationRegistrationSerializer(serializers.Serializer):
 
 
 @dataclass
+class PushNotificationUnregistrationParams:
+    install_id: str
+    token: str | None = None
+
+
+class PushNotificationUnregistrationSerializer(serializers.Serializer):
+    install_id = serializers.CharField(required=True)
+    token = serializers.CharField(required=False)
+
+    def create(self, validated_data):
+        return PushNotificationUnregistrationParams(**validated_data)
+
+
+@dataclass
 class PushNotificationParams:
     user: int
     title: str
@@ -115,21 +129,25 @@ def register_push_notifications_token(request):
 
 @extend_schema(
     description="Unregister a push notification device token",
-    request=PushNotificationRegistrationParams,
+    request=PushNotificationUnregistrationParams,
 )
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([authentication.SessionAuthentication, NativeOnlyJWTAuthentication])
 def un_register_push_notifications_token(request):
-    serializer: PushNotificationRegistrationSerializer = PushNotificationRegistrationSerializer(data=request.data)
+    serializer: PushNotificationUnregistrationSerializer = PushNotificationUnregistrationSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    params: PushNotificationRegistrationParams = serializer.save()
+    params: PushNotificationUnregistrationParams = serializer.save()
 
     install_id = params.install_id
     token = params.token
 
+    lookup = Q(install_id=install_id)
+    if token:
+        lookup |= Q(registration_id=token)
+
     with transaction.atomic():
-        MobileDevice.objects.filter(Q(install_id=install_id) | Q(registration_id=token)).update(active=False)
+        MobileDevice.objects.filter(lookup, user=request.user).update(user=None)
 
     return Response(status=200)
 

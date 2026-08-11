@@ -3,7 +3,8 @@ import json
 from django.db.models import Q
 from django.utils import timezone
 from management.models.matches import Match
-from management.tasks import send_email_background
+from management.models.user import PushNotificationType, User
+from management.tasks import push_notification_background, send_email_background
 from video.models import LivekitSession
 
 from chat.models import Chat, ChatSerializer, Message, MessageAttachment, MessageSerializer
@@ -107,8 +108,8 @@ def resolve_recipient_email_notification(recipient) -> bool:
 def create_and_deliver_message(
     *,
     chat: Chat,
-    sender,
-    recipient,
+    sender: User,
+    recipient: User,
     text: str = "",
     file=None,
     auto_mark_read: bool = False,
@@ -116,6 +117,7 @@ def create_and_deliver_message(
     send_websocket_to_sender: bool = False,
     update_match: bool = True,
     send_email: bool = True,
+    send_push_notification: bool = True,
 ) -> Message:
     attachment = None
     final_message_text = text
@@ -157,5 +159,15 @@ def create_and_deliver_message(
                 meta_chat_obj=ChatSerializer(chat, context={"user": sender}).data,
                 sender_is_self=True,
             ).send(str(sender.uuid))
+
+    if send_push_notification:
+        push_notification_background.delay(
+            recipient.pk,
+            title=f"{sender.first_name} {sender.last_name}",
+            description=message.text,
+            notification_type=PushNotificationType.CHAT,
+            path=f"/app/chat/{str(chat.uuid)}",
+            group=f"chat:{str(chat.uuid)}",
+        )
 
     return message

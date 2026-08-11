@@ -2140,3 +2140,13 @@ def cleanup_deleted_users_full_user_data(days_since_deletion: int = 30):
         "processed_user_ids": processed_user_ids,
         "cutoff_date": cutoff_date.isoformat(),
     }
+
+
+@shared_task
+def push_notification_background(user_id: int, **kwargs):
+    user = User.objects.get(pk=user_id)
+    if user:
+        print(f"sendinf push notification to user #{user_id}")
+        user.push_notification(**kwargs)
+    else:
+        print(f"Could not find user #{user_id}")

@@ -1,10 +1,29 @@
 import uuid
+from typing import Any
 
 from django.db import models
-from push_notifications.models import GCMDevice
+from push_notifications.models import GCMDevice, GCMDeviceManager, GCMDeviceQuerySet
+
+
+class MobileDeviceQuerySet(GCMDeviceQuerySet):
+    def send_message(self, message: Any, **kwargs: Any) -> Any:
+        return super().send_message(message, **kwargs)
+
+
+class MobileDeviceManager(GCMDeviceManager):
+    def get_queryset(self) -> MobileDeviceQuerySet:
+        return MobileDeviceQuerySet(self.model)
+
+    def filter(self, *args: Any, **kwargs: Any) -> MobileDeviceQuerySet:
+        return self.get_queryset().filter(*args, **kwargs)
+
+    def none(self) -> MobileDeviceQuerySet:
+        return self.get_queryset().none()
 
 
 class MobileDevice(GCMDevice):
+    objects: MobileDeviceManager = MobileDeviceManager()
+
     install_id = models.UUIDField(
         verbose_name=("Installation ID"),
         help_text=("Unique ID per installation on a mobile device"),
