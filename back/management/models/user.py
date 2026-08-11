@@ -53,6 +53,28 @@ class PushNotificationType(StrEnum):
         assert_never(self)
 
 
+def bulk_push_devices(notification_type: PushNotificationType):
+    """All active devices of users opted in to this notification type."""
+    notifications_enabled_field = f"user__profile__{notification_type.profile_field}"
+    return MobileDevice.objects.filter(
+        active=True,
+        user__profile__push_notifications_enabled=True,
+        **{notifications_enabled_field: True},
+    )
+
+
+def send_bulk_push_notification(
+    title: str,
+    description: str,
+    notification_type: PushNotificationType,
+    path: str | None = None,
+    group: str | None = None,
+):
+    bulk_push_devices(notification_type).send_message(
+        build_push_message(title, description, notification_type, path, group)
+    )
+
+
 def build_push_message(
     title: str,
     description: str,
