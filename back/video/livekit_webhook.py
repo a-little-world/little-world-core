@@ -161,7 +161,6 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
                     )
                 except Exception:
                     print("Cound't send call widged to first_active_user")
-                    pass
 
             else:
                 # 2 - send 'MissedCall' event to the partner of the user that left
@@ -182,7 +181,6 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
                     )
                 except Exception:
                     print("Cound't send call widged to first_active_user")
-                    pass
 
         # check if the call review pop-up should be triggered
         call_duration = end_time - session.created_at
@@ -194,7 +192,6 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
                 PostCallSurvey(post_call_survey={"live_session_id": str(session.uuid)}).send(str(user.uuid))
             except Exception:
                 print("Cound't tigger the post call survey")
-                pass
 
     if session is not None:
         session.webhook_events.add(event)
