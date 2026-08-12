@@ -34,7 +34,7 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 from video.models import LivekitSession
 
-from management.match_success import match_tokens_by_id, success_token_threshold, successful_match_ids
+from management.match_success import match_tokens_by_id, success_token_threshold
 
 ENGAGEMENT_DAYS = 4 * 7  # 28 — still-in-contact window for successful matches
 FAILURE_CLIFF_DAYS = 10 * 7  # 70 — no activity → failed
@@ -56,15 +56,42 @@ _RUN_CACHE: contextvars.ContextVar[dict | None] = contextvars.ContextVar("match_
 
 
 @contextmanager
-def classification_run():
+def classification_run(root_qs: QuerySet, token_seed: dict[int, int] | None = None):
     """Share derived maps across the cells of one partition/classification pass.
 
-    Re-entrant: a nested call joins the outer run rather than starting a second cache.
+    ``root_qs`` is the queryset being classified (page, cohort, or single match) and is
+    **required**. Token counts are computed once over its baseline and reused by every
+    cell — keying the cache on each pool's SQL re-ran the LiveKit SUM per
+    ``failed_tokens_*`` / ``tokens_*`` cell whenever ``as_of`` drifted or the pool
+    predicate differed, which is the Sentry N+1 this run scope exists to kill.
+
+    Required rather than optional because the alternative was letting ``_tokens_map``
+    fall back to whichever cell asked first. That made a run-wide cache take its *scope*
+    from call order: seed it from a narrow pool and every later cell silently under-counts
+    against a map that never covered them — ``failed_tokens_1`` returning 0 instead of 96,
+    with no error. A cache shared across cells has to get its scope from the run.
+
+    ``token_seed`` skips the annotate when the caller already paid for
+    ``annotate_match_tokens`` (list page / retrieve); without it, match retrieve ran the
+    LiveKit SUM twice, once loading the row and once classifying it. The seed is trusted
+    for the ids it covers and may legitimately contain support matches the baseline
+    excludes — extra entries are filtered out per cell by ``_pool_ids``.
+
+    Re-entrant: a nested call joins the outer run rather than starting a second cache, so
+    a cell that opens its own run inside ``compute_partition`` keeps the outer scope.
     """
     if _RUN_CACHE.get() is not None:
         yield
         return
-    token = _RUN_CACHE.set({})
+    if root_qs is None:
+        raise ValueError(
+            "classification_run requires root_qs — the token map is shared across cells, "
+            "so its scope must come from the run rather than from whichever cell asks first."
+        )
+    cache: dict = {"root_qs": root_qs}
+    if token_seed is not None:
+        cache["token_seed"] = token_seed
+    token = _RUN_CACHE.set(cache)
     try:
         yield
     finally:
@@ -128,17 +155,47 @@ def _without_video_path(qs: QuerySet) -> QuerySet:
 
 
 def _tokens_map(qs: QuerySet) -> dict[int, int]:
-    """Match ID → tokens. Memoised within a ``classification_run``, never beyond one."""
-    return _run_cached(("tokens", *qs.query.sql_with_params()), lambda: match_tokens_by_id(qs))
+    """Match ID → tokens for the whole classification root, once per run.
+
+    Not keyed on the caller's pool SQL: failed and in-flight pools (and drifting
+    ``timezone.now()`` when ``as_of`` is omitted) previously each triggered their own
+    ``annotate_total_call_minutes`` query — the Sentry N+1 on match retrieve.
+
+    Prefer ``token_seed`` from the run when the admin queryset already annotated the
+    same rows; only annotate ids the seed does not cover.
+    """
+
+    def build() -> dict[int, int]:
+        cache = _RUN_CACHE.get()
+        # Outside a run there is no sharing, so the caller's own pool is the scope. Inside
+        # one, the scope is the run's root — never the calling pool, or the map would mean
+        # something different depending on which cell built it.
+        root = cache["root_qs"] if cache is not None else qs
+        baseline = _baseline(root)
+        seed = cache.get("token_seed") if cache is not None else None
+        if seed:
+            missing = baseline.exclude(id__in=list(seed.keys()))
+            if not missing.exists():
+                return dict(seed)
+            return {**seed, **match_tokens_by_id(missing)}
+        return match_tokens_by_id(baseline)
+
+    return _run_cached("tokens", build)
 
 
-def _ids_with_tokens(qs: QuerySet, *, minimum: int | None = None, exact: int | None = None) -> list[int]:
-    tokens = _tokens_map(qs)
+def _pool_ids(pool: QuerySet) -> set[int]:
+    """IDs in ``pool``, memoised when the pool SQL is stable within the run."""
+    return _run_cached(("pool", *pool.query.sql_with_params()), lambda: set(pool.values_list("id", flat=True)))
+
+
+def _ids_with_tokens(pool: QuerySet, *, minimum: int | None = None, exact: int | None = None) -> list[int]:
+    tokens = _tokens_map(pool)
+    in_pool = _pool_ids(pool)
     if exact is not None:
-        return [mid for mid, count in tokens.items() if count == exact]
+        return [mid for mid, count in tokens.items() if mid in in_pool and count == exact]
     if minimum is not None:
-        return [mid for mid, count in tokens.items() if count >= minimum]
-    return list(tokens)
+        return [mid for mid, count in tokens.items() if mid in in_pool and count >= minimum]
+    return [mid for mid in tokens if mid in in_pool]
 
 
 # ---------------------------------------------------------------------------
@@ -163,14 +220,18 @@ def _baseline(qs: QuerySet) -> QuerySet:
 def _successful_ids(qs: QuerySet) -> set[int]:
     """Matches that reached success, per ``match_success`` — the one definition.
 
-    Not restated here. When this domain owned its own version of the rule and
-    ``user_journey`` owned another, the two charts disagreed about 381 matches and put
-    users in "stopped searching — after failed first match" while their match sat in
-    "Successful — dormant".
+    Built from the run's token map plus off-platform, so classify does not pay a second
+    LiveKit SUM annotate (``successful_matches`` would re-annotate the same rows).
     """
-    return _run_cached(
-        ("successful", *_baseline(qs).query.sql_with_params()), lambda: successful_match_ids(_baseline(qs))
-    )
+
+    def build() -> set[int]:
+        baseline = _baseline(qs)
+        threshold = _success_token_threshold()
+        by_tokens = {mid for mid, count in _tokens_map(baseline).items() if count >= threshold}
+        off_platform = set(baseline.filter(completed_off_plattform=True).values_list("id", flat=True))
+        return by_tokens | off_platform
+
+    return _run_cached("successful", build)
 
 
 def _off_platform(qs: QuerySet) -> QuerySet:
@@ -546,7 +607,10 @@ def unclassifiable(qs: QuerySet, as_of=None) -> QuerySet:
     from management.analytics.match_journey.catalog import CATALOG
     from management.analytics.match_journey.partitions import MATCH_JOURNEY_V5
 
-    with classification_run():
+    # Scope declared explicitly: standalone (served as a filter list) this opens the run,
+    # and the shared token map must cover `qs`, not whichever cell happens to ask first.
+    # Inside compute_partition/classify_partition this is re-entrant and keeps their scope.
+    with classification_run(root_qs=qs):
         claimed: set[int] = set()
         for list_id in MATCH_JOURNEY_V5.bucket_ids():
             if list_id == UNCLASSIFIABLE_LIST_ID:

@@ -93,12 +93,30 @@ class MatchJourneyV5StructureTests(SimpleTestCase):
 
     def test_token_cache_is_scoped_to_a_run_not_a_thread(self):
         """A thread-local cache is never invalidated, so a worker serves stale counts."""
+        root = Match.objects.none()
         self.assertIsNone(state._RUN_CACHE.get())
-        with state.classification_run():
-            self.assertEqual(state._RUN_CACHE.get(), {})
-            with state.classification_run():  # re-entrant: joins the outer run
-                self.assertEqual(state._RUN_CACHE.get(), {})
+        with state.classification_run(root_qs=root):
+            self.assertEqual(state._RUN_CACHE.get(), {"root_qs": root})
+            with state.classification_run(root_qs=Match.objects.all()):  # re-entrant
+                # Joins the outer run, so the outer scope stands — a nested call must not
+                # be able to re-point the shared token map at a different queryset.
+                self.assertEqual(state._RUN_CACHE.get(), {"root_qs": root})
         self.assertIsNone(state._RUN_CACHE.get())
+
+    def test_run_requires_an_explicit_scope(self):
+        """The token map is shared across cells, so its scope cannot come from call order.
+
+        With an optional root the map took its scope from whichever cell asked first:
+        seeded from a narrow pool, every later cell silently under-counted against a map
+        that never covered them — `failed_tokens_1` returning 0 instead of 96, no error.
+        """
+        with self.assertRaisesRegex(ValueError, "requires root_qs"), state.classification_run(root_qs=None):
+            pass
+
+    def test_unclassifiable_declares_its_own_scope(self):
+        """Served standalone as a filter list, it opens the run and must set the scope."""
+        source = inspect.getsource(state.unclassifiable)
+        self.assertIn("classification_run(root_qs=qs)", source)
 
     def test_unclassifiable_is_derived_from_the_partition(self):
         """The catch-all must cover every other cell, so it reads the partition itself.
@@ -179,21 +197,27 @@ class CrossJourneyConsistencyTests(SimpleTestCase):
     def test_match_journey_asks_match_tokens_for_success(self):
         from management.analytics.match_journey.queries import state as mstate
 
+        # Success is the shared token map (≥ threshold) plus off-platform — not a second
+        # annotate via ``successful_match_ids``, which duplicated the LiveKit SUM on classify.
         referenced = set(mstate._successful_ids.__code__.co_names) | {
             name
             for const in mstate._successful_ids.__code__.co_consts
             if hasattr(const, "co_names")
             for name in const.co_names
         }
-        self.assertIn("successful_match_ids", referenced)
+        self.assertIn("_tokens_map", referenced)
+        self.assertIn("_success_token_threshold", referenced)
+        self.assertIn("completed_off_plattform", inspect.getsource(mstate._successful_ids))
+        self.assertNotIn("successful_match_ids", referenced)
 
     def test_both_journeys_resolve_to_one_definition(self):
-        """Same underlying callable, so there is a single place to change the rule."""
+        """Same underlying callables, so there is a single place to change the rule."""
         from management.analytics.match_journey.queries import state as mstate
         from management.analytics.user_journey.queries import state as ustate
-        from management.match_success import successful_match_ids, successful_matches
+        from management.match_success import match_tokens_by_id, success_token_threshold, successful_matches
 
-        self.assertIs(mstate.successful_match_ids, successful_match_ids)
+        self.assertIs(mstate.match_tokens_by_id, match_tokens_by_id)
+        self.assertEqual(mstate.success_token_threshold(), success_token_threshold())
         # user_journey imports lazily inside the predicate; resolve it the same way.
         from management.match_success import successful_matches as imported
 
