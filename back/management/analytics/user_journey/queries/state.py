@@ -361,8 +361,13 @@ def first_match_kickoff(qs: QuerySet) -> QuerySet:
 
 
 def first_match_ongoing(qs: QuerySet) -> QuerySet:
-    """In a first-success attempt with sustained contact, not yet completed/free-play."""
-    return _never_succeeded(qs).filter(_has_ongoing_match()).exclude(_has_takeoff_match())
+    """In a first-success attempt past kickoff — sustained contact, or free play.
+
+    Together with ``first_match_kickoff`` this covers *everything* ``_has_live_match``
+    covers, which is the property the partition depends on: every other never-succeeded
+    cell excludes users with a live match.
+    """
+    return _never_succeeded(qs).filter(_has_live_match()).exclude(_has_takeoff_match())
 
 
 # ---------------------------------------------------------------------------
@@ -372,12 +377,7 @@ def first_match_ongoing(qs: QuerySet) -> QuerySet:
 
 def rematch_proposed(qs: QuerySet) -> QuerySet:
     """Open rematch proposal after failed first match(es); nothing live yet."""
-    return (
-        _never_succeeded(qs)
-        .filter(_has_match_history(), _has_open_proposal())
-        .exclude(_has_takeoff_match())
-        .exclude(_has_ongoing_match())
-    )
+    return _never_succeeded(qs).filter(_has_match_history(), _has_open_proposal()).exclude(_has_live_match())
 
 
 def searching_after_failed(qs: QuerySet) -> QuerySet:
@@ -407,13 +407,7 @@ def stopped_after_failed(qs: QuerySet) -> QuerySet:
 
 def proposed_never_matched(qs: QuerySet) -> QuerySet:
     """Open proposal and has never had a real match."""
-    return (
-        _never_succeeded(qs)
-        .filter(_has_open_proposal())
-        .exclude(_has_match_history())
-        .exclude(_has_takeoff_match())
-        .exclude(_has_ongoing_match())
-    )
+    return _never_succeeded(qs).filter(_has_open_proposal()).exclude(_has_match_history()).exclude(_has_live_match())
 
 
 def active_search_blocked(qs: QuerySet) -> QuerySet:
