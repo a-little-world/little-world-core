@@ -14,7 +14,7 @@ from rest_framework.response import Response
 
 from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import IsAdminOrMatchingUser
-from management.models.user import MobileDevice, User
+from management.models.user import MobileDevice, PushNotificationType, User
 
 
 @dataclass
@@ -68,7 +68,9 @@ class PushNotificationSerializer(serializers.Serializer):
 def get_firebase_service_worker(request):
     code = render_to_string("firebase-worker.js", context=settings.FIREBASE_CLIENT_CONFIG)
 
-    return HttpResponse(code, content_type="application/javascript", charset="utf-8")
+    response = HttpResponse(code, content_type="application/javascript", charset="utf-8")
+    response["Cache-Control"] = "no-cache"
+    return response
 
 
 @extend_schema(
@@ -165,7 +167,11 @@ def send_push_notification(request):
     params: PushNotificationParams = serializer.save()
 
     user = User.objects.get(id=params.user)
-    user.push_notification(title=params.title, description=params.description)
+    user.push_notification(
+        title=params.title,
+        description=params.description,
+        notification_type=PushNotificationType.ANNOUNCEMENT,
+    )
 
     return Response(status=200)
 
@@ -177,7 +183,11 @@ def send_push_notification(request):
 @permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([authentication.SessionAuthentication, NativeOnlyJWTAuthentication])
 def send_test_push_notification(request):
-    request.user.send_notification(title="Test notification title", description="Test notification description")
+    request.user.send_notification(
+        title="Test notification title",
+        description="Test notification description",
+        notification_type=PushNotificationType.ANNOUNCEMENT,
+    )
     return Response(status=200)
 
 
