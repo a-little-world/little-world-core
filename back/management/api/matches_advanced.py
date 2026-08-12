@@ -20,6 +20,7 @@ from management.api.match_journey_filter_list import (
     MATCH_JOURNEY_FILTERS,
     determine_match_buckets,
     get_match_bucket_label,
+    match_bucket_map,
 )
 from management.api.utils_advanced import (
     FilterSchemaResponseSerializer,
@@ -38,32 +39,14 @@ from management.models.user import User
 from management.permissions import ManagementPermission
 
 
-def match_bucket_map(match_ids) -> dict[int, str]:
-    """Match ID → its primary V5 bucket, for a whole page in one pass.
-
-    Support matches sit outside the partition baseline, so they are tagged separately;
-    everything else comes from ``classify_partition``.
-    """
-    from management.analytics.registry import MATCH_JOURNEY_V5, classify_partition
-
-    scoped = Match.objects.filter(id__in=list(match_ids))
-    buckets = dict.fromkeys(
-        scoped.filter(support_matching=True).values_list("id", flat=True),
-        "special__support_matching",
-    )
-    buckets.update(classify_partition(MATCH_JOURNEY_V5, scoped))
-    return buckets
-
-
 def _apply_match_bucket_representation(representation: dict, match_pk: int, context: dict) -> None:
     determine_bucket = context.get("determine_bucket", True)
     all_buckets = context.get("all_buckets", False)
     if not determine_bucket and not all_buckets:
         return
 
-    # Prefer the page-wide map built once in the view. Falling back to the per-row lookup
-    # keeps single-match paths (retrieve, export) working, but that path costs ~51 queries
-    # per match — never let a list view reach it.
+    # Prefer a request-scoped map (list page or retrieve). Fallback is still one classify
+    # pass per match via ``determine_match_buckets`` — never the old per-cell ``.exists()`` loop.
     bucket_map = context.get("bucket_map")
     if bucket_map is not None and not all_buckets:
         bucket = bucket_map.get(match_pk)
@@ -820,7 +803,7 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         """
         page = super().paginate_queryset(queryset)
         if page is not None and self.get_serializer_context().get("determine_bucket"):
-            self._bucket_map = match_bucket_map([m.pk for m in page])
+            self._bucket_map = match_bucket_map([m.pk for m in page], matches=page)
         return page
 
     def get_queryset(self):
@@ -908,6 +891,10 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
+        # Retrieve skips paginate_queryset, so build the map here — same classify pass as list.
+        # Pass the annotated instance so classify reuses its call-time SUM (no second annotate).
+        if self.get_serializer_context().get("determine_bucket"):
+            self._bucket_map = match_bucket_map([instance.pk], matches=[instance])
         serializer = self.get_serializer(instance)
         data = dict(serializer.data)
         data.update(_match_stats_retrieve_extra(instance))

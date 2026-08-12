@@ -43,6 +43,9 @@ answers are wanted; what must never diverge is the underlying trait, which is wh
 eligibility comes from ``traits`` rather than being restated here.
 """
 
+import contextvars
+from contextlib import contextmanager
+
 from django.db.models import Exists, F, OuterRef, Q, QuerySet, Subquery
 from django.utils import timezone
 
@@ -69,6 +72,50 @@ _FILLED = traits.FILLED
 _UNFILLED = traits.UNFILLED
 _SEARCHING = traits.SEARCHING
 _IDLE = traits.IDLE
+
+# Scratch for one classify/compute pass. ``successful_matches`` annotates LiveKit call
+# time; embedding that in ``_has_success_match`` meant every success-gated cell re-paid
+# the SUM (≈21 queries on user retrieve). The run precomputes participant user ids once.
+_RUN_CACHE: contextvars.ContextVar[dict | None] = contextvars.ContextVar("user_state_run_cache", default=None)
+
+
+@contextmanager
+def classification_run(root_qs: QuerySet | None = None):
+    """Share derived success participants across the cells of one user-partition pass.
+
+    ``root_qs`` is optional here, unlike the match-journey run where it is required. The
+    difference is what happens without it: there, cells would read a shared token map
+    whose scope came from whichever cell asked first, and silently under-count. Here the
+    only cached value is the success-participant set, and its absence makes
+    ``_has_success_match`` fall back to the ``EXISTS`` form — the same answer, just
+    without the saved annotate. Degrading to slow-but-correct needs no guard; degrading
+    to fast-but-wrong does.
+    """
+    if _RUN_CACHE.get() is not None:
+        yield
+        return
+    cache: dict = {}
+    if root_qs is not None:
+        cache["success_user_ids"] = _compute_success_user_ids(root_qs)
+    token = _RUN_CACHE.set(cache)
+    try:
+        yield
+    finally:
+        _RUN_CACHE.reset(token)
+
+
+def _compute_success_user_ids(user_qs: QuerySet) -> frozenset[int]:
+    """User ids who participate in a successful non-support match — one annotate."""
+    from management.match_success import successful_matches
+
+    matches = successful_matches(
+        Match.objects.filter(support_matching=False).filter(Q(user1__in=user_qs) | Q(user2__in=user_qs))
+    )
+    out: set[int] = set()
+    for user1_id, user2_id in matches.values_list("user1_id", "user2_id"):
+        out.add(user1_id)
+        out.add(user2_id)
+    return frozenset(out)
 
 
 def _now(as_of=None):
@@ -254,7 +301,14 @@ def _has_success_match() -> Q:
     with the active v1 rule. The two disagreed about 381 matches and produced users sitting
     in "stopped searching — after failed first match" whose match read "Successful —
     dormant". Non-support only, matching the match-journey baseline.
+
+    Inside a ``classification_run``, participant ids are precomputed once so cells do not
+    each embed ``successful_matches``' LiveKit SUM annotate.
     """
+    cache = _RUN_CACHE.get()
+    if cache is not None and "success_user_ids" in cache:
+        return Q(pk__in=cache["success_user_ids"])
+
     from management.match_success import successful_matches
 
     return _participates_in(successful_matches(_non_support_matches()))

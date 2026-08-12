@@ -14,9 +14,9 @@ from translations import get_translation
 from video.models import LivekitSession, SerializeLivekitSession
 
 from management import controller
-from management.api.match_journey_filter_list import determine_match_buckets, get_match_bucket_label
+from management.api.matches_advanced import _apply_match_bucket_representation
 from management.api.scores import score_between_db_update
-from management.api.utils_advanced import apply_journey_bucket_fields, enrich_report_unmatch_with_user_info
+from management.api.utils_advanced import enrich_report_unmatch_with_user_info
 from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import get_paginated_format_v2
@@ -84,21 +84,14 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             representation["status"] = self.context["status"]
 
         if self.context.get("determine_bucket"):
-            match_context = {
-                "determine_bucket": self.context.get("determine_bucket", False),
-                "all_buckets": self.context.get("all_buckets", False),
-            }
-            category_buckets = determine_match_buckets(instance.pk, all_lists=False)
-            all_bucket_names = (
-                determine_match_buckets(instance.pk, all_lists=True) if match_context["all_buckets"] else None
-            )
-            apply_journey_bucket_fields(
+            _apply_match_bucket_representation(
                 representation,
-                category_buckets=category_buckets,
-                all_buckets=all_bucket_names,
-                determine_bucket=match_context["determine_bucket"],
-                include_all_buckets=match_context["all_buckets"],
-                label_fn=get_match_bucket_label,
+                instance.pk,
+                {
+                    "determine_bucket": self.context.get("determine_bucket", False),
+                    "all_buckets": self.context.get("all_buckets", False),
+                    "bucket_map": self.context.get("bucket_map"),
+                },
             )
 
         return representation
