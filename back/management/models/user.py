@@ -345,8 +345,11 @@ class User(AbstractUser):
         """The devices a push notification goes to, empty if the user opted out."""
         if not self.profile.push_notifications_enabled:
             return MobileDevice.objects.none()
-        if notification_type is not None and not getattr(self.profile, notification_type.profile_field):
-            return MobileDevice.objects.none()
+        if notification_type is not None:
+            # can be serialized by celery, so cast it back
+            notification_type = PushNotificationType(notification_type)
+            if not getattr(self.profile, notification_type.profile_field):
+                return MobileDevice.objects.none()
         return MobileDevice.objects.filter(user=self, active=True)
 
     def sms(self, send_initator, message, dont_send=False, skip_reason="skipped"):
