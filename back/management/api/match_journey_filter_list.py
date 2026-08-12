@@ -230,6 +230,46 @@ def _match_journey_category_buckets() -> list[str]:
     return ["special__support_matching", *MATCH_JOURNEY_V5.bucket_ids()]
 
 
+def match_bucket_map(match_ids, *, matches=None) -> dict[int, str]:
+    """Match ID → its primary V5 bucket, for a whole set in one classification pass.
+
+    Support matches sit outside the partition baseline, so they are tagged separately;
+    everything else comes from ``classify_partition`` (which opens ``classification_run``
+    so token/inactive maps are shared). Prefer this over ``determine_match_buckets`` —
+    the per-list ``.exists()`` loop re-ran inactive and success work once per cell and
+    tripped Sentry N+1 on retrieve and nested user-match serialization.
+
+    Pass ``matches`` when they already carry ``annotate_match_tokens`` so classify does
+    not re-SUM LiveKit sessions for the same rows.
+    """
+    from management.analytics.registry import MATCH_JOURNEY_V5, classify_partition
+    from management.match_success.sessions import TOTAL_CALL_TIME_ANNOTATION
+    from management.match_success.versions.v1_total_minutes import tokens_from_total_minutes
+
+    ids = list(match_ids)
+    if not ids:
+        return {}
+
+    token_seed: dict[int, int] | None = None
+    if matches is not None:
+        token_seed = {}
+        for match in matches:
+            annotated = getattr(match, TOTAL_CALL_TIME_ANNOTATION, None)
+            if annotated is None:
+                continue
+            token_seed[match.pk] = tokens_from_total_minutes(annotated.total_seconds() / 60.0)
+        if not token_seed:
+            token_seed = None
+
+    scoped = Match.objects.filter(id__in=ids)
+    buckets = dict.fromkeys(
+        scoped.filter(support_matching=True).values_list("id", flat=True),
+        "special__support_matching",
+    )
+    buckets.update(classify_partition(MATCH_JOURNEY_V5, scoped, token_seed=token_seed))
+    return buckets
+
+
 # Proposal filters operate on ProposedMatch and ignore the incoming Match queryset.
 MATCH_BUCKET_SKIP_LISTS = frozenset(
     {
@@ -268,7 +308,21 @@ def _match_bucket_entry_applies(entry: FilterListEntry, match_pk: int) -> bool:
 
 
 def determine_match_buckets(match_pk, all_lists: bool = False) -> list[str]:
-    bucket_names = [entry.name for entry in MATCH_JOURNEY_FILTERS] if all_lists else _match_journey_category_buckets()
+    """Primary V5 bucket(s) for one match.
+
+    **One classify pass per call** — cheaper than the old per-cell ``.exists()`` loop, but
+    not a light lookup. Never call this in a loop over rows: batch the ids through
+    ``match_bucket_map`` once and read from the result. The only production caller is the
+    serializer fallback for single-row paths where no page-wide map exists.
+
+    ``all_lists=True`` still walks every filter entry for debug dumps and is intentionally
+    expensive.
+    """
+    if not all_lists:
+        bucket = match_bucket_map([match_pk]).get(match_pk)
+        return [bucket] if bucket else []
+
+    bucket_names = [entry.name for entry in MATCH_JOURNEY_FILTERS]
     bucket_map = {entry.name: entry for entry in MATCH_JOURNEY_FILTERS}
     return [
         name

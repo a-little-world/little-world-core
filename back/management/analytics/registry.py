@@ -338,7 +338,9 @@ def assert_partition_valid_strict(partition: PartitionDefinition) -> None:
 PARTITION_ID_SAMPLE_LIMIT = 50
 
 
-def classify_partition(partition: PartitionDefinition, qs, *, as_of=None) -> dict[int, str]:
+def classify_partition(
+    partition: PartitionDefinition, qs, *, as_of=None, token_seed: dict | None = None
+) -> dict[int, str]:
     """Row ID → the partition cell it belongs to, for every row in ``qs``.
 
     One pass over the cells for the whole queryset, rather than every cell re-evaluated
@@ -350,9 +352,12 @@ def classify_partition(partition: PartitionDefinition, qs, *, as_of=None) -> dic
     show for them (the match list tags support matches, which are outside the baseline).
     Overlaps resolve to the first cell in partition order, so a caller always gets one
     label; ``compute_partition`` is what reports overlaps as a problem.
+
+    ``token_seed`` (match id → tokens) avoids a second LiveKit SUM when the caller already
+    annotated the rows (admin list/retrieve).
     """
     as_of = as_of or timezone.now()
-    with _partition_run(partition):
+    with _partition_run(partition, qs, token_seed=token_seed):
         assigned: dict[int, str] = {}
         for list_id in partition.bucket_ids():
             entry = ALL_CATALOG.get(list_id)
@@ -364,16 +369,21 @@ def classify_partition(partition: PartitionDefinition, qs, *, as_of=None) -> dic
 
 
 @contextmanager
-def _partition_run(partition: PartitionDefinition):
+def _partition_run(partition: PartitionDefinition, qs=None, token_seed: dict | None = None):
     """Let a domain share derived state across the cells of one pass, if it wants to.
 
-    Only ``match_journey`` needs this today (its cells share a token map and an inactive
-    breakdown). Domains without a run scope are unaffected.
+    ``match_journey`` shares a token map / inactive breakdown; ``user_journey`` shares
+    successful-match participant ids so cells do not re-embed the LiveKit SUM annotate.
     """
     if partition.base_model is Match:
         from management.analytics.match_journey.queries.state import classification_run
 
-        with classification_run():
+        with classification_run(root_qs=qs, token_seed=token_seed):
+            yield
+    elif partition.base_model is User:
+        from management.analytics.user_journey.queries.state import classification_run
+
+        with classification_run(root_qs=qs):
             yield
     else:
         yield
@@ -405,7 +415,7 @@ def compute_partition(
     """
     as_of = as_of or timezone.now()
 
-    with _partition_run(partition):
+    with _partition_run(partition, qs):
         return _compute_partition_inner(partition, qs, as_of=as_of, sample_limit=sample_limit)
 
 
