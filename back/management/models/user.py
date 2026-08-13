@@ -11,6 +11,7 @@ from django.db.models import Q
 from emails.api.send_email import send_template_email
 from firebase_admin import messaging
 from rest_framework import serializers
+from webpack_loader.utils import get_static
 
 from back import utils
 from management.models.mobile_device import MobileDevice
@@ -100,6 +101,13 @@ def build_push_message(
         apns=messaging.APNSConfig(
             headers={"apns-priority": "10"},
             payload=messaging.APNSPayload(aps=messaging.Aps(sound="default", thread_id=group)),
+        ),
+        webpush=messaging.WebpushConfig(
+            notification=messaging.WebpushNotification(
+                title=title,
+                body=description,
+                icon=get_static("android-chrome-512x512.png", config="main_frontend"),
+            ),
         ),
     )
 
