@@ -342,7 +342,6 @@ class User(AbstractUser):
         )
 
     def push_devices(self, notification_type: PushNotificationType | None = None):
-        """The devices a push notification goes to, empty if the user opted out."""
         if not self.profile.push_notifications_enabled:
             return MobileDevice.objects.none()
         if notification_type is not None:
@@ -350,7 +349,11 @@ class User(AbstractUser):
             notification_type = PushNotificationType(notification_type)
             if not getattr(self.profile, notification_type.profile_field):
                 return MobileDevice.objects.none()
-        return MobileDevice.objects.filter(user=self, active=True)
+
+        devices = MobileDevice.objects.filter(user=self, active=True)
+        # send to online devices only if any exist, otherwise send to all
+        online = devices.online()
+        return online if online.exists() else devices
 
     def sms(self, send_initator, message, dont_send=False, skip_reason="skipped"):
         """ "Sends SMS to User if user has SMS Notification allowed and valid Phone number"""
