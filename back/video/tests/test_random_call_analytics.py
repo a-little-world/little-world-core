@@ -57,13 +57,23 @@ class RandomCallAnalyticsTests(TestCase):
         )
 
     def _create_admin_user(self, suffix: str = "admin") -> User:
+        """A user that is genuinely staff, so `IsAdminOrMatchingUser` lets them in.
+
+        `UserManager.create_user` hard-sets `kwargs["is_staff"] = False`, so passing
+        `is_staff=True` to it was silently discarded and every API test in this class
+        returned 403. Set it with a follow-up write, the same way `auto_now_add` fields
+        have to be. `create_superuser` would work too but grants more than these tests
+        need — and expects `second_name` rather than `last_name`.
+        """
         user = User.objects.create_user(
             email=f"rc_admin_{suffix}@example.com",
             password="Test123!",
             first_name=f"Admin{suffix}",
             last_name="Test",
-            is_staff=True,
         )
+        User.objects.filter(pk=user.pk).update(is_staff=True)
+        user.refresh_from_db()
+        assert user.is_staff, "admin fixture must be staff or every endpoint test 403s"
         return user
 
     def _create_livekit_session(self, **kwargs) -> LivekitSession:
@@ -515,6 +525,371 @@ class RandomCallAnalyticsTests(TestCase):
         durations = build_completed_call_durations([proposal], lobby=lobby)
         self.assertEqual(durations[proposal.pk], 28 * 60)
 
+    def test_dropped_call_counts_both_legs(self):
+        """A short leg near acceptance plus a long one is a single conversation.
+
+        Previously this took the longest session, which stopped a 3-minute reconnect
+        *hiding* a 52-minute call but silently threw the 3 minutes away. Summing keeps
+        both — the window already guarantees they belong to this proposal.
+        """
+        learner = self._create_user("reconnect_learner")
+        volunteer = self._create_user("reconnect_volunteer")
+        now = timezone.now()
+        lobby = self._create_lobby(
+            start_time=now - timezone.timedelta(hours=2),
+            end_time=now - timezone.timedelta(minutes=30),
+        )
+        accepted_at = now - timezone.timedelta(hours=1, minutes=30)
+        proposal = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=True,
+            accepted_at=accepted_at,
+            completed_at=accepted_at + timezone.timedelta(minutes=55),
+        )
+        RandomCallLobbyUser.objects.create(user=learner, lobby=lobby, is_active=False)
+        RandomCallLobbyUser.objects.create(user=volunteer, lobby=lobby, is_active=False)
+
+        short_start = accepted_at + timezone.timedelta(seconds=30)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=short_start,
+            end_time=short_start + timezone.timedelta(seconds=209),  # 0h 3m 29s
+            is_active=False,
+        )
+        long_start = accepted_at + timezone.timedelta(minutes=5)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=long_start,
+            end_time=long_start + timezone.timedelta(minutes=52),
+            is_active=False,
+        )
+
+        durations = build_completed_call_durations([proposal], lobby=lobby)
+        self.assertEqual(durations[proposal.pk], 52 * 60 + 209)
+
+        participants = build_lobby_participants(
+            RandomCallLobbyUser.objects.filter(lobby=lobby),
+            [proposal],
+            lobby,
+            set(),
+            as_of=now,
+        )
+        learner_row = next(row for row in participants if row["user_id"] == learner.pk)
+        # The proposal's duration is both legs, so the participant's longest call is too.
+        self.assertEqual(learner_row["longest_call_duration_seconds"], 52 * 60 + 209)
+        self.assertEqual(learner_row["completed_calls"], 1)
+
+    def test_longest_call_across_multiple_partners_uses_max(self):
+        learner = self._create_user("multi_partner_learner")
+        volunteer_a = self._create_user("multi_partner_a")
+        volunteer_b = self._create_user("multi_partner_b")
+        now = timezone.now()
+        lobby = self._create_lobby(
+            start_time=now - timezone.timedelta(hours=2),
+            end_time=now - timezone.timedelta(minutes=30),
+        )
+        first_accepted = now - timezone.timedelta(hours=1, minutes=40)
+        second_accepted = now - timezone.timedelta(hours=1)
+        proposal_a = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer_a,
+            accepted=True,
+            completed=True,
+            accepted_at=first_accepted,
+            completed_at=first_accepted + timezone.timedelta(minutes=10),
+        )
+        proposal_b = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer_b,
+            accepted=True,
+            completed=True,
+            accepted_at=second_accepted,
+            completed_at=second_accepted + timezone.timedelta(minutes=55),
+        )
+        for user in (learner, volunteer_a, volunteer_b):
+            RandomCallLobbyUser.objects.create(user=user, lobby=lobby, is_active=False)
+
+        short_start = first_accepted + timezone.timedelta(minutes=1)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer_a,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=short_start,
+            end_time=short_start + timezone.timedelta(seconds=209),
+            is_active=False,
+        )
+        long_start = second_accepted + timezone.timedelta(minutes=1)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer_b,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=long_start,
+            end_time=long_start + timezone.timedelta(minutes=52),
+            is_active=False,
+        )
+
+        participants = build_lobby_participants(
+            RandomCallLobbyUser.objects.filter(lobby=lobby),
+            [proposal_a, proposal_b],
+            lobby,
+            set(),
+            as_of=now,
+        )
+        learner_row = next(row for row in participants if row["user_id"] == learner.pk)
+        self.assertEqual(learner_row["completed_calls"], 2)
+        self.assertEqual(learner_row["longest_call_duration_seconds"], 52 * 60)
+
+    def test_reconnected_call_sums_its_sessions(self):
+        """A drop-and-reconnect is one conversation split across rows.
+
+        Taking only the longest leg silently discarded the rest — a 3-minute call that
+        dropped and resumed for 20 reported 20, not 23.
+        """
+        learner = self._create_user("reconnect_learner")
+        volunteer = self._create_user("reconnect_volunteer")
+        now = timezone.now()
+        lobby = self._create_lobby(
+            start_time=now - timezone.timedelta(hours=2),
+            end_time=now - timezone.timedelta(minutes=30),
+        )
+        accepted = now - timezone.timedelta(hours=1, minutes=40)
+        proposal = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=True,
+            accepted_at=accepted,
+            completed_at=accepted + timezone.timedelta(minutes=30),
+        )
+        first = accepted + timezone.timedelta(minutes=1)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=first,
+            end_time=first + timezone.timedelta(minutes=3),
+            is_active=False,
+        )
+        second = accepted + timezone.timedelta(minutes=5)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=second,
+            end_time=second + timezone.timedelta(minutes=20),
+            is_active=False,
+        )
+
+        durations = build_completed_call_durations([proposal], lobby=lobby)
+        self.assertEqual(durations[proposal.pk], 23 * 60)
+
+    def test_sole_proposal_without_accepted_at_still_gets_its_duration(self):
+        """`accepted_at` is NULL on every row predating migration video.0024.
+
+        The sort key used to build a sentinel from ``django.utils.timezone.utc``, which
+        Django 5 removed — the whole lobby detail endpoint raised AttributeError. Beyond
+        the crash, these rows should still be measurable: with only one proposal for the
+        pair the lobby window identifies the call on its own, so nothing is ambiguous.
+        """
+        learner = self._create_user("no_accepted_at_learner")
+        volunteer = self._create_user("no_accepted_at_volunteer")
+        now = timezone.now()
+        lobby = self._create_lobby(
+            start_time=now - timezone.timedelta(hours=2),
+            end_time=now - timezone.timedelta(minutes=30),
+        )
+        proposal = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=True,
+            accepted_at=None,
+        )
+        start = now - timezone.timedelta(hours=1)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=start,
+            end_time=start + timezone.timedelta(minutes=12),
+            is_active=False,
+        )
+
+        durations = build_completed_call_durations([proposal], lobby=lobby)
+        self.assertEqual(durations[proposal.pk], 12 * 60)
+
+    def test_two_proposals_without_accepted_at_do_not_share_one_session(self):
+        """Both fell back to the whole-lobby window and each claimed the same call.
+
+        With a second proposal for the pair there is no way to tell which call belongs to
+        which, so neither is attributed — better than counting one call twice.
+        """
+        learner = self._create_user("dup_learner")
+        volunteer = self._create_user("dup_volunteer")
+        now = timezone.now()
+        lobby = self._create_lobby(
+            start_time=now - timezone.timedelta(hours=2),
+            end_time=now - timezone.timedelta(minutes=30),
+        )
+        proposal_1 = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=True,
+            accepted_at=None,
+        )
+        proposal_2 = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=True,
+            accepted_at=None,
+        )
+        start = now - timezone.timedelta(hours=1)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=start,
+            end_time=start + timezone.timedelta(minutes=18),
+            is_active=False,
+        )
+
+        durations = build_completed_call_durations([proposal_1, proposal_2], lobby=lobby)
+        self.assertEqual(durations[proposal_1.pk], 0)
+        self.assertEqual(durations[proposal_2.pk], 0)
+        self.assertEqual(sum(durations.values()), 0, "one call must not be counted twice")
+
+    def test_unaccepted_proposal_does_not_bound_an_accepted_one(self):
+        """An unaccepted proposal sorts first but carries no time, so it closes no window."""
+        learner = self._create_user("mixed_learner")
+        volunteer = self._create_user("mixed_volunteer")
+        now = timezone.now()
+        lobby = self._create_lobby(
+            start_time=now - timezone.timedelta(hours=2),
+            end_time=now - timezone.timedelta(minutes=30),
+        )
+        accepted = now - timezone.timedelta(hours=1, minutes=40)
+        unaccepted = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=True,
+            accepted_at=None,
+        )
+        real = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=True,
+            accepted_at=accepted,
+            completed_at=accepted + timezone.timedelta(minutes=20),
+        )
+        start = accepted + timezone.timedelta(minutes=1)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=start,
+            end_time=start + timezone.timedelta(minutes=17),
+            is_active=False,
+        )
+
+        durations = build_completed_call_durations([unaccepted, real], lobby=lobby)
+        self.assertEqual(durations[unaccepted.pk], 0)
+        self.assertEqual(durations[real.pk], 17 * 60)
+
+    def test_same_pair_rematch_keeps_each_proposal_duration(self):
+        learner = self._create_user("rematch_learner")
+        volunteer = self._create_user("rematch_volunteer")
+        now = timezone.now()
+        lobby = self._create_lobby(
+            start_time=now - timezone.timedelta(hours=2),
+            end_time=now - timezone.timedelta(minutes=30),
+        )
+        first_accepted = now - timezone.timedelta(hours=1, minutes=40)
+        second_accepted = now - timezone.timedelta(hours=1)
+        proposal_1 = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=True,
+            accepted_at=first_accepted,
+            completed_at=first_accepted + timezone.timedelta(minutes=20),
+        )
+        proposal_2 = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=True,
+            accepted_at=second_accepted,
+            completed_at=second_accepted + timezone.timedelta(minutes=55),
+        )
+        RandomCallLobbyUser.objects.create(user=learner, lobby=lobby, is_active=False)
+        RandomCallLobbyUser.objects.create(user=volunteer, lobby=lobby, is_active=False)
+
+        first_start = first_accepted + timezone.timedelta(minutes=1)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=first_start,
+            end_time=first_start + timezone.timedelta(minutes=15),
+            is_active=False,
+        )
+        second_start = second_accepted + timezone.timedelta(minutes=1)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=second_start,
+            end_time=second_start + timezone.timedelta(minutes=52),
+            is_active=False,
+        )
+
+        durations = build_completed_call_durations([proposal_1, proposal_2], lobby=lobby)
+        self.assertEqual(durations[proposal_1.pk], 15 * 60)
+        self.assertEqual(durations[proposal_2.pk], 52 * 60)
+
+        participants = build_lobby_participants(
+            RandomCallLobbyUser.objects.filter(lobby=lobby),
+            [proposal_1, proposal_2],
+            lobby,
+            set(),
+            as_of=now,
+        )
+        learner_row = next(row for row in participants if row["user_id"] == learner.pk)
+        self.assertEqual(learner_row["completed_calls"], 2)
+        self.assertEqual(learner_row["longest_call_duration_seconds"], 52 * 60)
+
     def test_list_lobby_analytics_api(self):
         learner = self._create_user("api_learner", Profile.TypeChoices.LEARNER)
         volunteer = self._create_user("api_volunteer", Profile.TypeChoices.VOLUNTEER)
@@ -577,9 +952,55 @@ class RandomCallAnalyticsTests(TestCase):
         self.assertTrue(rows[str(finished_lobby.uuid)]["proposals_are_final"])
 
     def test_resolve_lobby_instance_requires_matching_name_for_uuid(self):
-        lobby = self._create_lobby(name="default")
+        now = timezone.now()
+        lobby = self._create_lobby(
+            name="default",
+            start_time=now - timezone.timedelta(hours=2),
+            end_time=now - timezone.timedelta(hours=1),
+        )
         self.assertIsNone(resolve_lobby_instance("other", lobby_uuid=str(lobby.uuid)))
         self.assertEqual(resolve_lobby_instance("default", lobby_uuid=str(lobby.uuid)), lobby)
+
+    def test_end_of_day_bound_is_the_last_microsecond_not_midnight(self):
+        """`end_of_day` was silently ignored for date-only input — the only input it serves.
+
+        `parse_datetime` has accepted date-only strings since Django 4.1, returning
+        midnight, so it claimed the value before the end_of_day branch ran. Combined with
+        `start_time__lte=to_dt`, `from=X&to=X` matched only lobbies starting at exactly
+        00:00:00 — a same-day filter returned nothing.
+        """
+        bound = parse_analytics_datetime_bound("2026-01-01", end_of_day=True)
+        self.assertEqual(bound.tzinfo, BERLIN)
+        self.assertEqual((bound.hour, bound.minute, bound.second), (23, 59, 59))
+        self.assertEqual(bound.microsecond, 999999)
+
+        # A value carrying a time is still honoured verbatim, aware or naive.
+        self.assertEqual(
+            parse_analytics_datetime_bound("2026-01-01T10:00:00", end_of_day=True),
+            datetime(2026, 1, 1, 10, 0, tzinfo=BERLIN),
+        )
+        self.assertEqual(
+            parse_analytics_datetime_bound("2026-01-01T10:00:00+00:00"),
+            datetime(2026, 1, 1, 10, 0, tzinfo=dt_timezone.utc),
+        )
+        self.assertIsNone(parse_analytics_datetime_bound("not-a-date"))
+        self.assertIsNone(parse_analytics_datetime_bound(""))
+
+    def test_single_day_filter_includes_lobbies_started_that_day(self):
+        """The user-visible symptom: from=X&to=X returned nothing."""
+        now = timezone.now()
+        lobby = self._create_lobby(
+            name="default",
+            start_time=datetime(2026, 3, 4, 13, 45, tzinfo=BERLIN),
+            end_time=datetime(2026, 3, 4, 15, 0, tzinfo=BERLIN),
+        )
+        del now
+        qs = filtered_lobby_queryset(
+            lobby_name="default",
+            from_dt=parse_analytics_datetime_bound("2026-03-04"),
+            to_dt=parse_analytics_datetime_bound("2026-03-04", end_of_day=True),
+        )
+        self.assertTrue(qs.filter(pk=lobby.pk).exists())
 
     def test_parse_analytics_datetime_bound_uses_berlin_for_date_only(self):
         berlin_midnight = parse_analytics_datetime_bound("2026-01-01")
@@ -612,8 +1033,19 @@ class RandomCallAnalyticsTests(TestCase):
         self.assertEqual(snap.total_users, 2)
 
     def test_apply_lobby_ordering_includes_pk_tiebreaker(self):
-        qs = apply_lobby_ordering(RandomCallLobby.objects.none(), "total_users")
+        """Paging over a non-unique sort column repeats and drops rows without a tiebreaker.
+
+        `total_users` is an annotation, so the queryset has to be annotated before it can
+        be ordered by it — ordering a bare queryset raised FieldError and this test never
+        exercised the tiebreaker at all.
+        """
+        qs = apply_lobby_ordering(annotate_lobby_metrics(RandomCallLobby.objects.none()), "total_users")
         self.assertEqual(list(qs.query.order_by), ["total_users", "-pk"])
+
+    def test_apply_lobby_ordering_rejects_unknown_column(self):
+        """The allow-list exists so an arbitrary client string cannot reach order_by."""
+        with self.assertRaisesRegex(ValueError, "Invalid ordering"):
+            apply_lobby_ordering(RandomCallLobby.objects.none(), "not_a_column")
 
     def test_invalid_lobby_uuid_returns_400(self):
         from rest_framework.test import APIClient

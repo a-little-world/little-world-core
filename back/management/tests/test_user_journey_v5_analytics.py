@@ -158,6 +158,37 @@ class CompositeDeclarationTests(SimpleTestCase):
         self.assertIn("state__isnull=True", source)
         self.assertNotIn("exclude", source)
 
+    def test_kickoff_and_ongoing_cover_every_live_match_state(self):
+        """Every never-succeeded user with a live match must land in one of these two.
+
+        Every other never-succeeded cell excludes users with a live match, so a live
+        state that no cell positively claims leaves them uncovered. That happened: when
+        success stopped meaning "reached free play", free-play users dropped out of the
+        success 2x2 into never-succeeded, where `first_match_ongoing` tested only
+        `_has_ongoing_match` — 27 users balanced out of the partition entirely.
+        """
+        from management.analytics.user_journey.queries import state as ustate
+
+        kickoff = set(ustate.first_match_kickoff.__code__.co_names)
+        ongoing = set(ustate.first_match_ongoing.__code__.co_names)
+        self.assertIn("_has_takeoff_match", kickoff)
+        self.assertIn("_has_live_match", ongoing)
+        self.assertNotIn(
+            "_has_ongoing_match",
+            ongoing,
+            "must test the whole live set, not one of its three sub-states",
+        )
+
+    def test_not_live_is_never_spelled_out_as_its_sub_states(self):
+        """`exclude(takeoff).exclude(ongoing)` silently omits free play — exclude live."""
+        from management.analytics.user_journey.queries import state as ustate
+
+        for cell in (ustate.rematch_proposed, ustate.proposed_never_matched):
+            referenced = set(cell.__code__.co_names)
+            self.assertIn("_has_live_match", referenced, cell.__name__)
+            self.assertNotIn("_has_takeoff_match", referenced, cell.__name__)
+            self.assertNotIn("_has_ongoing_match", referenced, cell.__name__)
+
     def test_registered_composites(self):
         """Pinned so a new rollup is a deliberate addition, not a surprise in a chart."""
         self.assertEqual(sorted(composite_entries()), ["match_state__in_flight", "state__first_search"])

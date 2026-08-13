@@ -142,6 +142,11 @@ def create_and_deliver_message(
         parsable_message=is_parsable,
     )
 
+    if update_match and not chat.is_temporary:
+        match = Match.get_match(sender, recipient).first()
+        if match is not None:
+            match.confirm_from_mutual_contact()
+
     if send_websocket:
         from chat.consumers.messages import NewMessage
 

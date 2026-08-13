@@ -138,14 +138,58 @@ class Match(models.Model):
         return self.user1 if self.user1.profile.user_type == profile.Profile.TypeChoices.VOLUNTEER else self.user2
 
     def confirm(self, user):
+        """Record that `user` has confirmed/viewed this match.
+
+        `confirmed` becomes True only once both partners are in `confirmed_by`.
+        """
         if user not in self.confirmed_by.all():
             self.confirmed_by.add(user)
-        if (self.user1 in self.confirmed_by.all()) and (self.user2 in self.confirmed_by.all()):
+        confirmed_ids = set(self.confirmed_by.values_list("id", flat=True))
+        if self.user1_id in confirmed_ids and self.user2_id in confirmed_ids:
             self.confirmed = True
         self.save()
 
+    def has_mutual_contact(self) -> bool:
+        """Both partners demonstrably engaged: messages both ways, or a mutual video call.
+
+        A mutual video call is stronger evidence than messages — two people were in a call
+        together — so it counts on its own. A *one-way* message does not: it shows the
+        sender turned up, not that the partner ever saw the match.
+        """
+        if self.support_matching:
+            return False
+
+        if self.total_mutal_video_calls_counter >= 1:
+            return True
+
+        has_u1_to_u2 = Message.objects.filter(sender_id=self.user1_id, recipient_id=self.user2_id).exists()
+        has_u2_to_u1 = Message.objects.filter(sender_id=self.user2_id, recipient_id=self.user1_id).exists()
+        return has_u1_to_u2 and has_u2_to_u1
+
+    def confirm_from_mutual_contact(self) -> bool:
+        """If both partners engaged, set confirmed and backfill confirmed_by.
+
+        Returns True when this call newly set confirmed=True.
+        """
+        if self.confirmed and self.confirmed_by.count() >= 2:
+            # Overwhelmingly the common case on the message hot path. Checking it first
+            # turns ~6 queries per chat message (two message lookups plus an M2M write
+            # that re-inserts rows already present) into one.
+            return False
+
+        if not self.has_mutual_contact():
+            return False
+
+        self.confirmed_by.add(self.user1_id, self.user2_id)
+        if self.confirmed:
+            return False
+
+        self.confirmed = True
+        self.save(update_fields=["confirmed", "updated_at"])
+        return True
+
     @classmethod
-    def get_confirmed_matches(cls, user, order_by="created_at"):
+    def get_confirmed_matches(cls, user, order_by="-created_at"):
         return (
             cls.objects.filter(Q(user1=user) | Q(user2=user), active=True, confirmed_by=user, support_matching=False)
             .exclude(match_type=MatchType.TEMPORARY)
@@ -251,9 +295,8 @@ def sync_match_counters_for_queryset(matches):
         if newest_message_at and newest_video_call_at:
             match.latest_interaction_at = max(newest_message_at, newest_video_call_at)
 
-        # also we have to check if a match is falsely confirmed=False
-        if match.total_messages_counter > 0 or match.total_mutal_video_calls_counter > 0:
-            match.confirmed = True
+        # Mutual contact implies both parties engaged — confirm + backfill confirmed_by.
+        match.confirm_from_mutual_contact()
 
         if match.total_mutal_video_calls_counter >= 5:
             match.completed_5_video_calls = True
