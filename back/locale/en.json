@@ -433,6 +433,8 @@
   "profile.lang_de_missing": "You must select at least german as a language",
   "profile.descr_too_short": "must have at least 10 characters",
   "profile.interests.min_number": "Please select at least three interests",
+  "push_notification.new_match.title": "New Match",
+  "push_notification.new_match.description": "You have matched with {user}",
   "errors.missing_email_auth_data_get_frontend": "Email authentication data missing",
   "info_view.email_verification_link_success.title": "Email verification successful",
   "info_view.email_verification_link_success.content": "Your email has been verified successfully",
