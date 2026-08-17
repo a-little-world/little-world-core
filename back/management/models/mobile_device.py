@@ -6,7 +6,7 @@ from django.db import models
 from django.utils import timezone
 from push_notifications.models import GCMDevice, GCMDeviceManager, GCMDeviceQuerySet
 
-ACTIVE_SESSION_TIMEOUT = timedelta(seconds=10)
+ACTIVE_SESSION_TIMEOUT = timedelta(seconds=150)
 
 
 class MobileDeviceQuerySet(GCMDeviceQuerySet):
