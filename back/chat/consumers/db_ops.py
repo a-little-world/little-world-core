@@ -23,14 +23,14 @@ def _valid_install_id(install_id):
 def open_device_session(user, install_id):
     install_id = _valid_install_id(install_id)
     if install_id:
-        MobileDevice.session_opened(user, install_id)
+        MobileDevice.open_session(user, install_id)
 
 
 @database_sync_to_async
 def close_device_session(user, install_id):
     install_id = _valid_install_id(install_id)
     if install_id:
-        MobileDevice.session_closed(user, install_id)
+        MobileDevice.close_session(user, install_id)
 
 
 @database_sync_to_async

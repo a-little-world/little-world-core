@@ -72,9 +72,9 @@ class MobileDevice(GCMDevice):
         verbose_name = "Mobile device"
 
     @classmethod
-    def session_opened(cls, user, install_id):
+    def open_session(cls, user, install_id):
         cls.objects.filter(user=user, install_id=install_id).update(session_active_at=timezone.now())
 
     @classmethod
-    def session_closed(cls, user, install_id):
+    def close_session(cls, user, install_id):
         cls.objects.filter(user=user, install_id=install_id).update(session_active_at=None)
