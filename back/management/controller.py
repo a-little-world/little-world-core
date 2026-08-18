@@ -381,15 +381,15 @@ def match_users(
         title = get_translation("push_notification.new_match.title", lang="de")
         description = get_translation("push_notification.new_match.description", lang="de")
         # TODO: Only send to volunteer, how should this be handled for random call matches?
-        User(usr1).push_notification(
+        usr1.push_notification(
             title=title,
-            description=description.format(user=usr2),
+            description=description.format(user=usr2.profile.first_name),
             notification_type=PushNotificationType.MATCH,
             path=chat_path,
         )
-        User(usr2).push_notification(
+        usr2.push_notification(
             title=title,
-            description=description.format(user=usr1),
+            description=description.format(user=usr1.profile.first_name),
             notification_type=PushNotificationType.MATCH,
             path=chat_path,
         )
