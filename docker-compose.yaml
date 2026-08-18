@@ -92,7 +92,7 @@ services:
       DJ_USE_DEBUG_TOOLBAR: ${DJ_USE_DEBUG_TOOLBAR:-0}
     env_file:
       - ./dev/envs/dev.env
-      - path: ./dev/envs/local_dev.env
+      - path: ./.env
         required: false
     volumes:
       - ./back/:/back/
