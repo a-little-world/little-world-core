@@ -377,22 +377,18 @@ def match_users(
         usr1.message(match_message.format(other_name=usr2.profile.first_name), auto_mark_read=True)
         usr2.message(match_message.format(other_name=usr1.profile.first_name), auto_mark_read=True)
 
-        chat_path = f"/app/chat/{str(user_chat.uuid)}" if user_chat is not None else None
-        title = get_translation("push_notification.new_match.title", lang="de")
-        description = get_translation("push_notification.new_match.description", lang="de")
-        # TODO: Only send to volunteer, how should this be handled for random call matches?
-        usr1.push_notification(
-            title=title,
-            description=description.format(user=usr2.profile.first_name),
-            notification_type=PushNotificationType.MATCH,
-            path=chat_path,
-        )
-        usr2.push_notification(
-            title=title,
-            description=description.format(user=usr1.profile.first_name),
-            notification_type=PushNotificationType.MATCH,
-            path=chat_path,
-        )
+        if match_type == MatchType.STANDARD:
+            chat_path = f"/app/chat/{str(user_chat.uuid)}" if user_chat is not None else None
+            volunteer = matching_obj.get_volunteer()
+            learner = matching_obj.get_learner()
+            volunteer.push_notification(
+                title=get_translation("push_notification.new_match.title", lang="de"),
+                description=get_translation("push_notification.new_match.description", lang="de").format(
+                    user=learner.profile.first_name
+                ),
+                notification_type=PushNotificationType.MATCH,
+                path=chat_path,
+            )
 
     if send_email and match_type == MatchType.STANDARD:
         usr1.send_email("new-match", match_id=matching_obj.pk)
