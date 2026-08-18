@@ -55,6 +55,12 @@ class AdvancedMatchViewsetTests(TestCase):
         assert response.data["average_video_call_duration_seconds"] is None
         assert response.data["median_video_call_duration_seconds"] is None
         assert response.data["total_video_call_duration_seconds"] is None
+        assert response.data["qualifying_video_call_count"] == 0
+        assert "journey" in response.data
+        assert response.data["journey"]["desired_duration_weeks"] == 10
+        assert response.data["journey"]["current_week"] >= 1
+        assert "weekly_activity" in response.data["journey"]
+        assert "stages" in response.data["journey"]
 
     def test_list_does_not_include_match_stats_only_fields(self):
         request = self.factory.get("/api/matching/matches/")
@@ -70,6 +76,7 @@ class AdvancedMatchViewsetTests(TestCase):
         assert "average_video_call_duration_seconds" not in sample
         assert "median_video_call_duration_seconds" not in sample
         assert "total_video_call_duration_seconds" not in sample
+        assert "qualifying_video_call_count" not in sample
 
     def test_retrieve_includes_match_stats_timestamps_when_present(self):
         chat = Chat.get_or_create_chat(self.staff_user, self.other_user)
@@ -111,7 +118,7 @@ class AdvancedMatchViewsetTests(TestCase):
         assert response.data["total_video_call_duration_seconds"] == 0
 
     def test_retrieve_average_video_call_duration_seconds_for_both_active_calls(self):
-        now = timezone.now()
+        match_start = self.match.created_at
         first_session = LivekitSession.objects.create(
             u1=self.staff_user,
             u2=self.other_user,
@@ -119,8 +126,8 @@ class AdvancedMatchViewsetTests(TestCase):
             is_active=False,
         )
         LivekitSession.objects.filter(pk=first_session.pk).update(
-            created_at=now - timedelta(minutes=40),
-            end_time=now - timedelta(minutes=10),
+            created_at=match_start + timedelta(hours=1),
+            end_time=match_start + timedelta(hours=1, minutes=30),
         )
         second_session = LivekitSession.objects.create(
             u1=self.staff_user,
@@ -129,8 +136,8 @@ class AdvancedMatchViewsetTests(TestCase):
             is_active=False,
         )
         LivekitSession.objects.filter(pk=second_session.pk).update(
-            created_at=now - timedelta(minutes=20),
-            end_time=now,
+            created_at=match_start + timedelta(hours=2),
+            end_time=match_start + timedelta(hours=2, minutes=20),
         )
 
         request = self.factory.get(f"/api/matching/matches/{self.match.uuid}/")
@@ -139,9 +146,11 @@ class AdvancedMatchViewsetTests(TestCase):
         response = self.view(request, pk=str(self.match.uuid))
 
         assert response.status_code == 200
+        assert response.data["qualifying_video_call_count"] == 2
         assert response.data["average_video_call_duration_seconds"] == 1500
         assert response.data["median_video_call_duration_seconds"] == 1500
         assert response.data["total_video_call_duration_seconds"] == 3000
+        assert "streaks" in response.data["journey"]
 
     def test_weekly_activity_details_requires_week_parameter(self):
         request = self.factory.get(f"/api/matching/matches/{self.match.uuid}/weekly_activity_details/")
