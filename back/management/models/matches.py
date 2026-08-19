@@ -90,6 +90,18 @@ class Match(models.Model):
         default=MatchType.STANDARD,
     )
 
+    @staticmethod
+    def journey_q(*, related: str | None = None) -> Q:
+        """Non-support Standard or Random Call matches — not TEMPORARY lobby placeholders."""
+        prefix = f"{related}__" if related else ""
+        return Q(**{f"{prefix}support_matching": False}) & ~Q(**{f"{prefix}match_type": MatchType.TEMPORARY})
+
+    @classmethod
+    def journey(cls, qs=None):
+        """Analytics / first-search universe: real matches, including Random Call."""
+        qs = cls.objects.all() if qs is None else qs
+        return qs.filter(cls.journey_q())
+
     def sync_counters(self):
         sync_match_counters_for_queryset([self])
 

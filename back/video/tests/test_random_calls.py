@@ -6,6 +6,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 from management.models.matches import Match
 from management.models.profile import Profile
+from management.models.state import State
 from management.models.unconfirmed_matches import MatchType
 from management.models.user import User
 from management.tests.helpers import register_user
@@ -1090,12 +1091,19 @@ class RandomCallsTests(TestCase):
             u2=self.user2,
             accepted=True,
         )
+        for user in (self.user1, self.user2):
+            user.state.searching_state = State.SearchingStateChoices.SEARCHING
+            user.state.save(update_fields=["searching_state"])
 
         with patch.object(User, "send_email") as mock_send_email:
             self.client.force_authenticate(user=self.user1)
             first = self.client.post(f"/api/random_calls/user/history/{matching.uuid}/request_match")
             self.assertEqual(first.status_code, 200)
             self.assertFalse(first.data["both_requested"])
+            self.user1.state.refresh_from_db()
+            self.user2.state.refresh_from_db()
+            self.assertEqual(self.user1.state.searching_state, State.SearchingStateChoices.SEARCHING)
+            self.assertEqual(self.user2.state.searching_state, State.SearchingStateChoices.SEARCHING)
 
             self.client.force_authenticate(user=self.user2)
             second = self.client.post(f"/api/random_calls/user/history/{matching.uuid}/request_match")
@@ -1105,6 +1113,10 @@ class RandomCallsTests(TestCase):
 
         match = Match.get_match(self.user1, self.user2).filter(match_type=MatchType.RANDOM_CALL).first()
         self.assertIsNotNone(match)
+        self.user1.state.refresh_from_db()
+        self.user2.state.refresh_from_db()
+        self.assertEqual(self.user1.state.searching_state, State.SearchingStateChoices.IDLE)
+        self.assertEqual(self.user2.state.searching_state, State.SearchingStateChoices.IDLE)
 
         new_match_calls = [call for call in mock_send_email.call_args_list if call.args[0] == "new-match"]
         self.assertEqual(len(new_match_calls), 2)

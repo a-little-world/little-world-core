@@ -26,6 +26,13 @@ from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User
 
 
+def _num_journey_matches():
+    """Count of real (non-support, non-TEMPORARY) matches on either side of the user."""
+    return Count("match_user1", filter=Match.journey_q(related="match_user1")) + Count(
+        "match_user2", filter=Match.journey_q(related="match_user2")
+    )
+
+
 # Helper function to calculate three weeks ago
 def three_weeks_ago():
     return timezone.now() - timedelta(weeks=3)
@@ -258,10 +265,7 @@ def first_search_v1(qs=User.objects.all()):
         )
         .exclude(id__in=users_w_open_proposals)
         .exclude(id__in=searched_too_long)
-        .annotate(
-            num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False))
-            + Count("match_user2", filter=Q(match_user2__support_matching=False))
-        )
+        .annotate(num_matches=_num_journey_matches())
         .filter(num_matches=0)
     )
 
@@ -309,10 +313,7 @@ def first_search_v2(qs=User.objects.all(), require_min_lang_level=True):
             state__is_onboarded=True,
         )
         .exclude(id__in=users_w_open_proposals)
-        .annotate(
-            num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False))
-            + Count("match_user2", filter=Q(match_user2__support_matching=False))
-        )
+        .annotate(num_matches=_num_journey_matches())
         .filter(num_matches=0)
     )
 
@@ -348,10 +349,7 @@ def user_searching(qs=User.objects.all()):
             state__unresponsive=False,
             state__is_onboarded=True,
         )
-        .annotate(
-            num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False))
-            + Count("match_user2", filter=Q(match_user2__support_matching=False))
-        )
+        .annotate(num_matches=_num_journey_matches())
         .filter(num_matches__gt=0)
     )
 
@@ -704,10 +702,7 @@ def over_30_days_after_prematching_still_searching(qs=User.objects.all()):
             state__is_onboarded=True,
             date_joined__lt=thirty_days_ago,
         )
-        .annotate(
-            num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False))
-            + Count("match_user2", filter=Q(match_user2__support_matching=False))
-        )
+        .annotate(num_matches=_num_journey_matches())
         .filter(num_matches=0)
     )
 
@@ -738,10 +733,7 @@ def gave_up_searching(qs=User.objects.all()):
             | Q(id__in=user_with_contact_stopped_matches)
             | Q(id__in=user_with_reported_or_unmatched_matchings)
         )
-        .annotate(
-            num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False))
-            + Count("match_user2", filter=Q(match_user2__support_matching=False))
-        )
+        .annotate(num_matches=_num_journey_matches())
         .filter(num_matches=0)
     )
 

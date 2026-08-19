@@ -11,6 +11,7 @@ from management import api
 from management.controller import create_user_matching_proposal
 from management.models.matches import Match
 from management.models.profile import Profile
+from management.models.state import State
 from management.models.unconfirmed_matches import (
     MatchType,
     ProposedMatch,
@@ -315,6 +316,9 @@ class MatchConfirmationTests(TestCase):
             confirming_user=u2,
         )
         proposal = get_unconfirmed_matches(u2)[0]
+        for user in (u1, u2):
+            user.state.searching_state = State.SearchingStateChoices.SEARCHING
+            user.state.save(update_fields=["searching_state"])
 
         with patch.object(User, "send_email") as mock_send_email:
             res = self._respond_to_proposed_match(
@@ -327,6 +331,10 @@ class MatchConfirmationTests(TestCase):
         match = Match.get_match(u1, u2).first()
         assert match is not None
         assert match.match_type == MatchType.RANDOM_CALL
+        u1.state.refresh_from_db()
+        u2.state.refresh_from_db()
+        assert u1.state.searching_state == State.SearchingStateChoices.IDLE
+        assert u2.state.searching_state == State.SearchingStateChoices.IDLE
 
         new_match_calls = [call for call in mock_send_email.call_args_list if call.args[0] == "new-match"]
         assert len(new_match_calls) == 2

@@ -35,6 +35,7 @@ from django.utils import timezone
 from video.models import LivekitSession
 
 from management.match_success import match_tokens_by_id, success_token_threshold
+from management.models.matches import Match
 
 ENGAGEMENT_DAYS = 4 * 7  # 28 — still-in-contact window for successful matches
 FAILURE_CLIFF_DAYS = 10 * 7  # 70 — no activity → failed
@@ -204,8 +205,11 @@ def _ids_with_tokens(pool: QuerySet, *, minimum: int | None = None, exact: int |
 
 
 def all_matches(qs: QuerySet) -> QuerySet:
-    """Non-support matches — the partition denominator."""
-    return qs.filter(support_matching=False)
+    """Non-support Standard and Random Call matches — the partition denominator.
+
+    TEMPORARY rows are lobby placeholders, not a match journey.
+    """
+    return Match.journey(qs)
 
 
 # ---------------------------------------------------------------------------
@@ -499,9 +503,9 @@ def failed_tokens_7(qs: QuerySet, as_of=None) -> QuerySet:
 
 
 def _in_flight_pool(qs: QuerySet, as_of=None) -> QuerySet:
-    return _with_video_path(
-        _within_failure_cliff(_not_successful(qs).filter(active=True), as_of).filter(confirmed=True)
-    )
+    # Confirmation is not required: Random Call matches already have the lobby call
+    # before either user views the match card, and that call is part of the journey.
+    return _with_video_path(_within_failure_cliff(_not_successful(qs).filter(active=True), as_of))
 
 
 def _in_flight_tokens(qs: QuerySet, n: int, as_of=None) -> QuerySet:

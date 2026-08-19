@@ -152,7 +152,8 @@ def _all_matches() -> QuerySet:
 
 
 def _non_support_matches() -> QuerySet:
-    return _all_matches().filter(support_matching=False)
+    """Real matches that graduate a user out of first search (Standard and Random Call)."""
+    return Match.journey()
 
 
 def _match_ineligible_learners(qs: QuerySet) -> QuerySet:
@@ -478,6 +479,9 @@ def active_first_search(qs: QuerySet) -> QuerySet:
     return searching.exclude(id__in=_match_ineligible_learners(searching))
 
 
+# Proposal-outcome split for first search is Standard-only: Random Call proposals are a
+# different product surface (no expiry / confirm-match emails). A Random Call *Match*
+# still graduates the user out of first search via ``_has_match_history``.
 def _standard_proposals_for_outer_user() -> QuerySet:
     return ProposedMatch.objects.filter(
         Q(user1=OuterRef("pk")) | Q(user2=OuterRef("pk")),

@@ -32,6 +32,7 @@ from management.match_success.versions.v1_total_minutes import (
     SUCCESS_TOKEN_THRESHOLD,
 )
 from management.models.matches import Match
+from management.models.state import State
 from management.models.unconfirmed_matches import MatchType
 from management.models.user import User
 
@@ -372,6 +373,10 @@ class RandomCallMatchAdoptsLobbyHistoryTests(TestCase):
         message = Message.objects.create(chat=chat, sender=user1, recipient=user2, text="Nice talking")
         Message.objects.filter(pk=message.pk).update(created=started + timedelta(minutes=1))
 
+        for user in (user1, user2):
+            user.state.searching_state = State.SearchingStateChoices.SEARCHING
+            user.state.save(update_fields=["searching_state"])
+
         match = match_users(
             {user1, user2},
             match_type=MatchType.RANDOM_CALL,
@@ -390,3 +395,7 @@ class RandomCallMatchAdoptsLobbyHistoryTests(TestCase):
         self.assertEqual(qualifying_sessions(match).count(), 1)
         self.assertAlmostEqual(match_total_minutes(match), 12, places=1)
         self.assertEqual(match.confirmed, False)
+        user1.state.refresh_from_db()
+        user2.state.refresh_from_db()
+        self.assertEqual(user1.state.searching_state, State.SearchingStateChoices.IDLE)
+        self.assertEqual(user2.state.searching_state, State.SearchingStateChoices.IDLE)
