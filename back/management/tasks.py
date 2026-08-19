@@ -1650,8 +1650,14 @@ def automatic_emails_m043_m044_m045():
     from django.utils import timezone
 
     from management.models.matches import sync_match_counters_for_queryset
+    from management.models.profile import Profile
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.ENABLE_AUTO_EMAILS__M043_M044_M045)
+
+    def _video_call_survey_url(user):
+        if user.profile.user_type == Profile.TypeChoices.LEARNER:
+            return settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER
+        return settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER
 
     report = {
         "counters_synced_m043": 0,
@@ -1694,22 +1700,15 @@ def automatic_emails_m043_m044_m045():
 
     # Send 10 x Video Call Emails
     for match in matches_video_call_m045:
-        send_email_background.delay(
-            "automatic-emails-m045",
-            user_id=match.get_learner().id,
-            match_id=match.pk,
-            emulated_send=emulated_send,
-            context={"share_story_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER},
-        )
-        send_email_background.delay(
-            "automatic-emails-m045",
-            user_id=match.get_volunteer().id,
-            match_id=match.pk,
-            emulated_send=emulated_send,
-            context={"share_story_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER},
-        )
-        report["m045_send_to"].append([str(match.uuid), match.get_learner().id])
-        report["m045_send_to"].append([str(match.uuid), match.get_volunteer().id])
+        for user in (match.user1, match.user2):
+            send_email_background.delay(
+                "automatic-emails-m045",
+                user_id=user.id,
+                match_id=match.pk,
+                emulated_send=emulated_send,
+                context={"share_story_url": _video_call_survey_url(user)},
+            )
+            report["m045_send_to"].append([str(match.uuid), user.id])
         match.auto_email_m043_send = True
         match.auto_email_m044_send = True
         match.auto_email_m045_send = True
@@ -1786,24 +1785,14 @@ def automatic_emails_m043_m044_m045():
 
     # Send 5x Video Call Emails
     for match in matches_video_call_m043:
-        send_email_background.delay(
-            "automatic-emails-m043",
-            user_id=match.get_learner().id,
-            emulated_send=emulated_send,
-            context={"post_videocall_survey_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER},
-        )
-
-        send_email_background.delay(
-            "automatic-emails-m043",
-            user_id=match.get_volunteer().id,
-            emulated_send=emulated_send,
-            context={
-                "post_videocall_survey_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER,
-            },
-        )
-        # TODO: add survey for both!
-        report["m043_send_to"].append([str(match.uuid), match.user1.id])
-        report["m043_send_to"].append([str(match.uuid), match.user2.id])
+        for user in (match.user1, match.user2):
+            send_email_background.delay(
+                "automatic-emails-m043",
+                user_id=user.id,
+                emulated_send=emulated_send,
+                context={"post_videocall_survey_url": _video_call_survey_url(user)},
+            )
+            report["m043_send_to"].append([str(match.uuid), user.id])
         match.auto_email_m043_send = True
         match.completed_5_video_calls = True
         match.save()

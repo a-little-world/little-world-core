@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from chat.models import Message
 from django.db import models
-from django.db.models import Count, Max, Q
+from django.db.models import Count, Max, Min, Q
 from django.db.models.functions import Greatest, Least
 from django.utils import timezone
 from video.models import LivekitSession
@@ -187,6 +187,52 @@ class Match(models.Model):
         self.confirmed = True
         self.save(update_fields=["confirmed", "updated_at"])
         return True
+
+    def adopt_preexisting_pair_history(self):
+        """Copy the pair's existing chat and mutual video sessions onto this match.
+
+        Random Call matches are created after the lobby call (and any temporary-chat
+        messages) already happened. Without this they look like a zero-interaction match
+        until the next counter sync, and ``first_interaction_at`` would stay empty.
+        Does not auto-confirm — viewing the match card is still a separate step.
+        """
+        pair_messages = Message.objects.filter(
+            Q(sender_id=self.user1_id, recipient_id=self.user2_id)
+            | Q(sender_id=self.user2_id, recipient_id=self.user1_id)
+        ).aggregate(total=Count("id"), newest=Max("created"), oldest=Min("created"))
+        pair_calls = LivekitSession.objects.filter(
+            Q(u1_id=self.user1_id, u2_id=self.user2_id) | Q(u1_id=self.user2_id, u2_id=self.user1_id),
+            both_have_been_active=True,
+        ).aggregate(total=Count("id"), newest=Max("created_at"), oldest=Min("created_at"))
+
+        self.total_messages_counter = pair_messages["total"] or 0
+        self.total_mutal_video_calls_counter = pair_calls["total"] or 0
+        self.completed_5_video_calls = self.total_mutal_video_calls_counter >= 5
+        self.completed_8_video_calls = self.total_mutal_video_calls_counter >= 8
+        self.completed_10_video_calls = self.total_mutal_video_calls_counter >= 10
+
+        newest_times = [stamp for stamp in (pair_messages["newest"], pair_calls["newest"]) if stamp is not None]
+        if newest_times:
+            self.latest_interaction_at = max(newest_times)
+
+        oldest_times = [stamp for stamp in (pair_messages["oldest"], pair_calls["oldest"]) if stamp is not None]
+        if oldest_times and self.first_interaction_at is None:
+            self.first_interaction_at = min(oldest_times)
+
+        self.latest_counter_sync = timezone.now()
+        self.save(
+            update_fields=[
+                "total_messages_counter",
+                "total_mutal_video_calls_counter",
+                "completed_5_video_calls",
+                "completed_8_video_calls",
+                "completed_10_video_calls",
+                "latest_interaction_at",
+                "first_interaction_at",
+                "latest_counter_sync",
+                "updated_at",
+            ]
+        )
 
     @classmethod
     def get_confirmed_matches(cls, user, order_by="-created_at"):

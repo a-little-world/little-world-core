@@ -1,8 +1,12 @@
 from unittest.mock import AsyncMock, patch
 
 from back.celery import app
+from chat.models import Message
 from django.test import TestCase, override_settings
 from django.utils import timezone
+from management.models.matches import Match
+from management.models.profile import Profile
+from management.models.unconfirmed_matches import MatchType
 from management.models.user import User
 from management.tests.helpers import register_user
 from rest_framework.test import APIClient
@@ -1073,3 +1077,41 @@ class RandomCallsTests(TestCase):
         self.assertEqual(response.data["lobby"]["total_users_count"], 2)
         self.assertEqual(response.data["snapshot"]["first_time_users"], 1)
         self.assertEqual(response.data["snapshot"]["returning_users"], 1)
+
+    def test_both_requested_sends_standard_match_notifications(self):
+        self.user1.profile.user_type = Profile.TypeChoices.LEARNER
+        self.user2.profile.user_type = Profile.TypeChoices.VOLUNTEER
+        self.user1.profile.save()
+        self.user2.profile.save()
+
+        matching = RandomCallMatching.objects.create(
+            lobby=self.lobby,
+            u1=self.user1,
+            u2=self.user2,
+            accepted=True,
+        )
+
+        with patch.object(User, "send_email") as mock_send_email:
+            self.client.force_authenticate(user=self.user1)
+            first = self.client.post(f"/api/random_calls/user/history/{matching.uuid}/request_match")
+            self.assertEqual(first.status_code, 200)
+            self.assertFalse(first.data["both_requested"])
+
+            self.client.force_authenticate(user=self.user2)
+            second = self.client.post(f"/api/random_calls/user/history/{matching.uuid}/request_match")
+
+        self.assertEqual(second.status_code, 200)
+        self.assertTrue(second.data["both_requested"])
+
+        match = Match.get_match(self.user1, self.user2).filter(match_type=MatchType.RANDOM_CALL).first()
+        self.assertIsNotNone(match)
+
+        new_match_calls = [call for call in mock_send_email.call_args_list if call.args[0] == "new-match"]
+        self.assertEqual(len(new_match_calls), 2)
+        self.assertEqual({call.kwargs["match_id"] for call in new_match_calls}, {match.pk})
+
+        auto_messages = Message.objects.filter(recipient__in=[self.user1, self.user2]).exclude(
+            sender__in=[self.user1, self.user2]
+        )
+        self.assertTrue(auto_messages.filter(recipient=self.user1).exists())
+        self.assertTrue(auto_messages.filter(recipient=self.user2).exists())

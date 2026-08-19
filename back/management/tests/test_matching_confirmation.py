@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from chat.models import Message
 from django.test import TestCase
@@ -10,7 +11,13 @@ from management import api
 from management.controller import create_user_matching_proposal
 from management.models.matches import Match
 from management.models.profile import Profile
-from management.models.unconfirmed_matches import format_suggested_availability_overlap, get_unconfirmed_matches
+from management.models.unconfirmed_matches import (
+    MatchType,
+    ProposedMatch,
+    format_suggested_availability_overlap,
+    get_unconfirmed_matches,
+)
+from management.models.user import User
 from management.random_test_users import create_abunch_of_users, modify_profile_to_match
 from management.tests.helpers import register_user_api
 from management.validators import DAYS
@@ -297,3 +304,34 @@ class MatchConfirmationTests(TestCase):
         match.refresh_from_db()
         assert match.confirmed is True
         assert set(match.confirmed_by.all()) == {u1, u2}
+
+    def test_random_call_proposal_accept_sends_new_match_notifications(self):
+        u1, u2 = self._create_two_user_prematching()
+        ProposedMatch.get_proposal_between(u1, u2).delete()
+        create_user_matching_proposal(
+            {u1, u2},
+            send_confirm_match_email=False,
+            match_type=MatchType.RANDOM_CALL,
+            confirming_user=u2,
+        )
+        proposal = get_unconfirmed_matches(u2)[0]
+
+        with patch.object(User, "send_email") as mock_send_email:
+            res = self._respond_to_proposed_match(
+                {"unconfirmed_match_uuid": proposal["hash"], "confirm": True},
+                user=u2,
+            )
+
+        res.render()
+        assert res.status_code == 200
+        match = Match.get_match(u1, u2).first()
+        assert match is not None
+        assert match.match_type == MatchType.RANDOM_CALL
+
+        new_match_calls = [call for call in mock_send_email.call_args_list if call.args[0] == "new-match"]
+        assert len(new_match_calls) == 2
+        assert {call.kwargs["match_id"] for call in new_match_calls} == {match.pk}
+
+        auto_messages = Message.objects.filter(recipient__in=[u1, u2]).exclude(sender__in=[u1, u2])
+        assert auto_messages.filter(recipient=u1).exists()
+        assert auto_messages.filter(recipient=u2).exists()

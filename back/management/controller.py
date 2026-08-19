@@ -355,6 +355,9 @@ def match_users(
                 existing_chat.is_temporary = False
                 existing_chat.save(update_fields=["is_temporary"])
 
+    if match_type == MatchType.RANDOM_CALL:
+        matching_obj.adopt_preexisting_pair_history()
+
     if send_notification:
         # send sms message ( only if the user enabled sms notifications )
         try:
@@ -374,7 +377,7 @@ def match_users(
         usr1.message(match_message.format(other_name=usr2.profile.first_name), auto_mark_read=True)
         usr2.message(match_message.format(other_name=usr1.profile.first_name), auto_mark_read=True)
 
-    if send_email and match_type == MatchType.STANDARD:
+    if send_email and match_type in (MatchType.STANDARD, MatchType.RANDOM_CALL):
         usr1.send_email("new-match", match_id=matching_obj.pk)
         usr2.send_email("new-match", match_id=matching_obj.pk)
 

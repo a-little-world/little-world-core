@@ -1968,6 +1968,40 @@ class TestAutomaticEmailsIncludeRandomCallMatches(TestCase):
         assert report["counters_synced_m043"] == 1
         assert match.auto_email_m043_send is True
         assert mock_send_email.delay.call_count == 2
+        sent_user_ids = {call.kwargs["user_id"] for call in mock_send_email.delay.call_args_list}
+        assert sent_user_ids == {user1.id, user2.id}
+
+    @patch("management.tasks.send_email_background")
+    def test_m043_sends_to_both_users_when_same_type(self, mock_send_email):
+        user1, user2, match = self._create_pair(
+            "m043-same-type",
+            MatchType.RANDOM_CALL,
+            confirmed=True,
+            auto_email_m043_send=False,
+            auto_email_m044_send=False,
+            auto_email_m045_send=False,
+            latest_counter_sync=dj_timezone.now() - timedelta(days=2),
+            latest_interaction_at=dj_timezone.now() - timedelta(days=1),
+        )
+        user2.profile.user_type = Profile.TypeChoices.LEARNER
+        user2.profile.save()
+        for _ in range(5):
+            LivekitSession.objects.create(
+                u1=user1,
+                u2=user2,
+                both_have_been_active=True,
+                is_active=False,
+            )
+
+        automatic_emails_m043_m044_m045()
+
+        calls = mock_send_email.delay.call_args_list
+        assert {call.kwargs["user_id"] for call in calls} == {user1.id, user2.id}
+        for call in calls:
+            assert (
+                call.kwargs["context"]["post_videocall_survey_url"]
+                == settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER
+            )
 
     def test_fm021_includes_random_call_and_excludes_temporary(self):
         _u1, _u2, rc_match = self._create_pair(
