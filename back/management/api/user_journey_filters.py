@@ -24,6 +24,7 @@ from management.models.profile import Profile
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User
+from management.self_onboarding_progress import self_onboarding_in_progress_q
 
 
 # Helper function to calculate three weeks ago
@@ -205,15 +206,17 @@ def self_onboarding_started_no_booked_call(qs=User.objects.all()):
     booked_onboarding_call (future prematching appointment).
     """
     booked = booked_onboarding_call(qs)
-    return qs.filter(
-        is_active=True,
-        state__user_form_state=State.UserFormStateChoices.FILLED,
-        state__email_authenticated=True,
-        state__unresponsive=False,
-        state__is_onboarded=False,
-        state__self_onboarding_started=True,
-        state__self_onboarding_completed=False,
-    ).exclude(id__in=booked)
+    return (
+        qs.filter(
+            is_active=True,
+            state__user_form_state=State.UserFormStateChoices.FILLED,
+            state__email_authenticated=True,
+            state__unresponsive=False,
+            state__is_onboarded=False,
+        )
+        .filter(self_onboarding_in_progress_q())
+        .exclude(id__in=booked)
+    )
 
 
 def onboarding_incomplete(qs=User.objects.all()):

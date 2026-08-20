@@ -67,6 +67,7 @@ from management.api.match_journey_filters import (
 )
 from management.models.matches import Match
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
+from management.self_onboarding_progress import self_onboarding_in_progress_q
 
 _FILLED = traits.FILLED
 _UNFILLED = traits.UNFILLED
@@ -257,10 +258,7 @@ def signup_ineligible(qs: QuerySet, as_of=None) -> QuerySet:
 def signup_self_onboarding(qs: QuerySet, as_of=None) -> QuerySet:
     """Self-onboarding started but not finished, with no call booked."""
     unbooked = _without_scheduled_appointment(_form_filled_pre_onboarding(qs), as_of)
-    return unbooked.filter(
-        state__self_onboarding_started=True,
-        state__self_onboarding_completed=False,
-    ).exclude(id__in=_match_ineligible_learners(unbooked))
+    return unbooked.filter(self_onboarding_in_progress_q()).exclude(id__in=_match_ineligible_learners(unbooked))
 
 
 def signup_form_completed(qs: QuerySet, as_of=None) -> QuerySet:
@@ -271,10 +269,7 @@ def signup_form_completed(qs: QuerySet, as_of=None) -> QuerySet:
     self-onboarding without booking matched both buckets.
     """
     unbooked = _without_scheduled_appointment(_form_filled_pre_onboarding(qs), as_of)
-    return unbooked.exclude(id__in=_match_ineligible_learners(unbooked)).exclude(
-        state__self_onboarding_started=True,
-        state__self_onboarding_completed=False,
-    )
+    return unbooked.exclude(id__in=_match_ineligible_learners(unbooked)).exclude(self_onboarding_in_progress_q())
 
 
 # ---------------------------------------------------------------------------
