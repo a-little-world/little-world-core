@@ -65,7 +65,8 @@ MATCH_STATE_LIST_IDS = _match_state_list_ids()
 
 # One definition of a filter list entry, shared with the user lists — promoted here on
 # the second caller rather than kept as a near-identical copy (conventions §1).
-MATCH_JOURNEY_FILTERS = [
+# V4 ``match_journey_v2__*`` IDs stay in this list but are moved to the end when assembled.
+_MATCH_JOURNEY_FILTERS = [
     FilterListEntry("match_journey_v2__all", None, all_matches),
     FilterListEntry(
         "match_journey_v2__only_non_support_matching",
@@ -192,9 +193,13 @@ MATCH_JOURNEY_FILTERS = [
         "Non-support matches marked as completed off platform",
         EXTRA__suggestion_match_completed_off_plattform,
     ),
-    # V5 partition cells (catalog-backed). V4 IDs above stay untouched.
+    # V5 partition cells (catalog-backed).
     *[FilterListEntry(list_id, None, _match_catalog_queryset(list_id)) for list_id in MATCH_STATE_LIST_IDS],
 ]
+
+MATCH_JOURNEY_FILTERS = [
+    entry for entry in _MATCH_JOURNEY_FILTERS if not entry.name.startswith("match_journey_v2__")
+] + [entry for entry in _MATCH_JOURNEY_FILTERS if entry.name.startswith("match_journey_v2__")]
 
 
 def get_match_list_by_name(name):
