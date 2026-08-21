@@ -2030,7 +2030,6 @@ def automatic_emails_fm021_fm022__ghosted_matches():
     matches_in_ko_with_single_party_contact = Match.objects.filter(
         active=True,
         match_type=MatchType.STANDARD,
-        completed=False,  # dont even consider removing completed matches!
         completed_off_plattform=False,
         support_matching=False,
         auto_email_fm021_send=False,

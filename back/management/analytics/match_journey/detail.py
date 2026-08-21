@@ -25,6 +25,8 @@ from management.analytics.match_journey.queries.activity import (
     week_bounds,
     weekly_activity_rows,
 )
+from management.analytics.match_journey.queries.state import ENGAGEMENT_DAYS, FAILURE_CLIFF_DAYS
+from management.match_success import success_token_threshold, tokens_from_total_minutes
 from management.match_success.sessions import qualifying_sessions
 from management.models.matches import Match
 
@@ -75,107 +77,170 @@ def match_stats_retrieve_extra(match: Match) -> dict:
     }
 
 
-def match_journey_stages(match: Match, week_number: int, desired_duration_weeks: int) -> dict:
+def _stage(*, id: str, label: str, description: str, achieved: bool, achieved_at: datetime | None = None) -> dict:
+    return {
+        "id": id,
+        "label": label,
+        "description": description,
+        "achieved": achieved,
+        "achieved_at": _fmt(achieved_at),
+    }
+
+
+def _token_progress(match: Match) -> tuple[int, int, datetime | None, datetime | None]:
+    """Tokens, threshold, first qualifying call start, and the session end that first crossed success."""
+    threshold = success_token_threshold()
+    sessions = list(qualifying_sessions(match).order_by("end_time").only("created_at", "end_time"))
+    total_minutes = 0.0
+    success_at = None
+    for session in sessions:
+        total_minutes += (session.end_time - session.created_at).total_seconds() / 60.0
+        if success_at is None and tokens_from_total_minutes(total_minutes) >= threshold:
+            success_at = session.end_time
+    first_call_at = min((session.created_at for session in sessions), default=None)
+    return tokens_from_total_minutes(total_minutes), threshold, first_call_at, success_at
+
+
+def _closing_entry(match: Match) -> dict | None:
+    entries = match.report_unmatch if isinstance(match.report_unmatch, list) else []
+    last = entries[-1] if entries else None
+    return last if isinstance(last, dict) else None
+
+
+def _closing_at(match: Match, entry: dict | None) -> datetime | None:
+    if entry:
+        parsed = parse_datetime(entry.get("time") or "")
+        if parsed is not None:
+            return parsed
+    return match.updated_at
+
+
+_FAILURE_BY_KIND = {
+    "report": "A user reported the other.",
+    "unmatch": "Someone ended the match.",
+    "user_deleted": "A participant's account was deleted.",
+    "ghosted": "A participant was flagged as ghosting.",
+}
+
+
+def match_journey_stages(match: Match, *, as_of: datetime | None = None) -> dict:
     """Ordered lifecycle timeline for a single match (retrieve only).
 
-    The "happy path" is: matched -> first contact -> ongoing -> completed -> free play.
-    A reported/unmatched match terminates in a final "closed" step, and any later
-    happy-path steps that were never reached are dropped so the progress bar shortens.
+    Five steps: matched → first call → in-flight (token count) → success or failure
+    (with the date that outcome landed) → engaged or dormant after that outcome.
     """
+    now = as_of or timezone.now()
     created_at = match.created_at
+    tokens, threshold, first_call_at, token_success_at = _token_progress(match)
 
-    has_interaction = bool(
-        match.first_interaction_at or match.total_messages_counter or match.total_mutal_video_calls_counter
-    )
-    is_completed = bool(match.completed or match.completed_off_plattform)
-    is_free_play = week_number > desired_duration_weeks and match.active
+    off_platform_at = match.completed_off_plattform_auto_marked_at if match.completed_off_plattform else None
+    is_successful = match.completed_off_plattform or token_success_at is not None
+    if is_successful:
+        candidates = [moment for moment in (token_success_at, off_platform_at) if moment is not None]
+        success_at = min(candidates) if candidates else created_at
+    else:
+        success_at = None
 
-    report_entries = match.report_unmatch if isinstance(match.report_unmatch, list) else []
-    closing_entry = report_entries[-1] if report_entries else None
-    # A naturally completed match is a success, not a "closed" failure, even if inactive.
-    is_closed = (not match.active) and closing_entry is not None and not is_completed
+    has_first_call = first_call_at is not None or is_successful
+    last_activity_at = match.latest_interaction_at or created_at
+    cliff_at = last_activity_at + timedelta(days=FAILURE_CLIFF_DAYS)
+    closing_entry = _closing_entry(match)
+    closed_kind = closing_entry.get("kind") if closing_entry else None
+    closed_at = _closing_at(match, closing_entry) if not match.active else None
+    is_closed = not match.active
+    is_failed = not is_successful and (is_closed or now >= cliff_at)
+    failure_at = None
+    failure_description = "No activity for 10 weeks before reaching success."
+    if is_failed:
+        failure_at = closed_at if is_closed else cliff_at
+        if is_closed and closed_kind in _FAILURE_BY_KIND:
+            failure_description = closing_entry.get("reason") or _FAILURE_BY_KIND[closed_kind]
+        elif is_closed:
+            failure_description = "Match ended without a recorded reason."
 
-    completed_at = match.completed_off_plattform_auto_marked_at
-    if is_completed and completed_at is None:
-        completed_at = created_at + timedelta(weeks=desired_duration_weeks)
+    if is_successful:
+        outcome = _stage(
+            id="success",
+            label="Match success",
+            description="Reached the match-success threshold.",
+            achieved=True,
+            achieved_at=success_at,
+        )
+    elif is_failed:
+        outcome = _stage(
+            id="failure",
+            label="Match failure",
+            description=failure_description,
+            achieved=True,
+            achieved_at=failure_at,
+        )
+    else:
+        outcome = _stage(
+            id="success",
+            label="Match success",
+            description=f"Reach {threshold} tokens, or complete off platform.",
+            achieved=False,
+        )
 
-    free_play_at = created_at + timedelta(weeks=desired_duration_weeks) if is_free_play else None
+    outcome_reached = is_successful or is_failed
+    is_engaged = last_activity_at >= now - timedelta(days=ENGAGEMENT_DAYS)
+    if outcome_reached and is_engaged:
+        engagement = _stage(
+            id="engaged",
+            label="Engaged",
+            description="Activity within the last 4 weeks.",
+            achieved=True,
+            achieved_at=last_activity_at,
+        )
+    elif outcome_reached:
+        engagement = _stage(
+            id="dormant",
+            label="Dormant",
+            description="No activity for 4 weeks after the outcome.",
+            achieved=True,
+            achieved_at=last_activity_at,
+        )
+    else:
+        engagement = _stage(
+            id="engaged",
+            label="Engaged",
+            description="Activity within 4 weeks after success or failure.",
+            achieved=False,
+        )
 
-    happy_path = [
-        {
-            "id": "matched",
-            "label": "Matched",
-            "description": "Match created.",
-            "achieved": True,
-            "achieved_at": _fmt(created_at),
-        },
-        {
-            "id": "first_contact",
-            "label": "First contact",
-            "description": "Both people started interacting.",
-            "achieved": has_interaction,
-            "achieved_at": _fmt(match.first_interaction_at),
-        },
-        {
-            "id": "ongoing",
-            "label": "Ongoing",
-            "description": f"Active within the planned {desired_duration_weeks} week journey.",
-            "achieved": has_interaction,
-            "achieved_at": None,
-        },
-        {
-            "id": "completed",
-            "label": "Completed",
-            "description": "Completed on or off platform.",
-            "achieved": is_completed,
-            "achieved_at": _fmt(completed_at),
-        },
-        {
-            "id": "free_play",
-            "label": "Free play",
-            "description": f"Active beyond week {desired_duration_weeks}.",
-            "achieved": is_free_play,
-            "achieved_at": _fmt(free_play_at),
-        },
+    stages = [
+        _stage(
+            id="matched",
+            label="Matched",
+            description="Match created.",
+            achieved=True,
+            achieved_at=created_at,
+        ),
+        _stage(
+            id="first_call",
+            label="First call",
+            description="First qualifying video call.",
+            achieved=has_first_call,
+            achieved_at=first_call_at,
+        ),
+        _stage(
+            id="in_flight",
+            label="In-flight",
+            description=f"{tokens} of {threshold} tokens",
+            achieved=has_first_call,
+            achieved_at=None,
+        ),
+        outcome,
+        engagement,
     ]
 
-    achieved_indexes = [index for index, stage in enumerate(happy_path) if stage["achieved"]]
-    furthest_index = achieved_indexes[-1] if achieved_indexes else 0
-
-    closed_kind = None
-    closed_at = None
-    if is_closed and closing_entry is not None:
-        closed_kind = closing_entry.get("kind")
-        parsed_closed_time = parse_datetime(closing_entry.get("time") or "")
-        closed_at = _fmt(parsed_closed_time or match.updated_at)
-
-        closed_label = {
-            "report": "Reported",
-            "unmatch": "Unmatched",
-            "user_deleted": "User deleted",
-        }.get(closed_kind, "Closed")
-
-        stages = happy_path[: furthest_index + 1]
-        stages.append(
-            {
-                "id": "closed",
-                "label": closed_label,
-                "description": closing_entry.get("reason") or "Match was reported or unmatched.",
-                "achieved": True,
-                "achieved_at": closed_at,
-            }
-        )
-        active_stage_index = len(stages) - 1
-    else:
-        stages = happy_path
-        active_stage_index = furthest_index
-
+    achieved_indexes = [index for index, stage in enumerate(stages) if stage["achieved"]]
     return {
         "stages": stages,
-        "active_stage_index": active_stage_index,
-        "is_closed": is_closed,
-        "closed_kind": closed_kind,
-        "closed_at": closed_at,
+        "active_stage_index": achieved_indexes[-1] if achieved_indexes else 0,
+        "is_closed": is_closed and not is_successful,
+        "closed_kind": closed_kind if is_closed else None,
+        "closed_at": _fmt(closed_at) if is_closed else None,
     }
 
 
@@ -207,7 +272,7 @@ def match_weekly_activity_retrieve_extra(match: Match, *, as_of: datetime | None
         "weekly_activity": weekly_activity,
         "streaks": journey_streaks(rows, week_number),
     }
-    journey.update(match_journey_stages(match, week_number, DESIRED_DURATION_WEEKS))
+    journey.update(match_journey_stages(match, as_of=as_of))
 
     return {"journey": journey}
 

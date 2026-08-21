@@ -20,6 +20,9 @@ from video.models import LivekitSession
 #: Read by ``total_call_minutes``; nothing outside this module should depend on the name.
 TOTAL_CALL_TIME_ANNOTATION = "_match_total_call_time"
 
+#: Docs page copy. Keep in lockstep with ``qualifying_sessions`` / the batch subquery.
+QUALIFYING_CALL_RULE = "A call only counts when both participants were active (both_have_been_active)."
+
 _SESSION_DURATION = ExpressionWrapper(F("end_time") - F("created_at"), output_field=DurationField())
 
 

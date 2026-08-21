@@ -11,10 +11,21 @@ as an unrelated error from the first caller that asks for a token count.
 Pass ``version=`` to compare without changing the default.
 """
 
+from management.match_success.sessions import QUALIFYING_CALL_RULE
 from management.match_success.versions import v0_legacy_completed_match, v1_total_minutes
 from management.match_success.versions.base import MatchOutcomeVersion
 
 ACTIVE_VERSION_ID = v1_total_minutes.VERSION_ID
+
+#: Intro for the admin docs page. Domain explanation, not a restatement of any one version.
+OVERVIEW = (
+    "This is the single definition of whether a match succeeded, and"
+    "how much activity that represents. Tokens are an activity scale, not the "
+    "definition of success: a version may succeed with no token scale at all, or from an "
+    "off-platform completion flag or a token threshold. Journeys and the match profiles"
+    "are directly tied to the active version of succes, so changing the active version changes these"
+    "at once."
+)
 
 VERSIONS: dict[str, MatchOutcomeVersion] = {
     v0_legacy_completed_match.VERSION.id: v0_legacy_completed_match.VERSION,
@@ -37,6 +48,16 @@ def list_versions() -> tuple[MatchOutcomeVersion, ...]:
 
 def activatable_version_ids() -> tuple[str, ...]:
     return tuple(sorted(version.id for version in VERSIONS.values() if version.can_be_active))
+
+
+def documentation() -> dict:
+    """Payload for the admin Match Success docs page. Built from the live registry."""
+    return {
+        "overview": OVERVIEW,
+        "qualifying_call_rule": QUALIFYING_CALL_RULE,
+        "active_version_id": ACTIVE_VERSION_ID,
+        "versions": [version.as_docs(active_id=ACTIVE_VERSION_ID) for version in list_versions()],
+    }
 
 
 def _assert_active_version_is_activatable() -> None:

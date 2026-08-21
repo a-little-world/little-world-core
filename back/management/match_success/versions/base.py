@@ -1,7 +1,8 @@
 """Shared shape for a match-outcome rule version."""
 
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
+from typing import Any
 
 from django.db.models import QuerySet
 
@@ -52,6 +53,13 @@ class MatchOutcomeVersion:
     can_be_active: bool = True
     """False for comparison-only versions. Selecting one as active fails at import."""
 
+    details: Mapping[str, Any] = field(default_factory=dict)
+    """Structured facts for the docs page — bands, heuristic thresholds, etc.
+
+    Keep this populated from the same constants the version uses to decide success, so
+    the admin panel never restates a number the code does not own.
+    """
+
     def __post_init__(self) -> None:
         if self.can_be_active and (self.tokens_fn is None or self.success_token_threshold is None):
             raise ValueError(
@@ -93,3 +101,16 @@ class MatchOutcomeVersion:
                 f"Match-success version {self.id!r} is not a token system (see successful_match_ids instead)."
             )
         return self.tokens_by_match_id_fn(qs)
+
+    def as_docs(self, *, active_id: str) -> dict[str, Any]:
+        """JSON shape for the admin documentation page. Derived from this version object."""
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "can_be_active": self.can_be_active,
+            "uses_tokens": self.uses_tokens,
+            "success_token_threshold": self.success_token_threshold,
+            "is_active": self.id == active_id,
+            "details": dict(self.details),
+        }

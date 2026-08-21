@@ -766,7 +766,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if self.get_serializer_context().get("determine_bucket"):
             self._bucket_map = user_bucket_map([instance.pk])
         serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        data = dict(serializer.data)
+        from management.analytics.user_journey.detail import user_journey_retrieve_extra
+
+        data.update(user_journey_retrieve_extra(instance, bucket=data.get("bucket")))
+        return Response(data)
 
     def get_serializer_class(self):
         if self.action == "list":
