@@ -208,6 +208,10 @@ class FilterListEntry:
     name: str
     description: str | None
     queryset: callable = None
+    #: Picker group for entries whose ``name`` carries no recognisable prefix. Synthetic
+    #: lists built at request time (appointment slots) would otherwise fall through
+    #: ``category_for_list_id`` to the catch-all group.
+    category_override: str | None = None
 
     def resolved_description(self) -> str | None:
         """Catalog first (conventions §4), then the hardcoded value, then the docstring.
@@ -234,7 +238,7 @@ class FilterListEntry:
         return _first_doc_line(self.queryset) or _humanize_list_name(self.name)
 
     def category(self) -> str:
-        return category_for_list_id(self.name)
+        return self.category_override or category_for_list_id(self.name)
 
     def picker_label(self) -> str:
         display_name = self.resolved_display_name()

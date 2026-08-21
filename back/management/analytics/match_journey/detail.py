@@ -84,6 +84,9 @@ def _stage(*, id: str, label: str, description: str, achieved: bool, achieved_at
         "description": description,
         "achieved": achieved,
         "achieved_at": _fmt(achieved_at),
+        # Set on the one stage the match stopped at, if it failed. See `match_journey_stages`.
+        "failed": False,
+        "failed_at": None,
     }
 
 
@@ -166,14 +169,6 @@ def match_journey_stages(match: Match, *, as_of: datetime | None = None) -> dict
             achieved=True,
             achieved_at=success_at,
         )
-    elif is_failed:
-        outcome = _stage(
-            id="failure",
-            label="Match failure",
-            description=failure_description,
-            achieved=True,
-            achieved_at=failure_at,
-        )
     else:
         outcome = _stage(
             id="success",
@@ -182,9 +177,8 @@ def match_journey_stages(match: Match, *, as_of: datetime | None = None) -> dict
             achieved=False,
         )
 
-    outcome_reached = is_successful or is_failed
     is_engaged = last_activity_at >= now - timedelta(days=ENGAGEMENT_DAYS)
-    if outcome_reached and is_engaged:
+    if is_successful and is_engaged:
         engagement = _stage(
             id="engaged",
             label="Engaged",
@@ -192,11 +186,11 @@ def match_journey_stages(match: Match, *, as_of: datetime | None = None) -> dict
             achieved=True,
             achieved_at=last_activity_at,
         )
-    elif outcome_reached:
+    elif is_successful:
         engagement = _stage(
             id="dormant",
             label="Dormant",
-            description="No activity for 4 weeks after the outcome.",
+            description="No activity for 4 weeks after success.",
             achieved=True,
             achieved_at=last_activity_at,
         )
@@ -204,7 +198,7 @@ def match_journey_stages(match: Match, *, as_of: datetime | None = None) -> dict
         engagement = _stage(
             id="engaged",
             label="Engaged",
-            description="Activity within 4 weeks after success or failure.",
+            description="Activity within 4 weeks after success.",
             achieved=False,
         )
 
@@ -234,11 +228,30 @@ def match_journey_stages(match: Match, *, as_of: datetime | None = None) -> dict
         engagement,
     ]
 
-    achieved_indexes = [index for index, stage in enumerate(stages) if stage["achieved"]]
+    # How far the match actually got, as a contiguous run — the stepper renders every
+    # step before the active one as complete, so the *last* achieved index ticked stages
+    # the match had skipped: a match that failed with no calls showed "First call ✓,
+    # In-flight ✓" because its outcome stage was independently achieved.
+    active_stage_index = next(
+        (index for index, stage in enumerate(stages) if not stage["achieved"]),
+        len(stages) - 1,
+    )
+
+    # A failure belongs to the step the match stopped at, not to a step of its own.
+    if is_failed:
+        stalled = stages[active_stage_index]
+        stalled["failed"] = True
+        stalled["failed_at"] = _fmt(failure_at)
+        stalled["description"] = failure_description
+
     return {
         "stages": stages,
-        "active_stage_index": achieved_indexes[-1] if achieved_indexes else 0,
-        "is_closed": is_closed and not is_successful,
+        "active_stage_index": active_stage_index,
+        # Reports closure as it is. Suppressing this for successful matches while still
+        # returning `closed_kind` and `closed_at` gave a payload that denied being closed
+        # and named the reason it closed — a successful match that later ended is closed,
+        # and `stages` already carries the success separately.
+        "is_closed": is_closed,
         "closed_kind": closed_kind if is_closed else None,
         "closed_at": _fmt(closed_at) if is_closed else None,
     }

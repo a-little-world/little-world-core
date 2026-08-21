@@ -19,12 +19,11 @@ ACTIVE_VERSION_ID = v1_total_minutes.VERSION_ID
 
 #: Intro for the admin docs page. Domain explanation, not a restatement of any one version.
 OVERVIEW = (
-    "This is the single definition of whether a match succeeded, and"
-    "how much activity that represents. Tokens are an activity scale, not the "
-    "definition of success: a version may succeed with no token scale at all, or from an "
-    "off-platform completion flag or a token threshold. Journeys and the match profiles"
-    "are directly tied to the active version of succes, so changing the active version changes these"
-    "at once."
+    "This is the single definition of whether a match succeeded, and how much activity "
+    "that represents. Tokens are an activity scale, not the definition of success: a "
+    "version may succeed with no token scale at all, or from an off-platform completion "
+    "flag or a token threshold. Journeys and the match profiles are directly tied to the "
+    "active version of success, so changing the active version changes these at once."
 )
 
 VERSIONS: dict[str, MatchOutcomeVersion] = {

@@ -229,10 +229,15 @@ def user_journey_stages(user: User, *, bucket: str | None = None, as_of: datetim
         ),
     ]
 
-    achieved_indexes = [index for index, stage in enumerate(stages) if stage["achieved"]]
+    # Contiguous progress, not the last achieved index: the stepper marks every earlier
+    # step complete, so a later independently-achieved stage (a `past`-phase outcome for
+    # someone who never verified their email) ticked stages the user never reached.
     return {
         "stages": stages,
-        "active_stage_index": achieved_indexes[-1] if achieved_indexes else 0,
+        "active_stage_index": next(
+            (index for index, stage in enumerate(stages) if not stage["achieved"]),
+            len(stages) - 1,
+        ),
     }
 
 
