@@ -1,4 +1,4 @@
-Django==5.1.15
+Django==5.2.17
 channels==4.1.0
 channels-redis==4.1.0 # For using channels with redis
 celery==5.6.2
@@ -64,7 +64,7 @@ PyJWT==2.13.0
 # Use >= 42.0.4 to avoid CVE-2024-26130 (PKCS#12 serialize_key_and_certificates NULL deref DoS)
 cryptography>=43.0.1
 pyattest==1.0.4
-pyasn1==0.6.3
+pyasn1==0.6.4
 google-api-python-client==2.108.0
 google-auth==2.23.4
 cbor2===5.9.0
