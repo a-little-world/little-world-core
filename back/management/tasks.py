@@ -14,7 +14,7 @@ from management.models.banner import Banner
 from management.models.community_events import CommunityEvent
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.state import State
-from management.models.user import User
+from management.models.user import PushNotificationType, User
 from management.permissions import ManagementPermission
 
 from .meta_capi import MetaCAPIClient
@@ -1854,6 +1854,8 @@ def automatic_emails_u051_u071():
     users_u071_hashes = list(users_u071.values_list("uuid", flat=True))
     for user in users_u071:
         send_email_background.delay("automatic-emails-u071", user_id=user.pk, emulated_send=emulated_send)
+        if not emulated_send:
+            send_push_notification(user, "push_notification.onboarding_completed", path="/app")
         user.state.attended_auto_email_u071_send = True
         user.state.attended_auto_email_u071_send_at = dj_timezone.now()
         user.state.save()
@@ -1897,6 +1899,11 @@ def automatic_emails_u053_u054():
         if user.profile.user_type == Profile.TypeChoices.VOLUNTEER:
             return "automatic-emails-u053v"
         return "automatic-emails-u053l"
+
+    def push_notification_key_for_u053(user: User) -> str:
+        if user.profile.user_type == Profile.TypeChoices.VOLUNTEER:
+            return "push_notification.missed_onboarding_volunteer"
+        return "push_notification.missed_onboarding_learner"
 
     time_2days_ago = timezone.now() - timedelta(days=2)
     time_7days_ago = timezone.now() - timedelta(days=7)
@@ -1950,6 +1957,8 @@ def automatic_emails_u053_u054():
             user_id=user.pk,
             emulated_send=emulated_send,
         )
+        if not emulated_send:
+            send_push_notification(user, push_notification_key_for_u053(user), path="/app/onboarding")
         user.state.not_attended_auto_email_u053_send = True
         user.state.not_attended_auto_email_u053_send_at = timezone.now()
         user.state.save()
@@ -2150,3 +2159,34 @@ def cleanup_deleted_users_full_user_data(days_since_deletion: int = 30):
         "processed_user_ids": processed_user_ids,
         "cutoff_date": cutoff_date.isoformat(),
     }
+
+
+@shared_task
+def push_notification_background(user_id: int, **kwargs):
+    user = User.objects.get(pk=user_id)
+    if user:
+        user.push_notification(**kwargs)
+
+
+def send_push_notification(user: User, translation_key: str, path: str | None = None):
+    user.push_notification(
+        title=get_translation(f"{translation_key}.title", lang="de"),
+        description=get_translation(f"{translation_key}.description", lang="de"),
+        notification_type=PushNotificationType.ANNOUNCEMENT,
+        path=path,
+    )
+
+
+@shared_task
+def onboarding_call_reminder_push_notification(user_id: int):
+    """Reminder push for the onboarding call, scheduled (eta) one hour before the call (see u044)."""
+    user = User.objects.filter(pk=user_id).first()
+    if user is None or not user.is_active:
+        return
+    appointment = PreMatchingAppointment.objects.filter(user=user).first()
+    if appointment is None:
+        return
+    # the appointment may have been rebooked after this task was scheduled
+    if not (timedelta(0) <= appointment.start_time - dj_timezone.now() <= timedelta(hours=1, minutes=5)):
+        return
+    send_push_notification(user, "push_notification.onboarding_call_reminder", path="/app/onboarding/")

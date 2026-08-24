@@ -1,11 +1,8 @@
-{% load temp_utils %}
-{% get_base_url as BASE_URL %}
-
 importScripts(
-  "https://www.gstatic.com/firebasejs/11.5.0/firebase-app-compat.js"
+  "https://www.gstatic.com/firebasejs/11.5.0/firebase-app-compat.js",
 );
 importScripts(
-  "https://www.gstatic.com/firebasejs/11.5.0/firebase-messaging-compat.js"
+  "https://www.gstatic.com/firebasejs/11.5.0/firebase-messaging-compat.js",
 );
 
 // Check if Firebase app is already initialized to prevent duplicate-app error
@@ -21,30 +18,41 @@ if (!firebase.apps.length) {
   });
 }
 
-const messaging = firebase.messaging();
-
+// Must be registered before firebase.messaging(), the SDK's own notificationclick
+// handler calls stopImmediatePropagation() and would swallow this one.
 self.addEventListener("notificationclick", (event) => {
+  event.stopImmediatePropagation();
   event.notification.close();
 
-  // This looks to see if the tab current is already open and focuses if it is
+  // FCM wraps the original message payload when it auto-displays a notification
+  const data =
+    event.notification.data?.FCM_MSG?.data ?? event.notification.data ?? {};
+  const path =
+    typeof data.path === "string" && data.path.startsWith("/")
+      ? data.path
+      : "/";
+  const url = self.location.origin + path;
+
+  // Focus an already open tab and hand the path to the running app, which routes
+  // to it without a page load. client.navigate() would reload the whole app.
   event.waitUntil(
-    event.target.clients
-      .matchAll({
-        type: "window",
-        includeUncontrolled: true,
-      })
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
       .then((clientList) => {
-        for (const client of clientList) {
-          if (
-            client.url.startsWith("{{ BASE_URL }}") &&
-            "focus" in client
-          )
-            return client.focus();
+        const client = clientList.find((c) =>
+          c.url.startsWith(self.location.origin),
+        );
+        if (!client) {
+          return self.clients.openWindow(url);
         }
-        if (clients.openWindow) return clients.openWindow("/");
-      })
+        return client.focus().then((focused) => {
+          focused.postMessage({ type: "NAVIGATE", path });
+        });
+      }),
   );
 });
+
+const messaging = firebase.messaging();
 
 self.addEventListener("install", (event) => {
   self.skipWaiting(); // Force the service worker to take control immediately
@@ -52,6 +60,6 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    clients.claim() // Ensure the service worker takes control of all open clients
+    clients.claim(), // Ensure the service worker takes control of all open clients
   );
 });

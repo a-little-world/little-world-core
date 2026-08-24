@@ -1,3 +1,5 @@
+from enum import StrEnum
+from typing import assert_never
 from uuid import uuid4
 
 from celery import current_app
@@ -9,11 +11,121 @@ from django.db.models import Q
 from emails.api.send_email import send_template_email
 from firebase_admin import messaging
 from rest_framework import serializers
+from webpack_loader.utils import get_static
 
 from back import utils
 from management.models.mobile_device import MobileDevice
 from management.models.notifications import Notification
 from management.permissions import ManagementPermission
+
+
+class PushNotificationType(StrEnum):
+    CHAT = "chat"
+    MATCH = "match"
+    RANDOM_CALL = "random_call_reminder"
+    ANNOUNCEMENT = "announcement"
+
+    @property
+    def notification_channel(self) -> str:
+        """The notification channel used for this notification type."""
+        match self:
+            case PushNotificationType.CHAT:
+                return "conversations"
+            case PushNotificationType.MATCH:
+                return "conversations"
+            case PushNotificationType.RANDOM_CALL:
+                return "reminders"
+            case PushNotificationType.ANNOUNCEMENT:
+                return "announcements"
+        assert_never(self)
+
+    @property
+    def android_priority(self) -> str:
+        """FCM delivery priority: 'high' skips Doze batching, 'normal' can be delayed."""
+        match self:
+            case PushNotificationType.CHAT:
+                return "high"
+            case PushNotificationType.MATCH:
+                return "high"
+            case PushNotificationType.RANDOM_CALL:
+                return "high"
+            case PushNotificationType.ANNOUNCEMENT:
+                return "normal"
+        assert_never(self)
+
+    @property
+    def profile_field(self) -> str:
+        """The `Profile` boolean field for this notification type."""
+        match self:
+            case PushNotificationType.CHAT:
+                return "push_notifications_chats_enabled"
+            case PushNotificationType.MATCH:
+                return "push_notifications_matches_enabled"
+            case PushNotificationType.RANDOM_CALL:
+                return "push_notifications_random_calls_enabled"
+            case PushNotificationType.ANNOUNCEMENT:
+                return "push_notifications_announcements_enabled"
+        assert_never(self)
+
+
+def bulk_push_devices(notification_type: PushNotificationType):
+    """All active devices of users opted in to this notification type."""
+    notifications_enabled_field = f"user__profile__{notification_type.profile_field}"
+    return MobileDevice.objects.filter(
+        active=True,
+        user__profile__push_notifications_enabled=True,
+        **{notifications_enabled_field: True},
+    )
+
+
+def send_bulk_push_notification(
+    title: str,
+    description: str,
+    notification_type: PushNotificationType,
+    path: str | None = None,
+    group: str | None = None,
+):
+    bulk_push_devices(notification_type).send_message(
+        build_push_message(title, description, notification_type, path, group)
+    )
+
+
+def build_push_message(
+    title: str,
+    description: str,
+    notification_type: PushNotificationType,
+    path: str | None = None,
+    group: str | None = None,
+) -> messaging.Message:
+    notification_type = PushNotificationType(notification_type)
+
+    data = {}
+    if path:
+        data["path"] = path
+    if group:
+        data["group"] = group
+
+    data = None if len(data.keys()) == 0 else data
+
+    return messaging.Message(
+        notification=messaging.Notification(title=title, body=description),
+        data=data,
+        android=messaging.AndroidConfig(
+            priority=notification_type.android_priority,
+            notification=messaging.AndroidNotification(channel_id=notification_type.notification_channel),
+        ),
+        apns=messaging.APNSConfig(
+            headers={"apns-priority": "5" if notification_type.android_priority == "normal" else "10"},
+            payload=messaging.APNSPayload(aps=messaging.Aps(sound="default", thread_id=group)),
+        ),
+        webpush=messaging.WebpushConfig(
+            notification=messaging.WebpushNotification(
+                title=title,
+                body=description,
+                icon=get_static("android-chrome-512x512.png", config="main_frontend"),
+            ),
+        ),
+    )
 
 
 class UserManager(BaseUserManager["User"]):
@@ -220,22 +332,53 @@ class User(AbstractUser):
             str(self.uuid)
         )
 
-    def send_notification(self, title, description, persist=False):
+    def send_notification(
+        self,
+        title: str,
+        description: str,
+        notification_type: PushNotificationType,
+        persist=False,
+        path=None,
+        group=None,
+    ):
         if persist:
             Notification.objects.create(user=self, title=title, description=description)
 
-        self.push_notification(title=title, description=description)
-        pass
-
-    def push_notification(self, title: str, description: str):
-        devices = MobileDevice.objects.filter(user=self)
-        message = messaging.Message(
-            notification=messaging.Notification(title=title, body=description),
+        self.push_notification(
+            title=title,
+            description=description,
+            notification_type=notification_type,
+            path=path,
+            group=group,
         )
 
-        # TODO: THere are multiple devices @JannisToelle how shall we handle this?        for device in devices:
-        for device in devices:
-            device.send_message(message)
+    def push_notification(
+        self,
+        title: str,
+        description: str,
+        notification_type: PushNotificationType | str,
+        path: str | None = None,
+        group: str | None = None,
+    ):
+        """Send a push notification to all of the user's devices."""
+        notification_type = PushNotificationType(notification_type)
+        self.push_devices(notification_type).send_message(
+            build_push_message(title, description, notification_type, path, group)
+        )
+
+    def push_devices(self, notification_type: PushNotificationType | str | None = None):
+        if not self.profile.push_notifications_enabled:
+            return MobileDevice.objects.none()
+        if notification_type is not None:
+            # can be serialized by celery, so cast it back
+            notification_type = PushNotificationType(notification_type)
+            if not getattr(self.profile, notification_type.profile_field):
+                return MobileDevice.objects.none()
+
+        devices = MobileDevice.objects.filter(user=self, active=True)
+        # send to online devices only if any exist, otherwise send to all
+        online = devices.online()
+        return online if online.exists() else devices
 
     def sms(self, send_initator, message, dont_send=False, skip_reason="skipped"):
         """ "Sends SMS to User if user has SMS Notification allowed and valid Phone number"""

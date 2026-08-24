@@ -158,6 +158,19 @@ def cleanup_if_not_accepted(match_uuid):
     return {"match_uuid": match_uuid, "auto_rejected_match": auto_rejected_match}
 
 
+@shared_task(name="video.tasks.send_random_call_reminder")
+def send_random_call_reminder(lobby_uuid):
+    from management.models.user import PushNotificationType, send_bulk_push_notification
+
+    lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
+    send_bulk_push_notification(
+        title="Random Call reminder",
+        description=f"'{lobby.name}' starts in 5 minutes!",
+        notification_type=PushNotificationType.RANDOM_CALL,
+    )
+    return {"lobby": str(lobby_uuid)}
+
+
 @shared_task(name="video.tasks.create_default_random_call_lobby")
 def create_default_random_call_lobby():
     # create a new random call lobby

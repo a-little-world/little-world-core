@@ -19,7 +19,7 @@ from management.models.scores import TwoUserMatchingScore
 from management.models.settings import Settings
 from management.models.state import State
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
-from management.models.user import User, UserSerializer
+from management.models.user import PushNotificationType, User, UserSerializer
 from management.permissions import ManagementPermission
 
 
@@ -343,17 +343,20 @@ def match_users(
                 random_call_room=False,
             )
 
+    user_chat: Chat | None = None
     if create_chat:
         # After the users are registered as matches
         # we still need to create a dialog for them
         chat = Chat.objects.filter(Q(u1=usr1, u2=usr2) | Q(u1=usr2, u2=usr1))
         if not chat.exists():
             chat = Chat.objects.create(u1=usr1, u2=usr2)
+            user_chat = chat
         else:
             existing_chat = chat.first()
             if existing_chat is not None and existing_chat.is_temporary:
                 existing_chat.is_temporary = False
                 existing_chat.save(update_fields=["is_temporary"])
+                user_chat = existing_chat
 
     if send_notification:
         # send sms message ( only if the user enabled sms notifications )
@@ -373,6 +376,19 @@ def match_users(
         # Sends a message from the admin model
         usr1.message(match_message.format(other_name=usr2.profile.first_name), auto_mark_read=True)
         usr2.message(match_message.format(other_name=usr1.profile.first_name), auto_mark_read=True)
+
+        if match_type == MatchType.STANDARD:
+            chat_path = f"/app/chat/{str(user_chat.uuid)}" if user_chat is not None else None
+            volunteer = matching_obj.get_volunteer()
+            learner = matching_obj.get_learner()
+            volunteer.push_notification(
+                title=get_translation("push_notification.new_match.title", lang="de"),
+                description=get_translation("push_notification.new_match.description", lang="de").format(
+                    user=learner.profile.first_name
+                ),
+                notification_type=PushNotificationType.MATCH,
+                path=chat_path,
+            )
 
     if send_email and match_type == MatchType.STANDARD:
         usr1.send_email("new-match", match_id=matching_obj.pk)
