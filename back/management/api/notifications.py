@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import DetailedPagination, IsAdminOrMatchingUser
 from management.models.notifications import Notification, SelfNotificationSerializer
-from management.models.user import User
+from management.models.user import PushNotificationType, User
 
 
 @dataclass
@@ -216,7 +216,12 @@ def send_notification(request):
     params: NotificationParams = serializer.save()
 
     user = User.objects.get(id=params.user)
-    user.send_notification(title=params.title, description=params.description, persist=params.persist)
+    user.send_notification(
+        title=params.title,
+        description=params.description,
+        persist=params.persist,
+        notification_type=PushNotificationType.CHAT,
+    )
 
     return Response(status=200)
 

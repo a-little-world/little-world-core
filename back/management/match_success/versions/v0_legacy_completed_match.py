@@ -63,4 +63,10 @@ VERSION = MatchOutcomeVersion(
     ),
     successful_matches_fn=successful_matches,
     can_be_active=False,
+    details={
+        "min_mutual_messages": _MIN_MUTUAL_MESSAGES,
+        "min_mutual_video_calls": _MIN_MUTUAL_VIDEO_CALLS,
+        "contact_span_days": _CONTACT_SPAN_DAYS,
+        "days_since_last_interaction": _DAYS_SINCE_LAST_INTERACTION,
+    },
 )

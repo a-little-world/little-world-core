@@ -257,18 +257,31 @@ class ProposedMatch(models.Model):
         """Alias for get_confirming_user (the user who confirms is the learner for STANDARD proposals)."""
         return self.get_confirming_user()
 
+    def send_push(self, translation_key, user):
+        from translations import get_translation
+
+        from management.models.user import PushNotificationType
+
+        user.push_notification(
+            title=get_translation(f"{translation_key}.title", lang="de"),
+            description=get_translation(f"{translation_key}.description", lang="de"),
+            notification_type=PushNotificationType.MATCH,
+            path="/app",
+        )
+
     def send_initial_mail(self):
-        """Send the new-match proposal email for STANDARD proposals only."""
+        """Send the new-match proposal push + email for STANDARD proposals only."""
         if self.match_type != MatchType.STANDARD:
-            return
-        if self.send_inital_mail:
             return
         confirming_user = self.get_confirming_user()
         if confirming_user is None:
             return
+        if self.send_inital_mail:
+            return
         self.send_inital_mail = True
         self.save(update_fields=["send_inital_mail"])
         confirming_user.send_email("confirm-match-1", proposed_match_id=self.id)
+        self.send_push("push_notification.confirm_match", confirming_user)
 
     def send_expiration_mail(self):
         if self.expired_mail_send:
@@ -293,6 +306,7 @@ class ProposedMatch(models.Model):
                 self.reminder_send = True
                 self.save(update_fields=["reminder_send"])
                 confirming_user.send_email("confirm-match-2", proposed_match_id=self.id)
+                self.send_push("push_notification.confirm_match_reminder", confirming_user)
         return reminder_due
 
     def get_shared_data(self, user):

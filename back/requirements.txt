@@ -1,4 +1,4 @@
-Django==5.1.15
+Django==5.2.17
 channels==4.1.0
 channels-redis==4.1.0 # For using channels with redis
 celery==5.6.2
@@ -46,6 +46,13 @@ django-filter
 bs4
 livekit-api
 google-cloud-translate==3.15.3
+google-api-core==2.30.3
+google-cloud-core==2.6.1
+google-cloud-firestore==2.27.0
+google-cloud-storage==2.14.0
+googleapis-common-protos==1.75.0
+grpcio-status==1.62.3
+proto-plus==1.28.2
 deepl>=1.24.0  # DeepL translation API
 django-stubs[compatible-mypy]
 pre-commit
@@ -57,7 +64,7 @@ PyJWT==2.13.0
 # Use >= 42.0.4 to avoid CVE-2024-26130 (PKCS#12 serialize_key_and_certificates NULL deref DoS)
 cryptography>=43.0.1
 pyattest==1.0.4
-pyasn1==0.6.3
+pyasn1==0.6.4
 google-api-python-client==2.108.0
 google-auth==2.23.4
 cbor2===5.9.0

@@ -138,6 +138,9 @@ class SavedListEntrySerializer(serializers.Serializer):
     slug = serializers.CharField(required=False)
     name = serializers.CharField()
     description = serializers.CharField(required=False, allow_blank=True)
+    display_name = serializers.CharField(required=False, allow_blank=True)
+    category = serializers.CharField(required=False, allow_blank=True)
+    label = serializers.CharField(required=False, allow_blank=True)
 
 
 class FilterSchemaResponseSerializer(serializers.Serializer):

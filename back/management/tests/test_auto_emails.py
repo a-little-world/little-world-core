@@ -18,10 +18,12 @@ from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.profile import Profile
 from management.models.state import State
+from management.models.unconfirmed_matches import MatchType
 from management.models.user import User
 from management.permissions import ManagementPermission
 from management.random_test_users import create_test_user
 from management.tasks import (
+    automatic_emails_fm021_fm022__ghosted_matches,
     automatic_emails_m012_m013_m014,
     automatic_emails_m023,
     automatic_emails_m024_m025,
@@ -1816,3 +1818,213 @@ class TestAutomaticEmailsM043M044M045Performance(TestCase):
         assert len(calls) == 2
         assert calls[0][0][0] == "automatic-emails-m043"
         assert calls[1][0][0] == "automatic-emails-m043"
+
+
+class TestAutomaticEmailsIncludeRandomCallMatches(TestCase):
+    """Random Call matches share the Standard post-confirm email journey; Temporary matches do not."""
+
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+
+    def _create_pair(self, seed: str, match_type: str, **match_kwargs):
+        user1 = User.objects.create_user(
+            email=f"rc-journey-{seed}-1@test.de",
+            password="Test123!",
+            first_name="Learner",
+            last_name="Test",
+        )
+        user2 = User.objects.create_user(
+            email=f"rc-journey-{seed}-2@test.de",
+            password="Test123!",
+            first_name="Volunteer",
+            last_name="Test",
+        )
+        user1.profile.user_type = Profile.TypeChoices.LEARNER
+        user2.profile.user_type = Profile.TypeChoices.VOLUNTEER
+        user1.profile.save()
+        user2.profile.save()
+        match = Match.objects.create(
+            user1=user1,
+            user2=user2,
+            match_type=match_type,
+            active=True,
+            **match_kwargs,
+        )
+        return user1, user2, match
+
+    def test_m012_includes_random_call_and_excludes_temporary(self):
+        _u1, _u2, rc_match = self._create_pair(
+            "m012-rc",
+            MatchType.RANDOM_CALL,
+            support_matching=False,
+            total_messages_counter=0,
+            total_mutal_video_calls_counter=0,
+            latest_interaction_at=dj_timezone.now() - timedelta(days=3),
+        )
+        _t1, _t2, temp_match = self._create_pair(
+            "m012-temp",
+            MatchType.TEMPORARY,
+            support_matching=False,
+            total_messages_counter=0,
+            total_mutal_video_calls_counter=0,
+            latest_interaction_at=dj_timezone.now() - timedelta(days=3),
+        )
+
+        result = automatic_emails_m012_m013_m014()
+        m012_ids = {match.pk for match in result["matches_m012"]}
+
+        assert rc_match.pk in m012_ids
+        assert temp_match.pk not in m012_ids
+
+    def test_m023_sends_for_random_call_match(self):
+        user1, user2, match = self._create_pair("m023-rc", MatchType.RANDOM_CALL, confirmed=True)
+        chat = Chat.objects.create(u1=user1, u2=user2)
+        with freeze_time(dj_timezone.now() - timedelta(days=4)):
+            Message.objects.create(chat=chat, sender=user1, recipient=user2, text="Hello")
+
+        with patch("management.tasks.send_email_background") as mock_send_email:
+            automatic_emails_m023()
+
+        mock_send_email.delay.assert_called_once_with(
+            "automatic-emails-m023",
+            user_id=user2.id,
+            match_id=match.pk,
+            emulated_send=True,
+        )
+
+    def test_m031_includes_random_call_and_excludes_temporary(self):
+        _u1, _u2, rc_match = self._create_pair(
+            "m031-rc",
+            MatchType.RANDOM_CALL,
+            confirmed=True,
+            support_matching=False,
+            first_interaction_at=dj_timezone.now() - timedelta(days=8),
+            total_mutal_video_calls_counter=0,
+            auto_email_m031_send=False,
+        )
+        _t1, _t2, temp_match = self._create_pair(
+            "m031-temp",
+            MatchType.TEMPORARY,
+            confirmed=True,
+            support_matching=False,
+            first_interaction_at=dj_timezone.now() - timedelta(days=8),
+            total_mutal_video_calls_counter=0,
+            auto_email_m031_send=False,
+        )
+
+        result = automatic_emails_m031_m032_m033_m042()
+        m031_uuids = set(result["matches_m031"])
+
+        assert str(rc_match.uuid) in m031_uuids
+        assert str(temp_match.uuid) not in m031_uuids
+
+    def test_m053_includes_random_call_and_excludes_temporary(self):
+        _u1, _u2, rc_match = self._create_pair(
+            "m053-rc",
+            MatchType.RANDOM_CALL,
+            confirmed=True,
+            support_matching=False,
+            auto_email_m053_send=False,
+        )
+        _t1, _t2, temp_match = self._create_pair(
+            "m053-temp",
+            MatchType.TEMPORARY,
+            confirmed=True,
+            support_matching=False,
+            auto_email_m053_send=False,
+        )
+        six_weeks_ago = dj_timezone.now() - timedelta(weeks=6)
+        Match.objects.filter(pk__in=[rc_match.pk, temp_match.pk]).update(created_at=six_weeks_ago)
+
+        result = automatic_emails_m053_m054_m055()
+        m053_uuids = set(result["matches_m053"])
+
+        assert str(rc_match.uuid) in m053_uuids
+        assert str(temp_match.uuid) not in m053_uuids
+
+    @patch("management.tasks.send_email_background")
+    def test_m043_sends_for_random_call_match(self, mock_send_email):
+        user1, user2, match = self._create_pair(
+            "m043-rc",
+            MatchType.RANDOM_CALL,
+            confirmed=True,
+            auto_email_m043_send=False,
+            auto_email_m044_send=False,
+            auto_email_m045_send=False,
+            latest_counter_sync=dj_timezone.now() - timedelta(days=2),
+            latest_interaction_at=dj_timezone.now() - timedelta(days=1),
+        )
+        for _ in range(5):
+            LivekitSession.objects.create(
+                u1=user1,
+                u2=user2,
+                both_have_been_active=True,
+                is_active=False,
+            )
+
+        report = automatic_emails_m043_m044_m045()
+        match.refresh_from_db()
+
+        assert report["counters_synced_m043"] == 1
+        assert match.auto_email_m043_send is True
+        assert mock_send_email.delay.call_count == 2
+        sent_user_ids = {call.kwargs["user_id"] for call in mock_send_email.delay.call_args_list}
+        assert sent_user_ids == {user1.id, user2.id}
+
+    @patch("management.tasks.send_email_background")
+    def test_m043_sends_to_both_users_when_same_type(self, mock_send_email):
+        user1, user2, match = self._create_pair(
+            "m043-same-type",
+            MatchType.RANDOM_CALL,
+            confirmed=True,
+            auto_email_m043_send=False,
+            auto_email_m044_send=False,
+            auto_email_m045_send=False,
+            latest_counter_sync=dj_timezone.now() - timedelta(days=2),
+            latest_interaction_at=dj_timezone.now() - timedelta(days=1),
+        )
+        user2.profile.user_type = Profile.TypeChoices.LEARNER
+        user2.profile.save()
+        for _ in range(5):
+            LivekitSession.objects.create(
+                u1=user1,
+                u2=user2,
+                both_have_been_active=True,
+                is_active=False,
+            )
+
+        automatic_emails_m043_m044_m045()
+
+        calls = mock_send_email.delay.call_args_list
+        assert {call.kwargs["user_id"] for call in calls} == {user1.id, user2.id}
+        for call in calls:
+            assert (
+                call.kwargs["context"]["post_videocall_survey_url"]
+                == settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER
+            )
+
+    def test_fm021_includes_random_call_and_excludes_temporary(self):
+        _u1, _u2, rc_match = self._create_pair(
+            "fm021-rc",
+            MatchType.RANDOM_CALL,
+            support_matching=False,
+            completed=False,
+            completed_off_plattform=False,
+            total_mutal_video_calls_counter=0,
+        )
+        _t1, _t2, temp_match = self._create_pair(
+            "fm021-temp",
+            MatchType.TEMPORARY,
+            support_matching=False,
+            completed=False,
+            completed_off_plattform=False,
+            total_mutal_video_calls_counter=0,
+        )
+
+        result = automatic_emails_fm021_fm022__ghosted_matches()
+        match_ids = {match.pk for match in result["matches"]}
+
+        assert rc_match.pk in match_ids
+        assert temp_match.pk not in match_ids
+        rc_match.refresh_from_db()
+        assert rc_match.is_ghosted_match is False
