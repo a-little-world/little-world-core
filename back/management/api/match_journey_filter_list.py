@@ -29,7 +29,6 @@ from management.api.match_journey_filters import (
 )
 from management.api.user_advanced_filter_lists import FilterListEntry, get_queryset_source_reference  # noqa: F401
 from management.models.matches import Match
-from management.models.unconfirmed_matches import MatchType
 
 logger = logging.getLogger(__name__)
 
@@ -283,26 +282,12 @@ MATCH_BUCKET_SKIP_LISTS = frozenset(
     }
 )
 
-# Legacy V4 category lists were STANDARD-only except organic. V5 ``match_state__*``
-# and support scope themselves.
-MATCH_BUCKET_STANDARD_ONLY_PREFIX = "match_journey_v2__"
-MATCH_BUCKET_NON_STANDARD_LISTS = frozenset(
-    {
-        "match_journey_v2__organic_match",
-    }
-)
-
 
 def _match_bucket_entry_applies(entry: FilterListEntry, match_pk: int) -> bool:
     if entry.queryset is None or entry.name in MATCH_BUCKET_SKIP_LISTS:
         return False
     try:
         scoped_matches = Match.objects.filter(pk=match_pk)
-        if (
-            entry.name.startswith(MATCH_BUCKET_STANDARD_ONLY_PREFIX)
-            and entry.name not in MATCH_BUCKET_NON_STANDARD_LISTS
-        ):
-            scoped_matches = scoped_matches.filter(match_type=MatchType.STANDARD)
         return entry.queryset(scoped_matches).exists()
     except Exception:
         # Logged rather than swallowed: without this a cell whose query breaks is

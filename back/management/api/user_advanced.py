@@ -128,8 +128,8 @@ def get_match_waiting_time(user):
     if user.state.searching_state != State.SearchingStateChoices.SEARCHING:
         return {"number_of_days": None, "waiting_time_string": "Not actively searching", "first_search": None}
 
-    # Check if the user has already been matched
-    already_matched = Match.objects.filter(Q(user1=user) | Q(user2=user), support_matching=False).exists()
+    # Check if the user has already been matched (Standard or Random Call; not TEMPORARY)
+    already_matched = Match.objects.filter(Q(user1=user) | Q(user2=user)).filter(Match.journey_q()).exists()
 
     # Determine waiting_since based on match status
     if already_matched:

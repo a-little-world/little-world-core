@@ -204,8 +204,9 @@ CATALOG: dict[str, CatalogEntry] = {
         queryset=s.active_first_search,
         description=(
             "Onboarded and searching for a first match, with nothing currently in flight. "
-            "Rollup of the five cells below, which split this group by what happened to the "
-            "user's most recent proposal."
+            "A Standard or Random Call match graduates the user out of this group; a "
+            "TEMPORARY lobby pairing does not. Rollup of the five cells below, which split "
+            "this group by what happened to the user's most recent Standard proposal."
         ),
         display_name="Pre first match - Searching for a first match",
         base_model=_USER,

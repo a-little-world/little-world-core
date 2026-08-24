@@ -583,6 +583,28 @@ class JourneyV5PartitionBalanceTests(TestCase):
 
         cls._first_search_users()
 
+        rc_matched = cls._onboarded("random_call_matched", user_type=Profile.TypeChoices.VOLUNTEER)
+        rc_matched_partner = cls._onboarded("random_call_matched_partner", user_type=Profile.TypeChoices.LEARNER)
+        cls._match(
+            rc_matched,
+            rc_matched_partner,
+            match_type=MatchType.RANDOM_CALL,
+            active=True,
+            confirmed=False,
+            created_days_ago=2,
+            total_mutal_video_calls_counter=1,
+        )
+
+        tmp_only = cls._onboarded("temporary_lobby_only", user_type=Profile.TypeChoices.VOLUNTEER)
+        tmp_only_partner = cls._onboarded("temporary_lobby_only_partner", user_type=Profile.TypeChoices.LEARNER)
+        cls._match(
+            tmp_only,
+            tmp_only_partner,
+            match_type=MatchType.TEMPORARY,
+            active=False,
+            confirmed=True,
+        )
+
     @classmethod
     def _first_search_users(cls):
         """The five ways a first search can look, all invisible to V4.
@@ -926,6 +948,14 @@ class JourneyV5PartitionBalanceTests(TestCase):
 
     def test_random_call_proposals_do_not_classify_the_matching_funnel(self):
         for key in ("first_search_random_call_only", "first_search_random_call_partner"):
+            self.assertEqual(self._bucket_of(key), ["state__first_search_no_proposal"], key)
+
+    def test_random_call_match_surpasses_first_search(self):
+        self.assertEqual(self._bucket_of("random_call_matched"), ["state__first_match_kickoff"])
+        self.assertEqual(self._bucket_of("random_call_matched_partner"), ["state__first_match_kickoff"])
+
+    def test_temporary_lobby_match_does_not_surpass_first_search(self):
+        for key in ("temporary_lobby_only", "temporary_lobby_only_partner"):
             self.assertEqual(self._bucket_of(key), ["state__first_search_no_proposal"], key)
 
     def test_the_five_cells_sum_back_to_the_composite(self):

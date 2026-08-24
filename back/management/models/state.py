@@ -421,12 +421,14 @@ class FrontendStatusSerializer(serializers.ModelSerializer):
             rep["status"] = FrontendStatusEnum.pre_matching.value
             return rep
 
-        # Now check if the user is matched
-        # Use exists() instead of count() for better performance
-        has_atleast_one_match = Match.objects.filter(
-            Q(user1=instance.user) | Q(user2=instance.user),
-            support_matching=False,
-        ).exists()
+        # Same universe as first-search / waiting-time: Standard and Random Call, not lobby TEMPORARY.
+        has_atleast_one_match = (
+            Match.journey()
+            .filter(
+                Q(user1=instance.user) | Q(user2=instance.user),
+            )
+            .exists()
+        )
 
         if has_atleast_one_match:
             if instance.searching_state == State.SearchingStateChoices.IDLE:

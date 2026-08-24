@@ -5,6 +5,7 @@ from datetime import timedelta
 from uuid import uuid4
 
 from django.test import SimpleTestCase, TestCase
+from django.utils import timezone
 from video.models import LivekitSession
 
 from management.match_success import (
@@ -32,6 +33,8 @@ from management.match_success.versions.v1_total_minutes import (
     SUCCESS_TOKEN_THRESHOLD,
 )
 from management.models.matches import Match
+from management.models.state import State
+from management.models.unconfirmed_matches import MatchType
 from management.models.user import User
 
 
@@ -235,9 +238,21 @@ class QualifyingSessionTests(TestCase):
         cls.match = Match.objects.create(user1=cls.a, user2=cls.b)
         cls.match_start = cls.match.created_at
 
-    def _session(self, u1, u2, *, minutes=60, starts_after=timedelta(hours=1), both_active=True, finished=True):
+    def _session(
+        self,
+        u1,
+        u2,
+        *,
+        minutes=60,
+        starts_after=timedelta(hours=1),
+        both_active=True,
+        finished=True,
+        random_call_session=False,
+    ):
         started = self.match_start + starts_after
-        session = LivekitSession.objects.create(u1=u1, u2=u2, both_have_been_active=both_active)
+        session = LivekitSession.objects.create(
+            u1=u1, u2=u2, both_have_been_active=both_active, random_call_session=random_call_session
+        )
         LivekitSession.objects.filter(pk=session.pk).update(
             created_at=started,
             end_time=started + timedelta(minutes=minutes) if finished else None,
@@ -264,6 +279,41 @@ class QualifyingSessionTests(TestCase):
     def test_a_call_before_the_match_started_does_not_count(self):
         self._session(self.a, self.b, minutes=300, starts_after=timedelta(days=-1))
         self.assertEqual(qualifying_sessions(self.match).count(), 0)
+
+    def test_random_call_lobby_session_before_match_counts_for_random_call_match(self):
+        rc_match = Match.objects.create(user1=self.a, user2=self.b, match_type=MatchType.RANDOM_CALL)
+        started = rc_match.created_at - timedelta(hours=1)
+        session = LivekitSession.objects.create(
+            u1=self.a, u2=self.b, both_have_been_active=True, random_call_session=True
+        )
+        LivekitSession.objects.filter(pk=session.pk).update(
+            created_at=started, end_time=started + timedelta(minutes=12)
+        )
+
+        self.assertEqual(qualifying_sessions(rc_match).count(), 1)
+        self.assertAlmostEqual(match_total_minutes(rc_match), 12, places=1)
+        self.assertAlmostEqual(
+            match_tokens_by_id(Match.objects.filter(pk=rc_match.pk))[rc_match.pk],
+            match_tokens(rc_match),
+        )
+
+    def test_pre_match_classic_call_still_does_not_count_on_random_call_match(self):
+        rc_match = Match.objects.create(user1=self.a, user2=self.b, match_type=MatchType.RANDOM_CALL)
+        started = rc_match.created_at - timedelta(hours=1)
+        session = LivekitSession.objects.create(
+            u1=self.a, u2=self.b, both_have_been_active=True, random_call_session=False
+        )
+        LivekitSession.objects.filter(pk=session.pk).update(
+            created_at=started, end_time=started + timedelta(minutes=40)
+        )
+
+        self.assertEqual(qualifying_sessions(rc_match).count(), 0)
+        self.assertEqual(match_total_minutes(rc_match), 0)
+
+    def test_pre_match_random_call_does_not_count_on_standard_match(self):
+        self._session(self.a, self.b, minutes=40, starts_after=timedelta(hours=-1), random_call_session=True)
+        self.assertEqual(qualifying_sessions(self.match).count(), 0)
+        self.assertEqual(match_total_minutes(self.match), 0)
 
     def test_a_call_where_only_one_side_was_active_does_not_count(self):
         self._session(self.a, self.b, minutes=300, both_active=False)
@@ -336,3 +386,50 @@ class BatchTokenTests(TestCase):
         qs = Match.objects.filter(pk__in=[m.pk for m, _ in self.matches])
         with self.assertNumQueries(1):
             match_tokens_by_id(qs)
+
+
+class RandomCallMatchAdoptsLobbyHistoryTests(TestCase):
+    def test_match_users_copies_lobby_call_and_chat_onto_the_new_match(self):
+        from chat.models import Chat, Message
+
+        from management.controller import match_users
+
+        user1 = _user("lobby-a")
+        user2 = _user("lobby-b")
+        chat = Chat.objects.create(u1=user1, u2=user2, is_temporary=True)
+        started = timezone.now() - timedelta(hours=1)
+        session = LivekitSession.objects.create(
+            u1=user1, u2=user2, both_have_been_active=True, random_call_session=True
+        )
+        LivekitSession.objects.filter(pk=session.pk).update(
+            created_at=started, end_time=started + timedelta(minutes=12)
+        )
+        message = Message.objects.create(chat=chat, sender=user1, recipient=user2, text="Nice talking")
+        Message.objects.filter(pk=message.pk).update(created=started + timedelta(minutes=1))
+
+        for user in (user1, user2):
+            user.state.searching_state = State.SearchingStateChoices.SEARCHING
+            user.state.save(update_fields=["searching_state"])
+
+        match = match_users(
+            {user1, user2},
+            match_type=MatchType.RANDOM_CALL,
+            send_message=False,
+            send_email=False,
+            send_notification=False,
+        )
+        chat.refresh_from_db()
+        session.refresh_from_db()
+
+        self.assertEqual(match.match_type, MatchType.RANDOM_CALL)
+        self.assertEqual(match.total_mutal_video_calls_counter, 1)
+        self.assertEqual(match.total_messages_counter, 1)
+        self.assertEqual(match.first_interaction_at, session.created_at)
+        self.assertFalse(chat.is_temporary)
+        self.assertEqual(qualifying_sessions(match).count(), 1)
+        self.assertAlmostEqual(match_total_minutes(match), 12, places=1)
+        self.assertEqual(match.confirmed, False)
+        user1.state.refresh_from_db()
+        user2.state.refresh_from_db()
+        self.assertEqual(user1.state.searching_state, State.SearchingStateChoices.IDLE)
+        self.assertEqual(user2.state.searching_state, State.SearchingStateChoices.IDLE)

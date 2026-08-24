@@ -13,8 +13,8 @@ from management.models.matches import Match
 class MatchPartitionCohort:
     """Universe of matches for the V5 partition.
 
-    Always non-support. Optional ``created_at`` bounds (both inclusive in the display
-    timezone). Omit both dates for all-time.
+    Always non-support Standard and Random Call (not TEMPORARY). Optional ``created_at``
+    bounds (both inclusive in the display timezone). Omit both dates for all-time.
     """
 
     start_date: date | datetime | str | None = None
@@ -25,7 +25,7 @@ class MatchPartitionCohort:
         return Match
 
     def apply(self, qs: QuerySet) -> QuerySet:
-        qs = qs.filter(support_matching=False)
+        qs = qs.filter(Match.journey_q())
         if self.start_date is None and self.end_date is None:
             return qs
         if self.start_date is None or self.end_date is None:
