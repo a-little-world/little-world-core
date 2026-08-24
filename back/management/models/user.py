@@ -40,6 +40,22 @@ class PushNotificationType(StrEnum):
         assert_never(self)
 
     @property
+    def android_priority(self) -> str:
+        """FCM delivery priority: 'high' skips Doze batching, 'normal' can be delayed."""
+        match self:
+            case PushNotificationType.CHAT:
+                return "high"
+            case PushNotificationType.MATCH:
+                return "high"
+            case PushNotificationType.RANDOM_CALL:
+                return "high"
+            case PushNotificationType.ANNOUNCEMENT:
+                return "normal"
+            case PushNotificationType.CALL:
+                return "high"
+        assert_never(self)
+
+    @property
     def profile_field(self) -> str:
         """The `Profile` boolean field for this notification type."""
         match self:
@@ -97,11 +113,11 @@ def build_push_message(
         notification=messaging.Notification(title=title, body=description),
         data=data,
         android=messaging.AndroidConfig(
-            priority="high",
+            priority=notification_type.android_priority,
             notification=messaging.AndroidNotification(channel_id=notification_type.notification_channel),
         ),
         apns=messaging.APNSConfig(
-            headers={"apns-priority": "10"},
+            headers={"apns-priority": "5" if notification_type.android_priority == "normal" else "10"},
             payload=messaging.APNSPayload(aps=messaging.Aps(sound="default", thread_id=group)),
         ),
         webpush=messaging.WebpushConfig(
