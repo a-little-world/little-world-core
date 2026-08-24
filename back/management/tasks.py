@@ -2014,6 +2014,7 @@ def automatic_emails_fm021_fm022__ghosted_matches():
     from video.models import LivekitSession
 
     from management.api.report_unmatch import process_report_unmatch
+    from management.match_success import successful_match_ids
     from management.models.matches import Match, MatchType
 
     time_15days_ago = timezone.now() - timedelta(days=15)
@@ -2030,7 +2031,6 @@ def automatic_emails_fm021_fm022__ghosted_matches():
     matches_in_ko_with_single_party_contact = Match.objects.filter(
         active=True,
         match_type=MatchType.STANDARD,
-        completed=False,  # dont even consider removing completed matches!
         completed_off_plattform=False,
         support_matching=False,
         auto_email_fm021_send=False,
@@ -2040,6 +2040,16 @@ def automatic_emails_fm021_fm022__ghosted_matches():
         user1__is_active=True,
         user2__is_active=True,
     ).exclude(first_interaction_at__lt=time_3weeks_ago)
+
+    # Exclude successful matches - this task unmatches, so a false positive here
+    # removes a working pair.
+    #
+    # Both routes to success are covered: `completed_off_plattform=False` in the filter
+    # above excludes off-platform completions, and this excludes anything at or over the
+    # token threshold.
+    matches_in_ko_with_single_party_contact = matches_in_ko_with_single_party_contact.exclude(
+        id__in=successful_match_ids(matches_in_ko_with_single_party_contact)
+    )
 
     # Check if matches should be marked 'ghosted'
     # TODO: confirm if there should be a way to get out of 'ghosted' state

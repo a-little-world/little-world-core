@@ -144,16 +144,63 @@ def get_queryset_source_reference(queryset: callable) -> dict:
     return {"source_file": source_file, "source_line": source_line, "source_url": source_url}
 
 
-def _catalog_description(list_id: str) -> str | None:
-    """Description from the analytics catalog, which owns it for every ID it defines.
-
-    Lazy import: the analytics registry imports the query modules this one does, and
-    resolution only happens at request time.
-    """
+def _catalog_entry(list_id: str):
+    """Lazy catalog lookup — this module and the analytics registry import each other."""
     from management.analytics.registry import get_catalog_entry
 
-    entry = get_catalog_entry(list_id)
+    return get_catalog_entry(list_id)
+
+
+def _catalog_description(list_id: str) -> str | None:
+    """Description from the analytics catalog, which owns it for every ID it defines."""
+    entry = _catalog_entry(list_id)
     return entry.description if entry else None
+
+
+_COMMUNICATIONS_LIST_IDS = frozenset(
+    {
+        "message_reply_required",
+        "read_message_but_not_replied",
+        "read_or_not_read_but_not_replied",
+        "newsletter_subscribed",
+        "EXTRA__users_with_duplicate_automatic_emails_29_01_2026",
+    }
+)
+
+_JOURNEY_V4_PREFIX = "journey_v2__"
+_MATCH_JOURNEY_V4_PREFIX = "match_journey_v2__"
+
+
+def category_for_list_id(name: str) -> str:
+    """High-level group shown in the admin list picker so neighbouring IDs stay distinct."""
+    if name.startswith(":dyn:"):
+        return "Dynamic"
+    if name.startswith(("state__", "funnel__")):
+        return "User Journey"
+    if name.startswith(_JOURNEY_V4_PREFIX):
+        return "User Journey V4"
+    if name.startswith(("match_state__", "match_funnel__")):
+        return "Match Journey"
+    if name.startswith(_MATCH_JOURNEY_V4_PREFIX):
+        return "Match Journey V4"
+    if name.startswith("community"):
+        return "Community"
+    if name in _COMMUNICATIONS_LIST_IDS:
+        return "Communications"
+    if name.startswith(("EXTRA__", "TEST__")):
+        return "Extra"
+    return "Operations"
+
+
+def _humanize_list_name(name: str) -> str:
+    slug = name.rsplit("__", 1)[-1]
+    return slug.replace("_", " ").strip()
+
+
+def _first_doc_line(queryset) -> str | None:
+    if queryset and queryset.__doc__:
+        return queryset.__doc__.strip().split("\n", 1)[0].strip()
+    return None
 
 
 @dataclass
@@ -161,6 +208,10 @@ class FilterListEntry:
     name: str
     description: str | None
     queryset: callable = None
+    #: Picker group for entries whose ``name`` carries no recognisable prefix. Synthetic
+    #: lists built at request time (appointment slots) would otherwise fall through
+    #: ``category_for_list_id`` to the catch-all group.
+    category_override: str | None = None
 
     def resolved_description(self) -> str | None:
         """Catalog first (conventions §4), then the hardcoded value, then the docstring.
@@ -177,11 +228,33 @@ class FilterListEntry:
             return self.queryset.__doc__.strip()
         return None
 
+    def resolved_display_name(self) -> str:
+        """Short title for pickers. Catalog ``display_name`` wins; description stays the long copy."""
+        entry = _catalog_entry(self.name)
+        if entry is not None:
+            return entry.display_name
+        if self.description:
+            return self.description.strip()
+        return _first_doc_line(self.queryset) or _humanize_list_name(self.name)
+
+    def category(self) -> str:
+        return self.category_override or category_for_list_id(self.name)
+
+    def picker_label(self) -> str:
+        display_name = self.resolved_display_name()
+        category = self.category()
+        if display_name.startswith(f"{category} - "):
+            return display_name
+        return f"{category} - {display_name}"
+
     def to_dict(self):
         source_reference = get_queryset_source_reference(self.queryset)
         return {
             "name": self.name,
             "description": self.resolved_description(),
+            "display_name": self.resolved_display_name(),
+            "category": self.category(),
+            "label": self.picker_label(),
             **source_reference,
         }
 
@@ -447,7 +520,12 @@ ANALYTICS_FILTER_LISTS = [
     FilterListEntry(list_id, None, _catalog_queryset(list_id)) for list_id in (*FUNNEL_LIST_IDS, *STATE_LIST_IDS)
 ]
 
-FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS + ANALYTICS_FILTER_LISTS
+FILTER_LISTS = (
+    PANEL_V1_FILTER_LISTS
+    + ANALYTICS_FILTER_LISTS
+    + [entry for entry in USER_JOURNEY_FILTER_LISTS if not entry.name.startswith(_JOURNEY_V4_PREFIX)]
+    + [entry for entry in USER_JOURNEY_FILTER_LISTS if entry.name.startswith(_JOURNEY_V4_PREFIX)]
+)
 
 
 def get_dynamic_userlists() -> list[FilterListEntry]:
@@ -459,7 +537,7 @@ def get_dynamic_userlists() -> list[FilterListEntry]:
 
 def get_choices():
     try:
-        return [(entry.name, entry.description) for entry in FILTER_LISTS + get_dynamic_userlists()]
+        return [(entry.name, entry.picker_label()) for entry in FILTER_LISTS + get_dynamic_userlists()]
     except Exception as e:
         print(e)
         return []

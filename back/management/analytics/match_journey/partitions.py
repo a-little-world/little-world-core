@@ -1,8 +1,16 @@
 """Match Journey V5 partition definition."""
 
 from management.analytics.core.partitions import PartitionBucket, PartitionDefinition, PartitionPhase
-from management.analytics.match_journey.queries.state import CLOSING_KINDS, STAGES
+from management.analytics.match_journey.queries.state import (
+    CLOSING_KINDS,
+    ENGAGEMENT_DAYS,
+    FAILURE_CLIFF_DAYS,
+    STAGES,
+)
 from management.models.matches import Match
+
+_ENGAGEMENT_WEEKS = ENGAGEMENT_DAYS // 7
+_FAILURE_WEEKS = FAILURE_CLIFF_DAYS // 7
 
 MATCH_JOURNEY_V5 = PartitionDefinition(
     id="match-journey-v5",
@@ -10,8 +18,10 @@ MATCH_JOURNEY_V5 = PartitionDefinition(
     description=(
         "Current state of every non-support match in the selected cohort. Each match is "
         "counted in exactly one bucket. Success is 8+ tokens (or off-platform) while still "
-        "active. Inactive matches are reported/removed by stage. Failure is still-active "
-        "matches with no activity for 10 weeks without success."
+        f"active. Two clocks then split those outcomes: a successful match is dormant after "
+        f"{_ENGAGEMENT_WEEKS} weeks without a message or call, and a still-active match that "
+        f"never reached success is failed after {_FAILURE_WEEKS} weeks without activity. "
+        "Inactive matches are reported/removed by stage."
     ),
     base_model=Match,
     baseline_list_id="match_funnel__all",

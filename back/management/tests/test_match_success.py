@@ -11,6 +11,7 @@ from management.match_success import (
     ACTIVE_VERSION_ID,
     activatable_version_ids,
     annotate_match_tokens,
+    documentation,
     get_version,
     list_versions,
     match_is_successful,
@@ -21,7 +22,7 @@ from management.match_success import (
     successful_match_ids,
     tokens_from_total_minutes,
 )
-from management.match_success.sessions import qualifying_sessions
+from management.match_success.sessions import QUALIFYING_CALL_RULE, qualifying_sessions
 from management.match_success.versions import _assert_active_version_is_activatable
 from management.match_success.versions.base import MatchOutcomeVersion
 from management.match_success.versions.v1_total_minutes import (
@@ -176,6 +177,39 @@ class VersionRegistryTests(SimpleTestCase):
         """Comparing two versions across the match table must not be one query per match."""
         for version in list_versions():
             self.assertIsNotNone(version.successful_matches_fn, f"{version.id} has no batch predicate")
+
+    def test_documentation_payload_mirrors_the_registry(self):
+        """The admin docs page must read the live versions, not a restated copy."""
+        payload = documentation()
+        self.assertEqual(payload["active_version_id"], ACTIVE_VERSION_ID)
+        self.assertEqual(payload["qualifying_call_rule"], QUALIFYING_CALL_RULE)
+        self.assertTrue(payload["overview"])
+
+        by_id = {row["id"]: row for row in payload["versions"]}
+        self.assertEqual(set(by_id), {version.id for version in list_versions()})
+
+        for version in list_versions():
+            row = by_id[version.id]
+            self.assertEqual(row["title"], version.title)
+            self.assertEqual(row["description"], version.description)
+            self.assertEqual(row["can_be_active"], version.can_be_active)
+            self.assertEqual(row["uses_tokens"], version.uses_tokens)
+            self.assertEqual(row["success_token_threshold"], version.success_token_threshold)
+            self.assertEqual(row["is_active"], version.id == ACTIVE_VERSION_ID)
+            self.assertEqual(row["details"], dict(version.details))
+
+        v1 = by_id["v1"]
+        self.assertEqual(
+            [(band["min_minutes"], band["tokens"]) for band in v1["details"]["token_bands"]],
+            list(MINUTE_TOKEN_THRESHOLDS),
+        )
+        self.assertEqual(v1["details"]["success_minutes"], SUCCESS_MINUTES)
+        self.assertEqual(v1["details"]["minutes_per_token_after_success"], MINUTES_PER_TOKEN_AFTER_SUCCESS)
+
+        v0 = by_id["v0"]
+        self.assertFalse(v0["uses_tokens"])
+        self.assertFalse(v0["can_be_active"])
+        self.assertFalse(v0["is_active"])
 
     def test_success_has_exactly_one_implementation_per_version(self):
         """No row-form override exists, so `is_successful` cannot disagree with the batch form.

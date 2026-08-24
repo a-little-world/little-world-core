@@ -45,7 +45,7 @@ USER_JOURNEY_V5 = PartitionDefinition(
         ),
         PartitionPhase(
             id="pre_match",
-            title="Pre-match",
+            title="Pre first match",
             buckets=(
                 PartitionBucket(list_id="state__gave_up"),
                 PartitionBucket(list_id="state__first_search_no_proposal"),
@@ -59,7 +59,7 @@ USER_JOURNEY_V5 = PartitionDefinition(
         ),
         PartitionPhase(
             id="first_match",
-            title="First match",
+            title="In a match (Pre-first success)",
             buckets=(
                 PartitionBucket(list_id="state__first_match_kickoff"),
                 PartitionBucket(list_id="state__first_match_ongoing"),
@@ -67,7 +67,7 @@ USER_JOURNEY_V5 = PartitionDefinition(
         ),
         PartitionPhase(
             id="after_failed_first",
-            title="After failed first match",
+            title="After failed first match(es)",
             buckets=(
                 PartitionBucket(list_id="state__rematch_proposed"),
                 PartitionBucket(list_id="state__searching_after_failed"),
@@ -76,7 +76,7 @@ USER_JOURNEY_V5 = PartitionDefinition(
         ),
         PartitionPhase(
             id="successful_first",
-            title="Successful first match",
+            title="At least one successful match",
             buckets=(
                 PartitionBucket(list_id="state__success_ongoing_searching"),
                 PartitionBucket(list_id="state__success_ongoing_settled"),

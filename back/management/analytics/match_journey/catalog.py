@@ -81,7 +81,7 @@ CATALOG: dict[str, CatalogEntry] = {
             role=CatalogRole.STAGE,
             queryset=getattr(s, f"in_flight_tokens_{n}"),
             description=f"In flight with exactly {n} match token(s).",
-            display_name=f"{n} tokens",
+            display_name=f"In flight - {n} tokens",
             base_model=_MATCH,
         )
         for n in range(8)

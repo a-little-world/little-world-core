@@ -69,6 +69,37 @@ class JourneyV5StructureTests(SimpleTestCase):
             ["signup", "pre_match", "first_match", "after_failed_first", "successful_first", "past"],
         )
 
+    def test_phase_and_bucket_titles_are_self_explanatory_in_isolation(self):
+        self.assertEqual(
+            [phase.title for phase in USER_JOURNEY_V5.phases],
+            [
+                "Sign-up",
+                "Pre first match",
+                "In a match (Pre-first success)",
+                "After failed first match(es)",
+                "At least one successful match",
+                "Past users",
+            ],
+        )
+        pre_match = next(phase for phase in USER_JOURNEY_V5.phases if phase.id == "pre_match")
+        self.assertTrue(
+            all(UJ_CATALOG[bucket.list_id].display_name.startswith("Pre first match") for bucket in pre_match.buckets)
+        )
+        self.assertEqual(
+            UJ_CATALOG["state__first_match_kickoff"].display_name, "In match - kickoff (Pre-first success)"
+        )
+        self.assertEqual(
+            UJ_CATALOG["state__first_match_ongoing"].display_name, "In match - ongoing (Pre-first success)"
+        )
+        self.assertEqual(
+            UJ_CATALOG["state__success_ongoing_searching"].display_name,
+            "Live match(es) & searching (after success)",
+        )
+        self.assertEqual(
+            UJ_CATALOG["state__success_ongoing_settled"].display_name,
+            "Live match(es) & not searching (after success)",
+        )
+
     def test_no_bucket_appears_in_two_phases(self):
         bucket_ids = USER_JOURNEY_V5.bucket_ids()
         self.assertEqual(len(bucket_ids), len(set(bucket_ids)))

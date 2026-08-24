@@ -207,7 +207,7 @@ CATALOG: dict[str, CatalogEntry] = {
             "Rollup of the five cells below, which split this group by what happened to the "
             "user's most recent proposal."
         ),
-        display_name="Searching for a first match",
+        display_name="Pre first match - Searching for a first match",
         base_model=_USER,
         members=(
             "state__first_search_no_proposal",
@@ -222,7 +222,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.STAGE,
         queryset=s.active_first_search_no_proposal,
         description="Searching for a first match, and nobody has ever been proposed to them.",
-        display_name="Searching - never proposed anyone",
+        display_name="Pre first match - Searching - never proposed anyone",
         base_model=_USER,
     ),
     "state__first_search_proposal_expired": CatalogEntry(
@@ -230,7 +230,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.STAGE,
         queryset=s.active_first_search_proposal_expired,
         description="Searching again because their most recent proposal expired undecided.",
-        display_name="Searching - last proposal expired",
+        display_name="Pre first match - Searching - last proposal expired",
         base_model=_USER,
     ),
     "state__first_search_rejected_by_them": CatalogEntry(
@@ -241,7 +241,7 @@ CATALOG: dict[str, CatalogEntry] = {
             "Searching again after turning down their most recent proposal. Only the user who "
             "confirms a proposal can reject it, so this group is mostly learners."
         ),
-        display_name="Searching - rejected the last proposal",
+        display_name="Pre first match - Searching - rejected the last proposal",
         base_model=_USER,
     ),
     "state__first_search_rejected_by_partner": CatalogEntry(
@@ -252,7 +252,7 @@ CATALOG: dict[str, CatalogEntry] = {
             "Searching again after the person proposed to them turned them down. Mostly "
             "volunteers, since the learner is the one who confirms a standard match."
         ),
-        display_name="Searching - partner rejected them",
+        display_name="Pre first match - Searching - partner rejected them",
         base_model=_USER,
     ),
     "state__first_search_proposal_closed": CatalogEntry(
@@ -263,7 +263,7 @@ CATALOG: dict[str, CatalogEntry] = {
             "Searching again after their most recent proposal was closed without a decision - "
             "withdrawn, superseded, or closed by staff, rather than rejected or expired."
         ),
-        display_name="Searching - last proposal closed",
+        display_name="Pre first match - Searching - last proposal closed",
         base_model=_USER,
     ),
     "state__search_blocked": CatalogEntry(
@@ -274,7 +274,7 @@ CATALOG: dict[str, CatalogEntry] = {
             "Onboarded and searching for a first match, but cannot be matched because of A0 "
             "German level or residence outside Germany."
         ),
-        display_name="Searching but not matchable",
+        display_name="Pre first match - Searching but not matchable",
         base_model=_USER,
     ),
     "state__proposed": CatalogEntry(
@@ -282,7 +282,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.STAGE,
         queryset=s.proposed_never_matched,
         description="Has an open match proposal and has never had a real match.",
-        display_name="Open proposal",
+        display_name="Pre first match - Open proposal",
         base_model=_USER,
     ),
     "state__gave_up": CatalogEntry(
@@ -290,7 +290,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.DROPOUT,
         queryset=s.lapsed_gave_up,
         description="Stopped searching without ever being matched.",
-        display_name="Stopped searching",
+        display_name="Pre first match - Stopped searching",
         base_model=_USER,
     ),
     # --- First match in flight (never yet succeeded) ---
@@ -301,7 +301,7 @@ CATALOG: dict[str, CatalogEntry] = {
         description=(
             "In a match that has not reached sustained two-way contact yet, and has never completed a successful match."
         ),
-        display_name="First match - kickoff",
+        display_name="In match - kickoff (Pre-first success)",
         base_model=_USER,
     ),
     "state__first_match_ongoing": CatalogEntry(
@@ -311,7 +311,7 @@ CATALOG: dict[str, CatalogEntry] = {
         description=(
             "In a match with sustained contact that is not yet completed, and has never completed a successful match."
         ),
-        display_name="First match - ongoing",
+        display_name="In match - ongoing (Pre-first success)",
         base_model=_USER,
     ),
     # --- After failed first match(es) ---
@@ -322,7 +322,7 @@ CATALOG: dict[str, CatalogEntry] = {
         description=(
             "Has an open rematch proposal after one or more matches that did not succeed; nothing currently live."
         ),
-        display_name="Open proposal - after failed first match",
+        display_name="Open proposal - after failed first match(es)",
         base_model=_USER,
     ),
     "state__searching_after_failed": CatalogEntry(
@@ -330,7 +330,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.STAGE,
         queryset=s.searching_after_failed,
         description=("Back in the matching pool after failed first match(es); no open proposal and nothing live."),
-        display_name="Searching again - after failed first match",
+        display_name="Searching again - after failed first match(es)",
         base_model=_USER,
     ),
     "state__stopped_after_failed": CatalogEntry(
@@ -338,7 +338,7 @@ CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.DROPOUT,
         queryset=s.stopped_after_failed,
         description="Stopped searching after failed first match(es); nothing in flight.",
-        display_name="Stopped searching - after failed first match",
+        display_name="Stopped searching - after failed first match(es)",
         base_model=_USER,
     ),
     # --- Successful first match (absorbing) ---
@@ -346,16 +346,22 @@ CATALOG: dict[str, CatalogEntry] = {
         list_id="state__success_ongoing_searching",
         role=CatalogRole.STAGE,
         queryset=s.success_ongoing_searching,
-        description=("Has completed a successful first match, still has a live match, and is searching again."),
-        display_name="Live match(es) & searching",
+        description=(
+            "Has completed a successful match and currently has a live match "
+            "(not necessarily the successful one); searching again."
+        ),
+        display_name="Live match(es) & searching (after success)",
         base_model=_USER,
     ),
     "state__success_ongoing_settled": CatalogEntry(
         list_id="state__success_ongoing_settled",
         role=CatalogRole.STAGE,
         queryset=s.success_ongoing_settled,
-        description=("Has completed a successful first match, still has a live match, and is not searching"),
-        display_name="Live match(es) & not searching",
+        description=(
+            "Has completed a successful match and currently has a live match "
+            "(not necessarily the successful one); not searching."
+        ),
+        display_name="Live match(es) & not searching (after success)",
         base_model=_USER,
     ),
     "state__success_searching": CatalogEntry(
