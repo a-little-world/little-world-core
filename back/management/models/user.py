@@ -34,7 +34,7 @@ class PushNotificationType(StrEnum):
             case PushNotificationType.MATCH:
                 return "conversations"
             case PushNotificationType.RANDOM_CALL:
-                return "random_calls"
+                return "reminders"
             case PushNotificationType.ANNOUNCEMENT:
                 return "announcements"
         assert_never(self)
@@ -83,6 +83,8 @@ def build_push_message(
     path: str | None = None,
     group: str | None = None,
 ) -> messaging.Message:
+    notification_type = PushNotificationType(notification_type)
+
     data = {}
     if path:
         data["path"] = path
@@ -96,7 +98,7 @@ def build_push_message(
         data=data,
         android=messaging.AndroidConfig(
             priority="high",
-            notification=messaging.AndroidNotification(channel_id=notification_type),
+            notification=messaging.AndroidNotification(channel_id=notification_type.notification_channel),
         ),
         apns=messaging.APNSConfig(
             headers={"apns-priority": "10"},
@@ -340,16 +342,17 @@ class User(AbstractUser):
         self,
         title: str,
         description: str,
-        notification_type: PushNotificationType,
+        notification_type: PushNotificationType | str,
         path: str | None = None,
         group: str | None = None,
     ):
         """Send a push notification to all of the user's devices."""
+        notification_type = PushNotificationType(notification_type)
         self.push_devices(notification_type).send_message(
             build_push_message(title, description, notification_type, path, group)
         )
 
-    def push_devices(self, notification_type: PushNotificationType | None = None):
+    def push_devices(self, notification_type: PushNotificationType | str | None = None):
         if not self.profile.push_notifications_enabled:
             return MobileDevice.objects.none()
         if notification_type is not None:
