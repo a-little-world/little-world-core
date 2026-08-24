@@ -118,7 +118,7 @@ class MatchJourneyDetailTests(TestCase):
         self.assertEqual(journey["weekly_activity"][0]["messages"], 0)
         self.assertEqual(journey["weekly_activity"][0]["video_calls"], 0)
         self.assertEqual(journey["stages"][0]["id"], "matched")
-        self.assertEqual(journey["active_stage_index"], 0)
+        self.assertEqual(journey["active_stage_index"], 1)
         self.assertEqual(
             [stage["id"] for stage in journey["stages"]],
             [

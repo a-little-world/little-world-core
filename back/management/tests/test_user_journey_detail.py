@@ -56,6 +56,8 @@ def _by_id(stages: dict, stage_id: str) -> dict:
 
 
 class UserJourneyDetailTests(TestCase):
+    """`active_stage_index` is the first *unachieved* stage — the step the user is on."""
+
     def test_new_user_is_on_registered(self):
         user = _user("created")
         stages = user_journey_stages(user, bucket="state__email_unverified")
@@ -66,7 +68,7 @@ class UserJourneyDetailTests(TestCase):
         )
         self.assertTrue(_by_id(stages, "registered")["achieved"])
         self.assertFalse(_by_id(stages, "email_verified")["achieved"])
-        self.assertEqual(stages["active_stage_index"], 0)
+        self.assertEqual(stages["active_stage_index"], 1)
         self.assertEqual(_by_id(stages, "email_verified")["label"], CATALOG["funnel__email_verified"].display_name)
 
     def test_form_complete_waits_at_onboarding_not_started(self):
@@ -84,7 +86,7 @@ class UserJourneyDetailTests(TestCase):
         self.assertTrue(_by_id(stages, "form_completed")["achieved"])
         self.assertFalse(_by_id(stages, "onboarding")["achieved"])
         self.assertEqual(_by_id(stages, "onboarding")["label"], CATALOG["funnel__onboarding_started"].display_name)
-        self.assertEqual(stages["active_stage_index"], 2)
+        self.assertEqual(stages["active_stage_index"], 3)
 
     def test_booked_onboarding_uses_the_v5_bucket_label(self):
         user = _user(
@@ -103,7 +105,7 @@ class UserJourneyDetailTests(TestCase):
         self.assertTrue(onboarding["achieved"])
         self.assertEqual(onboarding["label"], CATALOG["state__onboarding_booked"].display_name)
         self.assertFalse(_by_id(stages, "onboarded")["achieved"])
-        self.assertEqual(stages["active_stage_index"], 3)
+        self.assertEqual(stages["active_stage_index"], 4)
 
     def test_ineligible_onboarding_is_the_active_branch(self):
         user = _user(
@@ -119,7 +121,7 @@ class UserJourneyDetailTests(TestCase):
         self.assertEqual(_by_id(stages, "onboarding")["label"], CATALOG["state__onboarding_ineligible"].display_name)
         self.assertTrue(_by_id(stages, "onboarding")["achieved"])
         self.assertFalse(_by_id(stages, "onboarded")["achieved"])
-        self.assertEqual(stages["active_stage_index"], 3)
+        self.assertEqual(stages["active_stage_index"], 4)
 
     def test_searching_for_first_match_uses_the_v5_cell(self):
         user = _onboarded("searching")
@@ -130,7 +132,7 @@ class UserJourneyDetailTests(TestCase):
         self.assertTrue(matching["achieved"])
         self.assertEqual(matching["label"], CATALOG["state__first_search_no_proposal"].display_name)
         self.assertFalse(_by_id(stages, "success")["achieved"])
-        self.assertEqual(stages["active_stage_index"], 5)
+        self.assertEqual(stages["active_stage_index"], 6)
 
     def test_open_proposal_is_the_matching_step(self):
         user = _onboarded("proposed")
@@ -144,7 +146,7 @@ class UserJourneyDetailTests(TestCase):
         stages = user_journey_stages(user, bucket="state__proposed")
 
         self.assertEqual(_by_id(stages, "matching")["label"], CATALOG["state__proposed"].display_name)
-        self.assertEqual(stages["active_stage_index"], 5)
+        self.assertEqual(stages["active_stage_index"], 6)
 
     def test_first_match_kickoff_is_the_matching_step(self):
         user = _onboarded("kickoff")
