@@ -14,7 +14,7 @@ from rest_framework.response import Response
 
 from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import IsAdminOrMatchingUser
-from management.models.user import MobileDevice, User
+from management.models.user import MobileDevice, PushNotificationType, User
 
 
 @dataclass
@@ -36,6 +36,20 @@ class PushNotificationRegistrationSerializer(serializers.Serializer):
 
 
 @dataclass
+class PushNotificationUnregistrationParams:
+    install_id: str
+    token: str | None = None
+
+
+class PushNotificationUnregistrationSerializer(serializers.Serializer):
+    install_id = serializers.CharField(required=True)
+    token = serializers.CharField(required=False)
+
+    def create(self, validated_data):
+        return PushNotificationUnregistrationParams(**validated_data)
+
+
+@dataclass
 class PushNotificationParams:
     user: int
     title: str
@@ -54,7 +68,9 @@ class PushNotificationSerializer(serializers.Serializer):
 def get_firebase_service_worker(request):
     code = render_to_string("firebase-worker.js", context=settings.FIREBASE_CLIENT_CONFIG)
 
-    return HttpResponse(code, content_type="application/javascript", charset="utf-8")
+    response = HttpResponse(code, content_type="application/javascript", charset="utf-8")
+    response["Cache-Control"] = "no-cache"
+    return response
 
 
 @extend_schema(
@@ -115,21 +131,25 @@ def register_push_notifications_token(request):
 
 @extend_schema(
     description="Unregister a push notification device token",
-    request=PushNotificationRegistrationParams,
+    request=PushNotificationUnregistrationParams,
 )
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([authentication.SessionAuthentication, NativeOnlyJWTAuthentication])
 def un_register_push_notifications_token(request):
-    serializer: PushNotificationRegistrationSerializer = PushNotificationRegistrationSerializer(data=request.data)
+    serializer: PushNotificationUnregistrationSerializer = PushNotificationUnregistrationSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    params: PushNotificationRegistrationParams = serializer.save()
+    params: PushNotificationUnregistrationParams = serializer.save()
 
     install_id = params.install_id
     token = params.token
 
+    lookup = Q(install_id=install_id)
+    if token:
+        lookup |= Q(registration_id=token)
+
     with transaction.atomic():
-        MobileDevice.objects.filter(Q(install_id=install_id) | Q(registration_id=token)).update(active=False)
+        MobileDevice.objects.filter(lookup, user=request.user).update(user=None)
 
     return Response(status=200)
 
@@ -147,7 +167,11 @@ def send_push_notification(request):
     params: PushNotificationParams = serializer.save()
 
     user = User.objects.get(id=params.user)
-    user.push_notification(title=params.title, description=params.description)
+    user.push_notification(
+        title=params.title,
+        description=params.description,
+        notification_type=PushNotificationType.ANNOUNCEMENT,
+    )
 
     return Response(status=200)
 
@@ -159,7 +183,11 @@ def send_push_notification(request):
 @permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([authentication.SessionAuthentication, NativeOnlyJWTAuthentication])
 def send_test_push_notification(request):
-    request.user.send_notification(title="Test notification title", description="Test notification description")
+    request.user.send_notification(
+        title="Test notification title",
+        description="Test notification description",
+        notification_type=PushNotificationType.ANNOUNCEMENT,
+    )
     return Response(status=200)
 
 

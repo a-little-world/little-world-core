@@ -600,10 +600,7 @@ def get_user_data(user):
     pre_call_join_link = settings.PREMATCHING_CALL_JOIN_LINK
     profile_data = SelfProfileSerializer(user_profile).data
 
-    has_atleast_one_match = Match.objects.filter(
-        Q(user1=user) | Q(user2=user),
-        support_matching=False,
-    ).exists()
+    has_atleast_one_match = Match.journey().filter(Q(user1=user) | Q(user2=user)).exists()
 
     # Retrieve the active banner for the specific user type
     banner_query = Banner.get_active_banner(user)

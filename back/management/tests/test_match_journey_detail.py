@@ -118,7 +118,19 @@ class MatchJourneyDetailTests(TestCase):
         self.assertEqual(journey["weekly_activity"][0]["messages"], 0)
         self.assertEqual(journey["weekly_activity"][0]["video_calls"], 0)
         self.assertEqual(journey["stages"][0]["id"], "matched")
-        self.assertEqual(journey["active_stage_index"], 0)
+        self.assertEqual(journey["active_stage_index"], 1)
+        self.assertEqual(
+            [stage["id"] for stage in journey["stages"]],
+            [
+                "matched",
+                "first_call",
+                "in_flight",
+                "success",
+                "engaged",
+            ],
+        )
+        self.assertEqual(journey["stages"][2]["description"], "0 of 8 tokens")
+        self.assertFalse(journey["stages"][3]["achieved"])
         self.assertEqual(
             journey["streaks"]["video_calls"],
             {"current": 0, "record": 0, "record_start_week": None, "record_end_week": None},
@@ -214,16 +226,129 @@ class MatchJourneyDetailTests(TestCase):
         self.assertTrue(journey["weekly_activity"][-1]["is_free_play_week"])
         self.assertEqual(len(journey["weekly_activity"]), DESIRED_DURATION_WEEKS + 1)
 
-    def test_stages_mark_off_platform_completed(self):
+    def test_stages_mark_off_platform_as_success(self):
+        marked_at = self.match.created_at + timedelta(days=12)
         self.match.completed_off_plattform = True
-        self.match.save(update_fields=["completed_off_plattform"])
-        stages = match_journey_stages(self.match, week_number=3, desired_duration_weeks=DESIRED_DURATION_WEEKS)
-        completed = next(stage for stage in stages["stages"] if stage["id"] == "completed")
-        self.assertTrue(completed["achieved"])
+        self.match.completed_off_plattform_auto_marked_at = marked_at
+        self.match.latest_interaction_at = marked_at
+        self.match.save(
+            update_fields=[
+                "completed_off_plattform",
+                "completed_off_plattform_auto_marked_at",
+                "latest_interaction_at",
+            ]
+        )
+        stages = match_journey_stages(self.match, as_of=marked_at + timedelta(days=2))
+        ids = [stage["id"] for stage in stages["stages"]]
+        self.assertEqual(ids, ["matched", "first_call", "in_flight", "success", "engaged"])
+        success = stages["stages"][3]
+        self.assertTrue(success["achieved"])
+        self.assertIn(marked_at.date().isoformat(), success["achieved_at"])
+        self.assertEqual(stages["active_stage_index"], 4)
+
+    def test_stages_show_token_progress_on_in_flight(self):
+        start = self.match.created_at + timedelta(hours=1)
+        self._qualifying_call(start=start, duration=timedelta(minutes=30))
+        self.match.first_interaction_at = start
+        self.match.latest_interaction_at = start
+        self.match.total_mutal_video_calls_counter = 1
+        self.match.save(
+            update_fields=[
+                "first_interaction_at",
+                "latest_interaction_at",
+                "total_mutal_video_calls_counter",
+            ]
+        )
+        stages = match_journey_stages(self.match, as_of=start + timedelta(days=1))
+        in_flight = next(stage for stage in stages["stages"] if stage["id"] == "in_flight")
+        self.assertTrue(in_flight["achieved"])
+        self.assertEqual(in_flight["description"], "1 of 8 tokens")
+        self.assertEqual(stages["stages"][3]["id"], "success")
+        self.assertFalse(stages["stages"][3]["achieved"])
+        # First unachieved step: matched / first call / in-flight are all done.
         self.assertEqual(stages["active_stage_index"], 3)
 
-    def test_stages_closed_unmatch_appends_terminal_step(self):
+    def test_stages_success_date_is_the_call_that_crossed_the_threshold(self):
+        start = self.match.created_at + timedelta(hours=1)
+        self._qualifying_call(start=start, duration=timedelta(minutes=210))
+        success_at = start + timedelta(minutes=210)
+        self.match.first_interaction_at = start
+        self.match.latest_interaction_at = success_at
+        self.match.save(update_fields=["first_interaction_at", "latest_interaction_at"])
+
+        stages = match_journey_stages(self.match, as_of=success_at + timedelta(days=1))
+        success = stages["stages"][3]
+        self.assertEqual(success["id"], "success")
+        self.assertTrue(success["achieved"])
+        self.assertIn(success_at.date().isoformat(), success["achieved_at"])
+        self.assertEqual(stages["stages"][4]["id"], "engaged")
+        self.assertEqual(stages["active_stage_index"], 4)
+
+    def test_stages_dormant_after_success_when_activity_is_older_than_four_weeks(self):
+        start = self.match.created_at + timedelta(hours=1)
+        self._qualifying_call(start=start, duration=timedelta(minutes=210))
+        last_activity = start + timedelta(minutes=210)
+        self.match.first_interaction_at = start
+        self.match.latest_interaction_at = last_activity
+        self.match.save(update_fields=["first_interaction_at", "latest_interaction_at"])
+
+        stages = match_journey_stages(self.match, as_of=last_activity + timedelta(days=29))
+        self.assertEqual(stages["stages"][3]["id"], "success")
+        dormant = stages["stages"][4]
+        self.assertEqual(dormant["id"], "dormant")
+        self.assertTrue(dormant["achieved"])
+        self.assertIn(last_activity.date().isoformat(), dormant["achieved_at"])
+
+    def test_stages_failure_after_ten_weeks_marks_the_step_it_stalled_at(self):
+        """A match that never called stalls at `first_call`, and the failure says so there.
+
+        No separate "Match failure" step: the stepper renders every step before the active
+        one as complete, so a failure step achieved after unreached ones ticked a first
+        call that never happened.
+        """
+        last_activity = self.match.created_at + timedelta(days=3)
+        self.match.latest_interaction_at = last_activity
+        self.match.save(update_fields=["latest_interaction_at"])
+        stages = match_journey_stages(self.match, as_of=last_activity + timedelta(days=71))
+
+        self.assertEqual(stages["active_stage_index"], 1)
+        stalled = stages["stages"][1]
+        self.assertEqual(stalled["id"], "first_call")
+        self.assertFalse(stalled["achieved"])
+        self.assertTrue(stalled["failed"])
+        self.assertIsNotNone(stalled["failed_at"])
+        self.assertEqual(stalled["description"], "No activity for 10 weeks before reaching success.")
+        # Nothing later is claimed, and no step is invented for the failure.
+        self.assertNotIn("failure", [stage["id"] for stage in stages["stages"]])
+        self.assertFalse(any(stage["achieved"] for stage in stages["stages"][2:]))
+
+    def test_stages_never_mark_an_unreached_step_complete(self):
+        """The stepper completes every step before the active one, so the run must be contiguous."""
+        last_activity = self.match.created_at + timedelta(days=3)
+        self.match.latest_interaction_at = last_activity
+        self.match.save(update_fields=["latest_interaction_at"])
+        stages = match_journey_stages(self.match, as_of=last_activity + timedelta(days=71))
+
+        active = stages["active_stage_index"]
+        self.assertTrue(all(stage["achieved"] for stage in stages["stages"][:active]))
+
+    def test_closed_successful_match_still_reports_being_closed(self):
+        """`is_closed` describes the match, not the outcome — both can be true at once."""
+        start = self.match.created_at + timedelta(hours=1)
+        self._qualifying_call(start=start, duration=timedelta(minutes=210))
         self.match.active = False
+        self.match.latest_interaction_at = start + timedelta(minutes=210)
+        self.match.report_unmatch = [{"kind": "unmatch", "reason": "Wrapped up", "time": "2026-04-01T12:00:00Z"}]
+        self.match.save(update_fields=["active", "report_unmatch", "latest_interaction_at"])
+
+        stages = match_journey_stages(self.match, as_of=self.match.created_at + timedelta(days=3))
+        self.assertTrue(stages["stages"][3]["achieved"], "expected the success step to be reached")
+        self.assertTrue(stages["is_closed"])
+        self.assertEqual(stages["closed_kind"], "unmatch")
+
+    def test_stages_unmatch_marks_the_stalled_step_not_a_sixth_closed_step(self):
+        self.match.active = False
+        self.match.latest_interaction_at = self.match.created_at + timedelta(days=2)
         self.match.report_unmatch = [
             {
                 "kind": "unmatch",
@@ -231,12 +356,18 @@ class MatchJourneyDetailTests(TestCase):
                 "time": "2026-04-01T12:00:00Z",
             }
         ]
-        self.match.save(update_fields=["active", "report_unmatch"])
-        stages = match_journey_stages(self.match, week_number=2, desired_duration_weeks=DESIRED_DURATION_WEEKS)
+        self.match.save(update_fields=["active", "report_unmatch", "latest_interaction_at"])
+        stages = match_journey_stages(self.match, as_of=self.match.created_at + timedelta(days=3))
         self.assertTrue(stages["is_closed"])
         self.assertEqual(stages["closed_kind"], "unmatch")
-        self.assertEqual(stages["stages"][-1]["id"], "closed")
-        self.assertEqual(stages["stages"][-1]["label"], "Unmatched")
+        ids = [stage["id"] for stage in stages["stages"]]
+        self.assertEqual(len(ids), 5)
+        self.assertNotIn("closed", ids)
+        self.assertNotIn("failure", ids)
+        stalled = stages["stages"][stages["active_stage_index"]]
+        self.assertEqual(stalled["id"], "first_call")
+        self.assertTrue(stalled["failed"])
+        self.assertEqual(stalled["description"], "Not a fit")
 
     def test_week_details_returns_qualifying_calls_and_messages_oldest_first(self):
         match_start = self.match.created_at

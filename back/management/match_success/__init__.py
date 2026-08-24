@@ -36,6 +36,8 @@ Public surface::
         success_token_threshold,
         get_version,
         list_versions,
+        # documentation — admin panel Match Success page
+        documentation,
     )
 """
 
@@ -43,6 +45,7 @@ from management.match_success.service import (
     ACTIVE_VERSION_ID,
     activatable_version_ids,
     annotate_match_tokens,
+    documentation,
     get_version,
     list_versions,
     match_is_successful,
@@ -59,6 +62,7 @@ __all__ = [
     "ACTIVE_VERSION_ID",
     "activatable_version_ids",
     "annotate_match_tokens",
+    "documentation",
     "get_version",
     "list_versions",
     "match_is_successful",
