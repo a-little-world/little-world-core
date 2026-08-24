@@ -51,8 +51,6 @@ class PushNotificationType(StrEnum):
                 return "high"
             case PushNotificationType.ANNOUNCEMENT:
                 return "normal"
-            case PushNotificationType.CALL:
-                return "high"
         assert_never(self)
 
     @property
