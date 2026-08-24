@@ -1,20 +1,19 @@
-import statistics
-from datetime import timedelta
-
 from chat.models import Message
-from django.db.models import F, Max, Q, Sum
+from django.db.models import Max, Q
 from django.shortcuts import get_object_or_404
 from django.urls import path
-from django.utils import timezone
-from django.utils.dateparse import parse_datetime
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.request import Request
 from rest_framework.response import Response
-from video.models import LivekitSession
 
+from management.analytics.match_journey.detail import (
+    match_stats_retrieve_extra,
+    match_weekly_activity_details,
+    match_weekly_activity_retrieve_extra,
+)
 from management.api.export_utils import build_paginated_export_response, ensure_export_fields
 from management.api.match_journey_filter_list import (
     MATCH_JOURNEY_FILTERS,
@@ -240,293 +239,6 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
         representation["match_token_version"] = ACTIVE_VERSION_ID
 
         return representation
-
-
-def _match_stats_retrieve_extra(match: Match) -> dict:
-    """
-    Read-only match stats for single-match GET (retrieve) only.
-    Not stored on Match; omitted from list/export serializers.
-    """
-    u1 = match.user1
-    u2 = match.user2
-    dt_field = serializers.DateTimeField()
-
-    def _format_datetime_for_json(dt):
-        """Serialize a datetime for the JSON body (DRF/ISO-8601); None if there is no timestamp."""
-        return None if dt is None else dt_field.to_representation(dt)
-
-    # Same directed pair logic as sync_match_counters — do not use Chat.get_chat() alone:
-    # it returns only the newest chat row, which can be an empty temporary chat while real messages sit on an older chat.
-    last_msg_u1_at = Message.objects.filter(sender=u1, recipient=u2).aggregate(ts=Max("created"))["ts"]
-    last_msg_u2_at = Message.objects.filter(sender=u2, recipient=u1).aggregate(ts=Max("created"))["ts"]
-
-    pair_q = Q(u1=u1, u2=u2) | Q(u1=u2, u2=u1)
-    both_active_sessions = LivekitSession.objects.filter(pair_q, both_have_been_active=True, end_time__isnull=False)
-    last_video_at = both_active_sessions.order_by("-created_at").values_list("created_at", flat=True).first()
-    total_video_duration = both_active_sessions.aggregate(duration=Sum(F("end_time") - F("created_at")))["duration"]
-    session_count = both_active_sessions.count()
-    duration_seconds_list = [
-        max(int((session.end_time - session.created_at).total_seconds()), 0)
-        for session in both_active_sessions.only("created_at", "end_time")
-    ]
-    average_video_call_duration_seconds = (
-        round(total_video_duration.total_seconds() / session_count)
-        if total_video_duration is not None and session_count
-        else None
-    )
-    median_video_call_duration_seconds = (
-        round(statistics.median(duration_seconds_list)) if duration_seconds_list else None
-    )
-    total_video_call_duration_seconds = sum(duration_seconds_list) if duration_seconds_list else None
-
-    return {
-        "last_video_call_at": _format_datetime_for_json(last_video_at),
-        "user1_last_message_at": _format_datetime_for_json(last_msg_u1_at),
-        "user2_last_message_at": _format_datetime_for_json(last_msg_u2_at),
-        "average_video_call_duration_seconds": average_video_call_duration_seconds,
-        "median_video_call_duration_seconds": median_video_call_duration_seconds,
-        "total_video_call_duration_seconds": total_video_call_duration_seconds,
-    }
-
-
-def _match_journey_stages(match: Match, current_week: int, desired_duration_weeks: int) -> dict:
-    """
-    Ordered lifecycle timeline for a single match (retrieve only).
-
-    The "happy path" is: matched -> first contact -> ongoing -> completed -> free play.
-    A reported/unmatched match terminates in a final "closed" step, and any later
-    happy-path steps that were never reached are dropped so the progress bar shortens.
-    """
-    dt_field = serializers.DateTimeField()
-    created_at = match.created_at
-
-    def _fmt(value):
-        return None if value is None else dt_field.to_representation(value)
-
-    has_interaction = bool(
-        match.first_interaction_at or match.total_messages_counter or match.total_mutal_video_calls_counter
-    )
-    is_completed = bool(match.completed or match.completed_off_plattform)
-    is_free_play = current_week > desired_duration_weeks and match.active
-
-    report_entries = match.report_unmatch if isinstance(match.report_unmatch, list) else []
-    closing_entry = report_entries[-1] if report_entries else None
-    # A naturally completed match is a success, not a "closed" failure, even if inactive.
-    is_closed = (not match.active) and closing_entry is not None and not is_completed
-
-    completed_at = match.completed_off_plattform_auto_marked_at
-    if is_completed and completed_at is None:
-        completed_at = created_at + timedelta(weeks=desired_duration_weeks)
-
-    free_play_at = created_at + timedelta(weeks=desired_duration_weeks) if is_free_play else None
-
-    happy_path = [
-        {
-            "id": "matched",
-            "label": "Matched",
-            "description": "Match created.",
-            "achieved": True,
-            "achieved_at": _fmt(created_at),
-        },
-        {
-            "id": "first_contact",
-            "label": "First contact",
-            "description": "Both people started interacting.",
-            "achieved": has_interaction,
-            "achieved_at": _fmt(match.first_interaction_at),
-        },
-        {
-            "id": "ongoing",
-            "label": "Ongoing",
-            "description": f"Active within the planned {desired_duration_weeks} week journey.",
-            "achieved": has_interaction,
-            "achieved_at": None,
-        },
-        {
-            "id": "completed",
-            "label": "Completed",
-            "description": "Completed on or off platform.",
-            "achieved": is_completed,
-            "achieved_at": _fmt(completed_at),
-        },
-        {
-            "id": "free_play",
-            "label": "Free play",
-            "description": f"Active beyond week {desired_duration_weeks}.",
-            "achieved": is_free_play,
-            "achieved_at": _fmt(free_play_at),
-        },
-    ]
-
-    achieved_indexes = [index for index, stage in enumerate(happy_path) if stage["achieved"]]
-    furthest_index = achieved_indexes[-1] if achieved_indexes else 0
-
-    closed_kind = None
-    closed_at = None
-    if is_closed and closing_entry is not None:
-        closed_kind = closing_entry.get("kind")
-        parsed_closed_time = parse_datetime(closing_entry.get("time") or "")
-        closed_at = _fmt(parsed_closed_time or match.updated_at)
-
-        closed_label = {
-            "report": "Reported",
-            "unmatch": "Unmatched",
-            "user_deleted": "User deleted",
-        }.get(closed_kind, "Closed")
-
-        stages = happy_path[: furthest_index + 1]
-        stages.append(
-            {
-                "id": "closed",
-                "label": closed_label,
-                "description": closing_entry.get("reason") or "Match was reported or unmatched.",
-                "achieved": True,
-                "achieved_at": closed_at,
-            }
-        )
-        active_stage_index = len(stages) - 1
-    else:
-        stages = happy_path
-        active_stage_index = furthest_index
-
-    return {
-        "stages": stages,
-        "active_stage_index": active_stage_index,
-        "is_closed": is_closed,
-        "closed_kind": closed_kind,
-        "closed_at": closed_at,
-    }
-
-
-def _match_weekly_activity_retrieve_extra(match: Match) -> dict:
-    """
-    Read-only activity breakdown for single-match GET (retrieve) only.
-    Weeks are counted from the match creation timestamp.
-    """
-    dt_field = serializers.DateTimeField()
-    match_start = match.created_at
-    now = timezone.now()
-    desired_duration_weeks = 10
-    current_week = max(((now - match_start).days // 7) + 1, 1)
-    weeks_to_show = max(current_week, desired_duration_weeks)
-
-    def _empty_week(week: int) -> dict:
-        return {
-            "week": week,
-            "start_at": dt_field.to_representation(match_start + timedelta(weeks=week - 1)),
-            "end_at": dt_field.to_representation(match_start + timedelta(weeks=week)),
-            "messages": 0,
-            "messages_user1": 0,
-            "messages_user2": 0,
-            "video_calls": 0,
-        }
-
-    activity_by_week = {week: _empty_week(week) for week in range(1, weeks_to_show + 1)}
-
-    def _week_for_timestamp(timestamp):
-        return max(((timestamp - match_start).days // 7) + 1, 1)
-
-    user1_id = match.user1_id
-    user2_id = match.user2_id
-    message_rows = Message.objects.filter(
-        Q(sender=match.user1, recipient=match.user2) | Q(sender=match.user2, recipient=match.user1)
-    ).values_list("created", "sender_id")
-    for timestamp, sender_id in message_rows:
-        week = _week_for_timestamp(timestamp)
-        activity = activity_by_week.setdefault(week, _empty_week(week))
-        activity["messages"] += 1
-        if sender_id == user1_id:
-            activity["messages_user1"] += 1
-        elif sender_id == user2_id:
-            activity["messages_user2"] += 1
-
-    video_timestamps = LivekitSession.objects.filter(
-        Q(u1=match.user1, u2=match.user2) | Q(u1=match.user2, u2=match.user1),
-        both_have_been_active=True,
-    ).values_list("created_at", flat=True)
-    for timestamp in video_timestamps:
-        week = _week_for_timestamp(timestamp)
-        activity = activity_by_week.setdefault(week, _empty_week(week))
-        activity["video_calls"] += 1
-
-    weekly_activity = [
-        {
-            **activity,
-            "is_current_week": activity["week"] == current_week,
-            "is_free_play_week": activity["week"] > desired_duration_weeks,
-        }
-        for activity in sorted(activity_by_week.values(), key=lambda item: item["week"])
-    ]
-
-    journey = {
-        "current_week": current_week,
-        "desired_duration_weeks": desired_duration_weeks,
-        "is_free_play": current_week > desired_duration_weeks,
-        "weekly_activity": weekly_activity,
-    }
-    journey.update(_match_journey_stages(match, current_week, desired_duration_weeks))
-
-    return {"journey": journey}
-
-
-def _match_week_bounds(match: Match, week: int) -> tuple:
-    if week < 1:
-        raise ValueError("week must be >= 1")
-    match_start = match.created_at
-    return match_start + timedelta(weeks=week - 1), match_start + timedelta(weeks=week)
-
-
-def _match_weekly_activity_details(match: Match, week: int) -> dict:
-    """
-    Read-only call/message breakdown for one journey week (retrieve action only).
-    """
-    dt_field = serializers.DateTimeField()
-    start_at, end_at = _match_week_bounds(match, week)
-
-    message_rows = (
-        Message.objects.filter(
-            Q(sender=match.user1, recipient=match.user2) | Q(sender=match.user2, recipient=match.user1),
-            created__gte=start_at,
-            created__lt=end_at,
-        )
-        .select_related("sender__profile")
-        .order_by("created")
-    )
-    messages = [
-        {
-            "created_at": dt_field.to_representation(row.created),
-            "sender_id": row.sender_id,
-            "sender_name": row.sender.profile.first_name,
-        }
-        for row in message_rows
-    ]
-
-    video_calls = []
-    sessions = LivekitSession.objects.filter(
-        Q(u1=match.user1, u2=match.user2) | Q(u1=match.user2, u2=match.user1),
-        both_have_been_active=True,
-        created_at__gte=start_at,
-        created_at__lt=end_at,
-    ).order_by("created_at")
-    for session in sessions:
-        duration_seconds = None
-        if session.end_time is not None:
-            duration_seconds = max(int((session.end_time - session.created_at).total_seconds()), 0)
-        video_calls.append(
-            {
-                "created_at": dt_field.to_representation(session.created_at),
-                "end_time": dt_field.to_representation(session.end_time) if session.end_time else None,
-                "duration_seconds": duration_seconds,
-            }
-        )
-
-    return {
-        "week": week,
-        "start_at": dt_field.to_representation(start_at),
-        "end_at": dt_field.to_representation(end_at),
-        "video_calls": video_calls,
-        "messages": messages,
-    }
 
 
 class ExportMatchSerializer(serializers.ModelSerializer):
@@ -897,8 +609,8 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
             self._bucket_map = match_bucket_map([instance.pk], matches=[instance])
         serializer = self.get_serializer(instance)
         data = dict(serializer.data)
-        data.update(_match_stats_retrieve_extra(instance))
-        data.update(_match_weekly_activity_retrieve_extra(instance))
+        data.update(match_stats_retrieve_extra(instance))
+        data.update(match_weekly_activity_retrieve_extra(instance))
         return Response(data)
 
     @extend_schema(summary="Retrieve weekly activity details for a match")
@@ -917,7 +629,7 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         if week < 1:
             return Response({"msg": "week must be >= 1"}, status=400)
 
-        return Response(_match_weekly_activity_details(obj, week))
+        return Response(match_weekly_activity_details(obj, week))
 
     @action(detail=True, methods=["post"])
     def set_completed_off_plattform(self, request, pk=None):
