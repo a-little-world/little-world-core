@@ -151,6 +151,10 @@ class MatchJourneyV5StructureTests(SimpleTestCase):
         )
         self.assertNotIn("match_state__in_flight", MATCH_JOURNEY_V5.bucket_ids())
         self.assertEqual(CATALOG["match_state__in_flight"].role, CatalogRole.COMPOSITE)
+        self.assertEqual(
+            [CATALOG[f"match_state__tokens_{n}"].display_name for n in range(8)],
+            [f"In flight - {n} tokens" for n in range(8)],
+        )
 
     def test_kickoff_includes_both_contacted_no_video(self):
         kickoff = next(phase for phase in MATCH_JOURNEY_V5.phases if phase.id == "kickoff")
@@ -170,6 +174,10 @@ class MatchJourneyV5StructureTests(SimpleTestCase):
     def test_clocks(self):
         self.assertEqual(ENGAGEMENT_DAYS, 28)
         self.assertEqual(FAILURE_CLIFF_DAYS, 70)
+        engagement_weeks = ENGAGEMENT_DAYS // 7
+        failure_weeks = FAILURE_CLIFF_DAYS // 7
+        self.assertIn(f"dormant after {engagement_weeks} weeks", MATCH_JOURNEY_V5.description)
+        self.assertIn(f"failed after {failure_weeks} weeks", MATCH_JOURNEY_V5.description)
 
     def test_partition_cells_are_states_or_exits_only(self):
         self.assertEqual(partition_buckets_with_disallowed_roles(MATCH_JOURNEY_V5), [])

@@ -29,7 +29,6 @@ from management.api.match_journey_filters import (
 )
 from management.api.user_advanced_filter_lists import FilterListEntry, get_queryset_source_reference  # noqa: F401
 from management.models.matches import Match
-from management.models.unconfirmed_matches import MatchType
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +64,8 @@ MATCH_STATE_LIST_IDS = _match_state_list_ids()
 
 # One definition of a filter list entry, shared with the user lists — promoted here on
 # the second caller rather than kept as a near-identical copy (conventions §1).
-MATCH_JOURNEY_FILTERS = [
+# V4 ``match_journey_v2__*`` IDs stay in this list but are moved to the end when assembled.
+_MATCH_JOURNEY_FILTERS = [
     FilterListEntry("match_journey_v2__all", None, all_matches),
     FilterListEntry(
         "match_journey_v2__only_non_support_matching",
@@ -192,9 +192,13 @@ MATCH_JOURNEY_FILTERS = [
         "Non-support matches marked as completed off platform",
         EXTRA__suggestion_match_completed_off_plattform,
     ),
-    # V5 partition cells (catalog-backed). V4 IDs above stay untouched.
+    # V5 partition cells (catalog-backed).
     *[FilterListEntry(list_id, None, _match_catalog_queryset(list_id)) for list_id in MATCH_STATE_LIST_IDS],
 ]
+
+MATCH_JOURNEY_FILTERS = [
+    entry for entry in _MATCH_JOURNEY_FILTERS if not entry.name.startswith("match_journey_v2__")
+] + [entry for entry in _MATCH_JOURNEY_FILTERS if entry.name.startswith("match_journey_v2__")]
 
 
 def get_match_list_by_name(name):
@@ -278,26 +282,12 @@ MATCH_BUCKET_SKIP_LISTS = frozenset(
     }
 )
 
-# Legacy V4 category lists were STANDARD-only except organic. V5 ``match_state__*``
-# and support scope themselves.
-MATCH_BUCKET_STANDARD_ONLY_PREFIX = "match_journey_v2__"
-MATCH_BUCKET_NON_STANDARD_LISTS = frozenset(
-    {
-        "match_journey_v2__organic_match",
-    }
-)
-
 
 def _match_bucket_entry_applies(entry: FilterListEntry, match_pk: int) -> bool:
     if entry.queryset is None or entry.name in MATCH_BUCKET_SKIP_LISTS:
         return False
     try:
         scoped_matches = Match.objects.filter(pk=match_pk)
-        if (
-            entry.name.startswith(MATCH_BUCKET_STANDARD_ONLY_PREFIX)
-            and entry.name not in MATCH_BUCKET_NON_STANDARD_LISTS
-        ):
-            scoped_matches = scoped_matches.filter(match_type=MatchType.STANDARD)
         return entry.queryset(scoped_matches).exists()
     except Exception:
         # Logged rather than swallowed: without this a cell whose query breaks is

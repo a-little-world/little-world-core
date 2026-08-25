@@ -1,12 +1,36 @@
+import uuid
+
 from channels.db import database_sync_to_async
 from chat.models import Chat, ChatConnections, ChatSessions
 from django.utils import timezone
+from management.models.mobile_device import MobileDevice
 from management.permissions import ManagementPermission
 
 
 @database_sync_to_async
 def is_staff_or_matching(user):
     return user.is_staff or user.has_perm(ManagementPermission.MATCHING_USER)
+
+
+def _valid_install_id(install_id):
+    try:
+        return uuid.UUID(str(install_id))
+    except (TypeError, ValueError):
+        return None
+
+
+@database_sync_to_async
+def open_device_session(user, install_id):
+    install_id = _valid_install_id(install_id)
+    if install_id:
+        MobileDevice.open_session(user, install_id)
+
+
+@database_sync_to_async
+def close_device_session(user, install_id):
+    install_id = _valid_install_id(install_id)
+    if install_id:
+        MobileDevice.close_session(user, install_id)
 
 
 @database_sync_to_async

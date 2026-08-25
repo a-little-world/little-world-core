@@ -118,4 +118,9 @@ VERSION = MatchOutcomeVersion(
     tokens_fn=tokens_for_match,
     tokens_by_match_id_fn=tokens_by_match_id,
     success_token_threshold=SUCCESS_TOKEN_THRESHOLD,
+    details={
+        "token_bands": [{"min_minutes": minutes, "tokens": tokens} for minutes, tokens in MINUTE_TOKEN_THRESHOLDS],
+        "success_minutes": SUCCESS_MINUTES,
+        "minutes_per_token_after_success": MINUTES_PER_TOKEN_AFTER_SUCCESS,
+    },
 )
