@@ -1,4 +1,7 @@
 Django==5.2.17
+# >= 3.12.1 fixes event-loop deadlocks in ThreadSensitiveContext/AsyncToSync that froze
+# request handling and leaked idle DB connections until "too many clients" (asgiref #535, #562)
+asgiref>=3.12.1
 channels==4.1.0
 channels-redis==4.1.0 # For using channels with redis
 celery==5.6.2
