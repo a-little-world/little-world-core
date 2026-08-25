@@ -8,7 +8,7 @@ from django.urls import path
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from management.models.matches import Match
-from management.models.survey import QUALIFYING_CALL_MIN_DURATION
+from management.models.survey import QUALIFYING_CALL_MAX_DURATION
 from management.models.user import User
 from management.surveys import offer_post_call_survey
 
@@ -187,7 +187,7 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
         # whole job — the client's next poll of /api/surveys/pending finds it, so the survey
         # no longer depends on the user holding an open WebSocket at this exact moment.
         call_duration = end_time - session.created_at
-        if session.both_have_been_active and call_duration >= QUALIFYING_CALL_MIN_DURATION:
+        if session.both_have_been_active and call_duration < QUALIFYING_CALL_MAX_DURATION:
             try:
                 offer_post_call_survey(user, session)
             except Exception:

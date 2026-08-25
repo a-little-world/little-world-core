@@ -10,17 +10,18 @@ next poll finds it — which also removes the "only if the user is connected" li
 """
 
 from datetime import datetime, time, timedelta
+from uuid import uuid4
 
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import DurationField, ExpressionWrapper, F, Q
+from django.db.models import DurationField, ExpressionWrapper, F, Max, Q
 from django.utils import timezone
 
 from management.models.custom_banner_event_filters import FILTER_FUNC_MAP, CustomFilterChoices
 from management.models.survey import (
     MAX_TEXT_ANSWER_LENGTH,
-    QUALIFYING_CALL_MIN_DURATION,
+    QUALIFYING_CALL_MAX_DURATION,
     QuestionType,
     SurveyCampaign,
     SurveyResponse,
@@ -30,8 +31,14 @@ from management.models.survey import (
 
 POST_CALL_SLUG = "post-call"
 
-#: An unanswered offer is re-presented on a later visit, not on the next route change.
-SHOW_COOLDOWN = timedelta(hours=12)
+#: Quiet period after a user is shown any survey card, across every campaign.
+#:
+#: Deliberately user-wide rather than per offer. The client refetches the pending endpoint as
+#: soon as a survey closes, so a per-offer rule hands the user the next campaign's card the
+#: instant they finish the first one — which is how a feedback system turns into popups. It
+#: also covers re-presenting one unanswered offer: that waits for a later visit rather than
+#: the next route change.
+SHOW_COOLDOWN = timedelta(hours=0)
 
 #: How long a negative eligibility result is remembered per user. The pending endpoint is
 #: polled on every route change, so without this a user who matches nothing would re-run the
@@ -66,7 +73,7 @@ def live_campaigns(trigger: str | None = None) -> list[SurveyCampaign]:
 
 
 def qualifying_sessions(user):
-    """Finished standard calls where both users were active and which ran at least five minutes.
+    """Finished standard calls where both users were active and which ran under ten minutes.
 
     Random calls are excluded — the same rule as the post-call offer trigger.
     """
@@ -80,7 +87,7 @@ def qualifying_sessions(user):
             random_call_session=False,
         )
         .annotate(duration=ExpressionWrapper(F("end_time") - F("created_at"), output_field=DurationField()))
-        .filter(duration__gte=QUALIFYING_CALL_MIN_DURATION)
+        .filter(duration__lt=QUALIFYING_CALL_MAX_DURATION)
     )
 
 
@@ -302,43 +309,101 @@ def offer_survey(campaign: SurveyCampaign, user, *, context_key: str = "", live_
     return response
 
 
+def _post_call_context_key(campaign: SurveyCampaign, live_session) -> str:
+    """Context key for a review the legacy endpoint is about to record.
+
+    The old endpoint accepted a review with no live session at all, and there is no context
+    to key such a row on. Rather than drop the feedback or collapse every session-less review
+    of one user onto a single row, each gets its own ``legacy:<uuid>`` key: the uniqueness
+    rule stays intact and the key says plainly where the row came from.
+    """
+    if not campaign.is_context_scoped:
+        return ""
+    if live_session is not None:
+        return build_context_key(SurveyCampaign.ContextType.LIVE_SESSION, live_session.uuid)
+    return build_context_key("legacy", uuid4())
+
+
 def offer_post_call_survey(user, live_session) -> SurveyResponse | None:
-    """Create the post-call offer for one participant of a finished standard call.
+    """Offer every live after-a-call campaign to one participant of a finished standard call.
+
+    Every campaign with the ``event:call_ended`` trigger is offered, not just ``post-call``:
+    the admin panel lets any campaign choose that trigger, and a campaign that quietly
+    collects nothing is the failure this feature exists to remove. A context-scoped campaign
+    is keyed on the session, a user-scoped one is asked once ever.
 
     Random calls (``LivekitSession.random_call_session``) are excluded — that flow has its
-    own post-call UX and should not surface the standard call survey.
+    own post-call UX and should not surface the standard call survey. Calls that ran ten
+    minutes or longer are excluded too.
+
+    Returns the first offer made, which is the whole result while ``post-call`` is the only
+    campaign using this trigger.
     """
     if getattr(live_session, "random_call_session", False):
         return None
-    campaign = next((c for c in live_campaigns(SurveyCampaign.Trigger.CALL_ENDED) if c.slug == POST_CALL_SLUG), None)
-    if campaign is None or not user_is_eligible(campaign, user):
+    if live_session.end_time is None:
         return None
-    return offer_survey(
-        campaign,
-        user,
-        context_key=build_context_key(SurveyCampaign.ContextType.LIVE_SESSION, live_session.uuid),
-        live_session=live_session,
-    )
+    if live_session.end_time - live_session.created_at >= QUALIFYING_CALL_MAX_DURATION:
+        return None
+
+    first = None
+    for campaign in live_campaigns(SurveyCampaign.Trigger.CALL_ENDED):
+        if not user_is_eligible(campaign, user):
+            continue
+        response = offer_survey(
+            campaign,
+            user,
+            context_key=_post_call_context_key(campaign, live_session),
+            live_session=live_session,
+        )
+        if response is not None and first is None:
+            first = response
+    return first
 
 
-def _deliverable(response: SurveyResponse, campaign: SurveyCampaign, now) -> bool:
+def last_shown_at(user):
+    """When this user was last shown any survey card, or ``None``.
+
+    ``shown_at`` is only written when the client confirms it rendered the card, so a survey
+    that was offered but never displayed does not start the quiet period.
+    """
+    return SurveyResponse.objects.filter(user=user, shown_at__isnull=False).aggregate(latest=Max("shown_at"))["latest"]
+
+
+def _in_cooldown(user, now) -> bool:
+    last_shown = last_shown_at(user)
+    return last_shown is not None and now - last_shown < SHOW_COOLDOWN
+
+
+def _deliverable(response: SurveyResponse, campaign: SurveyCampaign) -> bool:
+    """Whether this offer is still worth presenting, ignoring timing.
+
+    The cooldown is not checked here: it is a property of the user, not of one offer, and is
+    applied once in ``pending_survey_for_user``.
+    """
     if response.is_terminal:
         return False
     if response.shown_count >= campaign.max_shows:
         response.expire()
         return False
-    if not response.shown_at:
-        return True
-    return now - response.shown_at >= SHOW_COOLDOWN
+    return True
 
 
 def pending_survey_for_user(user) -> SurveyResponse | None:
     """The survey this user should see right now, if any.
 
-    Open offers created by an event trigger come first; only then are ``on_session``
-    campaigns evaluated, so the common case is one indexed query.
+    At most one card per ``SHOW_COOLDOWN``, whichever campaign it belongs to. Open offers
+    created by an event trigger come first; only then are ``on_session`` campaigns evaluated,
+    so the common case is one indexed query.
+
+    A user inside the quiet period is offered nothing and *creates* nothing: the rows an event
+    trigger already wrote stay open and are delivered once the window passes, so deferring a
+    survey never loses it.
     """
     now = timezone.now()
+    if _in_cooldown(user, now):
+        return None
+
     campaigns_by_id = {campaign.pk: campaign for campaign in live_campaigns()}
     if not campaigns_by_id:
         return None
@@ -350,12 +415,17 @@ def pending_survey_for_user(user) -> SurveyResponse | None:
     ).order_by("-created_at")
     for response in open_offers:
         campaign = campaigns_by_id[response.campaign_id]
-        if _deliverable(response, campaign, now):
+        if _deliverable(response, campaign):
             response.campaign = campaign
             return response
 
     for campaign in campaigns_by_id.values():
         if campaign.trigger != SurveyCampaign.Trigger.ON_SESSION:
+            continue
+        # There is no context to key an offer on here. `SurveyCampaign.clean` refuses this
+        # combination, so reaching it means a row predates that rule or was written around
+        # the model — skip it rather than let one campaign 500 the endpoint for everyone.
+        if campaign.is_context_scoped:
             continue
         cache_key = _ineligible_cache_key(user.pk, campaign.pk)
         if cache.get(cache_key):
@@ -364,7 +434,7 @@ def pending_survey_for_user(user) -> SurveyResponse | None:
             cache.set(cache_key, True, _INELIGIBLE_TTL)
             continue
         response = offer_survey(campaign, user)
-        if response is not None and _deliverable(response, campaign, now):
+        if response is not None and _deliverable(response, campaign):
             response.campaign = campaign
             return response
     return None
@@ -434,30 +504,47 @@ def submit_post_call_review(user, *, live_session, rating, review, response_id=N
     if campaign is None:
         raise ValidationError("The post-call survey campaign does not exist.")
 
+    answers = {"rating": rating, "comment": review}
+
     if response_id is not None:
-        response = SurveyResponse.objects.filter(pk=response_id, user=user).select_related("campaign").first()
-        if response is None:
-            raise ValidationError("Survey not found.")
-        # The old endpoint let a client overwrite its own review, so the shim keeps that.
-        return submit_survey(response, {"rating": rating, "comment": review}, allow_resubmit=True)
+        # Scoped to the post-call campaign on purpose. ``review_id`` is client-supplied, and
+        # before the migration it was a PostCallReview pk — unrelated to SurveyResponse pks —
+        # so an id that lands on another campaign's row is stale or crafted either way. Fall
+        # through to session resolution rather than write a call rating over an unrelated
+        # survey's answers.
+        response = (
+            SurveyResponse.objects.filter(pk=response_id, user=user, campaign=campaign)
+            .select_related("campaign")
+            .first()
+        )
+        if response is not None:
+            # The old endpoint let a client overwrite its own review, so the shim keeps that.
+            return submit_survey(response, answers, allow_resubmit=True)
 
     open_offers = SurveyResponse.objects.filter(
         campaign=campaign, user=user, status=SurveyResponse.Status.SHOWN
     ).order_by("-created_at")
-    if live_session is not None:
-        response = open_offers.filter(live_session=live_session).first() or offer_survey(
-            campaign,
-            user,
-            context_key=build_context_key(SurveyCampaign.ContextType.LIVE_SESSION, live_session.uuid),
-            live_session=live_session,
-        )
-    else:
-        response = open_offers.first()
+    response = (
+        open_offers.filter(live_session=live_session).first() if live_session is not None else open_offers.first()
+    )
 
     if response is None:
-        raise ValidationError("No open post-call survey for this user.")
+        # Nothing open to answer, so this would be a brand new offer. A retired campaign
+        # should not gain those; while it is live the old endpoint's promise holds and the
+        # feedback is recorded rather than rejected.
+        if not campaign.is_live():
+            raise ValidationError("The post-call survey is no longer active.")
+        response = offer_survey(
+            campaign,
+            user,
+            context_key=_post_call_context_key(campaign, live_session),
+            live_session=live_session,
+        )
+
+    if response is None:
+        raise ValidationError("This call has already been reviewed.")
     response.campaign = campaign
-    return submit_survey(response, {"rating": rating, "comment": review})
+    return submit_survey(response, answers)
 
 
 def dismiss_survey(response: SurveyResponse) -> SurveyResponse:

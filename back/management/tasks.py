@@ -2142,13 +2142,15 @@ def cleanup_deleted_users_full_user_data(days_since_deletion: int = 30):
         profile.image_type = profile.ImageTypeChoice.AVATAR
         profile.save()
 
+        # Before the state flag: a user marked cleared is never revisited, so a scrub that
+        # failed after the flag was written would leave the free text in place forever.
+        _scrub_survey_free_text(user)
+
         state = user.state
         state.notes = ""
         state.past_emails = []
         state.deleted_full_user_data_cleared = True
         state.save()
-
-        _scrub_survey_free_text(user)
 
         processed_user_ids.append(user.pk)
 

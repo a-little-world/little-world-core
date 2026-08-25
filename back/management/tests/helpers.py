@@ -29,10 +29,17 @@ CREATED_USERS = []
 
 
 def assure_default_data(data=None):
+    """Registration payload for a fresh throwaway user.
+
+    The generated address is derived from the constant, never from the previously generated
+    one: appending the counter to the last email grew the local part by a character per user
+    until ``User.username`` overflowed its 150 characters and ``/api/register/`` started
+    returning 400 partway through a test module.
+    """
     global GLOB_TEST_USER_COUNT, CREATED_USERS
     if data is None:
-        data = valid_register_request_data
-        data["email"] = data["email"].split("@")[0] + str(GLOB_TEST_USER_COUNT) + "@" + data["email"].split("@")[1]
+        local_part, domain = valid_register_request_data["email"].split("@")
+        data = {**valid_register_request_data, "email": f"{local_part}{GLOB_TEST_USER_COUNT}@{domain}"}
         GLOB_TEST_USER_COUNT += 1
         CREATED_USERS.append(data)
     return data

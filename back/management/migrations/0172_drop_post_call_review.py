@@ -1,15 +1,19 @@
 """Copy ``PostCallReview`` onto the post-call survey campaign, then drop the old table.
 
 Duplicate ``(user, live_session)`` pairs collapse to the row with the greatest
-``(updated_at, pk)``. Superseded rows are printed (and written to CSV when the filesystem
-allows) before they are dropped.
+``(updated_at, pk)``. Superseded rows are written to a CSV before they are dropped.
+
+That CSV holds user free text, so it is written to a temporary directory rather than
+anywhere inside the source tree, and the review text itself is never logged — the printed
+line names the ids only. Set ``DJ_SURVEY_MIGRATION_EXPORT_DIR`` to collect the export
+somewhere durable when running this against production.
 """
 
 import csv
 import os
+import tempfile
 from datetime import datetime, timezone
 
-from django.conf import settings
 from django.db import migrations
 
 CAMPAIGN_SLUG = "post-call"
@@ -56,7 +60,7 @@ POST_CALL_QUESTIONS = [
 
 
 def _export_discarded(rows) -> str:
-    export_dir = os.environ.get("DJ_SURVEY_MIGRATION_EXPORT_DIR", str(settings.BASE_DIR))
+    export_dir = os.environ.get("DJ_SURVEY_MIGRATION_EXPORT_DIR") or tempfile.gettempdir()
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     export_path = os.path.join(export_dir, f"discarded_post_call_reviews_{stamp}.csv")
 
@@ -80,10 +84,11 @@ def _export_discarded(rows) -> str:
             writer.writerows(serialised)
         print(f"[surveys] exported {len(serialised)} discarded post-call reviews to {export_path}")
     except OSError as e:
-        print(f"[surveys] could not write discarded-review export ({e}); relying on the printed copy")
+        print(f"[surveys] could not write discarded-review export ({e})")
 
-    for row in serialised:
-        print(f"[surveys] discarded post-call review: {row}")
+    # Ids only: the review text is the whole reason the export is not left in the repo, so it
+    # has no business in a deploy log either.
+    print(f"[surveys] discarded post-call review ids: {[row['id'] for row in serialised]}")
     return export_path
 
 

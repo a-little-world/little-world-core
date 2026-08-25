@@ -65,8 +65,9 @@ def resolve_localized(value, language: str) -> str:
 
 
 #: A call counts as "qualifying" for the post-call trigger and for ``first_qualifying_call``.
-#: Standard calls only (not random calls), ≥5 min, both active — one definition everywhere.
-QUALIFYING_CALL_MIN_DURATION = timedelta(minutes=5)
+#: Standard calls only (not random calls), both active, shorter than 10 minutes — one
+#: definition everywhere.
+QUALIFYING_CALL_MAX_DURATION = timedelta(minutes=10)
 
 
 class QuestionType(models.TextChoices):
@@ -90,12 +91,15 @@ class SurveyCampaign(models.Model):
 
     class Trigger(models.TextChoices):
         ON_SESSION = "on_session", _("Next time the user is in the app")
-        CALL_ENDED = "event:call_ended", _("After a qualifying call (excludes random calls)")
+        CALL_ENDED = "event:call_ended", _("After a qualifying call (under 10 min; excludes random calls)")
 
     class EligibleAfterEvent(models.TextChoices):
         NONE = "", _("Immediately")
         ONBOARDED = "onboarded", _("Onboarded")
-        FIRST_QUALIFYING_CALL = "first_qualifying_call", _("First qualifying call (excludes random calls)")
+        FIRST_QUALIFYING_CALL = (
+            "first_qualifying_call",
+            _("First qualifying call (under 10 min; excludes random calls)"),
+        )
         MATCH_CREATED = "match_created", _("Match created")
         MATCH_SUCCESS = "match_success", _("Match success")
 
@@ -359,6 +363,13 @@ class SurveyCampaign(models.Model):
             raise ValidationError(_("A context-scoped campaign needs a context_type."))
         if not self.is_context_scoped and self.context_type:
             raise ValidationError(_("context_type only applies when repeat_scope is 'context'."))
+        # Pending delivery evaluates on_session campaigns with no context in hand, so it has
+        # nothing to key a context-scoped offer on. Rejected here rather than left to blow up
+        # in the endpoint, where it would take survey delivery down for every user at once.
+        if self.is_context_scoped and self.trigger == self.Trigger.ON_SESSION:
+            raise ValidationError(
+                _("A context-scoped campaign needs an event trigger — there is no context to offer it against.")
+            )
 
     def _validate_audience(self):
         from management.models.custom_banner_event_filters import FILTER_FUNC_MAP

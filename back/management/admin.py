@@ -502,7 +502,7 @@ class SurveyResponseAdmin(admin.ModelAdmin):
     @admin.display(description="Free text")
     def comment(self, obj):
         texts = [obj.answers.get(qid) for qid in obj.campaign.text_question_ids()]
-        return " / ".join(text for text in texts if text) or "—"
+        return " / ".join(str(text) for text in texts if text) or "—"
 
     def get_search_results(self, request, queryset, search_term):
         """Search users and free-text answers.
@@ -511,7 +511,11 @@ class SurveyResponseAdmin(admin.ModelAdmin):
         text-typed question of every campaign is searched, which keeps this working when a
         campaign names its comment field something other than ``comment``.
         """
-        queryset, may_have_duplicates = super().get_search_results(request, queryset, search_term)
+        # The incoming queryset already carries the changelist's filters. Both halves of the
+        # search are built from it, so a search never widens the list past the campaign,
+        # status or date the user filtered to.
+        filtered = queryset
+        queryset, may_have_duplicates = super().get_search_results(request, filtered, search_term)
         if not search_term:
             return queryset, may_have_duplicates
 
@@ -522,7 +526,7 @@ class SurveyResponseAdmin(admin.ModelAdmin):
         answer_match = Q()
         for qid in text_ids:
             answer_match |= Q(**{f"answers__{qid}__icontains": search_term})
-        return queryset | self.model.objects.filter(answer_match), True
+        return queryset | filtered.filter(answer_match), True
 
 
 @admin.register(sms.SmsModel)

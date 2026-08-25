@@ -45,7 +45,7 @@ def _choice(value: str) -> dict:
     return {"value": value, "label": localized(de=value, en=value)}
 
 
-def _finished_session(user, partner, *, minutes=10) -> LivekitSession:
+def _finished_session(user, partner, *, minutes=5) -> LivekitSession:
     room = LiveKitRoom.objects.create(u1=user, u2=partner)
     session = LivekitSession.objects.create(
         room=room,
@@ -187,6 +187,16 @@ class SurveyCampaignValidationTests(TestCase):
         with self.assertRaises(ValidationError):
             _campaign(repeat_scope=SurveyCampaign.RepeatScope.CONTEXT)
 
+    def test_context_scope_requires_an_event_trigger(self):
+        # on_session delivery has no context to key an offer on, so this combination used to
+        # raise straight out of the pending endpoint for every user.
+        with self.assertRaises(ValidationError):
+            _campaign(
+                trigger=SurveyCampaign.Trigger.ON_SESSION,
+                repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
+                context_type=SurveyCampaign.ContextType.LIVE_SESSION,
+            )
+
     def test_company_audience_requires_a_value(self):
         with self.assertRaises(ValidationError):
             _campaign(audience_type=SurveyCampaign.AudienceType.COMPANY)
@@ -302,21 +312,21 @@ class SurveyOfferTests(TestCase):
         )
         self.assertFalse(surveys.user_is_eligible(campaign, self.user))
 
-        _finished_session(self.user, self.partner, minutes=10)
+        _finished_session(self.user, self.partner, minutes=5)
         self.assertTrue(surveys.user_is_eligible(campaign, self.user))
 
-    def test_short_calls_do_not_qualify(self):
+    def test_long_calls_do_not_qualify(self):
         campaign = _campaign(
             eligible_after_event=SurveyCampaign.EligibleAfterEvent.FIRST_QUALIFYING_CALL,
         )
-        _finished_session(self.user, self.partner, minutes=2)
+        _finished_session(self.user, self.partner, minutes=10)
         self.assertFalse(surveys.user_is_eligible(campaign, self.user))
 
     def test_random_calls_do_not_count_as_qualifying(self):
         campaign = _campaign(
             eligible_after_event=SurveyCampaign.EligibleAfterEvent.FIRST_QUALIFYING_CALL,
         )
-        session = _finished_session(self.user, self.partner, minutes=10)
+        session = _finished_session(self.user, self.partner, minutes=5)
         LivekitSession.objects.filter(pk=session.pk).update(random_call_session=True)
         self.assertFalse(surveys.user_is_eligible(campaign, self.user))
 
@@ -443,6 +453,26 @@ class SurveyOfferTests(TestCase):
         self.assertEqual(first.context_key, f"live_session:{first_session.uuid}")
         self.assertEqual(SurveyResponse.objects.filter(campaign=campaign).count(), 2)
 
+    def test_every_live_call_ended_campaign_is_offered(self):
+        """The admin panel offers this trigger to any campaign, so any campaign must get it."""
+        _campaign(
+            slug=surveys.POST_CALL_SLUG,
+            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
+            context_type=SurveyCampaign.ContextType.LIVE_SESSION,
+        )
+        # User-scoped: asked once ever rather than once per call, and no context to key on.
+        second = _campaign(
+            slug="call-followup",
+            name="Call follow-up",
+            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+        )
+
+        surveys.offer_post_call_survey(self.user, _finished_session(self.user, self.partner))
+
+        self.assertEqual(SurveyResponse.objects.filter(campaign=second).count(), 1)
+        self.assertEqual(SurveyResponse.objects.filter(campaign=second).first().context_key, "")
+
     def test_post_call_survey_skips_random_call_sessions(self):
         _campaign(
             slug=surveys.POST_CALL_SLUG,
@@ -457,8 +487,21 @@ class SurveyOfferTests(TestCase):
         self.assertIsNone(surveys.offer_post_call_survey(self.user, session))
         self.assertEqual(SurveyResponse.objects.count(), 0)
 
+    def test_post_call_survey_skips_calls_of_ten_minutes_or_more(self):
+        _campaign(
+            slug=surveys.POST_CALL_SLUG,
+            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
+            context_type=SurveyCampaign.ContextType.LIVE_SESSION,
+        )
+        session = _finished_session(self.user, self.partner, minutes=10)
+
+        self.assertIsNone(surveys.offer_post_call_survey(self.user, session))
+        self.assertEqual(SurveyResponse.objects.count(), 0)
+
     def test_context_scoped_campaign_refuses_an_empty_context_key(self):
         campaign = _campaign(
+            trigger=SurveyCampaign.Trigger.CALL_ENDED,
             repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
             context_type=SurveyCampaign.ContextType.LIVE_SESSION,
         )
@@ -515,6 +558,75 @@ class PendingSurveyTests(TestCase):
         self.assertIsNone(surveys.pending_survey_for_user(self.user))
         pending.refresh_from_db()
         self.assertEqual(pending.status, SurveyResponse.Status.EXPIRED)
+
+    def test_context_scoped_campaign_is_skipped_not_raised(self):
+        """A row written around the model must not take delivery down for everyone."""
+        campaign = _campaign(
+            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
+            context_type=SurveyCampaign.ContextType.LIVE_SESSION,
+        )
+        SurveyCampaign.objects.filter(pk=campaign.pk).update(trigger=SurveyCampaign.Trigger.ON_SESSION)
+
+        self.assertIsNone(surveys.pending_survey_for_user(self.user))
+
+    def test_a_second_campaign_waits_for_the_cooldown(self):
+        """One card per quiet period, whichever campaign it belongs to.
+
+        The client refetches as soon as a survey closes, so without a user-wide rule
+        answering one survey hands over the next one immediately.
+        """
+        _campaign(slug="first-campaign", name="First")
+        _campaign(slug="second-campaign", name="Second")
+
+        pending = surveys.pending_survey_for_user(self.user)
+        pending.mark_shown()
+        surveys.submit_survey(pending, {"rating": 5})
+        # Campaigns are ordered newest first, so which one wins is not the point here —
+        # the point is that the other one waits.
+        delivered_first = pending.campaign_id
+
+        self.assertIsNone(surveys.pending_survey_for_user(self.user))
+
+        SurveyResponse.objects.filter(pk=pending.pk).update(
+            shown_at=timezone.now() - surveys.SHOW_COOLDOWN - timedelta(minutes=1)
+        )
+        later = surveys.pending_survey_for_user(self.user)
+        self.assertIsNotNone(later)
+        self.assertNotEqual(later.campaign_id, delivered_first)
+
+    def test_cooldown_defers_an_event_offer_without_losing_it(self):
+        """A post-call offer inside the quiet period is held, not dropped."""
+        session_campaign = _campaign(slug="session-campaign")
+        post_call = _campaign(
+            slug=surveys.POST_CALL_SLUG,
+            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
+            context_type=SurveyCampaign.ContextType.LIVE_SESSION,
+        )
+        shown = surveys.pending_survey_for_user(self.user)
+        shown.mark_shown()
+        self.assertEqual(shown.campaign_id, session_campaign.pk)
+
+        offer = surveys.offer_post_call_survey(self.user, _finished_session(self.user, self.partner))
+        self.assertIsNotNone(offer)
+        self.assertIsNone(surveys.pending_survey_for_user(self.user))
+
+        SurveyResponse.objects.filter(pk=shown.pk).update(
+            shown_at=timezone.now() - surveys.SHOW_COOLDOWN - timedelta(minutes=1)
+        )
+        later = surveys.pending_survey_for_user(self.user)
+        self.assertEqual(later.pk, offer.pk)
+        self.assertEqual(later.campaign_id, post_call.pk)
+
+    def test_an_offer_never_rendered_does_not_start_the_cooldown(self):
+        """shown_at is written by the client confirming it painted the card, not by the offer."""
+        _campaign(slug="first-campaign", name="First")
+        _campaign(slug="second-campaign", name="Second")
+
+        self.assertIsNotNone(surveys.pending_survey_for_user(self.user))
+        # No mark_shown: the modal never opened, so nothing was shown and nothing is blocked.
+        self.assertIsNotNone(surveys.pending_survey_for_user(self.user))
 
     def test_event_offers_are_delivered_before_session_campaigns(self):
         session_campaign = _campaign(slug="session-campaign")
@@ -575,6 +687,85 @@ class SurveyAnswerValidationTests(TestCase):
         surveys.submit_survey(self.response, {"rating": 5})
         with self.assertRaises(ValidationError):
             surveys.submit_survey(self.response, {"rating": 1})
+
+
+class LegacyPostCallReviewTests(TestCase):
+    """``POST /api/livekit/review`` for clients that predate the survey endpoints."""
+
+    def setUp(self):
+        self.user = register_user()
+        self.partner = register_user()
+        self.campaign = _campaign(
+            slug=surveys.POST_CALL_SLUG,
+            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
+            context_type=SurveyCampaign.ContextType.LIVE_SESSION,
+        )
+
+    def _submit(self, **kwargs):
+        params = {"live_session": None, "rating": 4, "review": "fine", "response_id": None}
+        params.update(kwargs)
+        return surveys.submit_post_call_review(self.user, **params)
+
+    def test_review_id_cannot_reach_another_campaign(self):
+        # review_id is client-supplied and used to be a PostCallReview pk, so an id landing
+        # on another campaign's row is stale or crafted — either way it is not a target.
+        other = _campaign(slug="other-campaign", name="Other campaign")
+        offer = surveys.offer_survey(other, self.user)
+        session = _finished_session(self.user, self.partner)
+
+        response = self._submit(live_session=session, response_id=offer.pk)
+
+        self.assertEqual(response.campaign_id, self.campaign.pk)
+        offer.refresh_from_db()
+        self.assertEqual(offer.answers, {})
+        self.assertEqual(offer.status, SurveyResponse.Status.SHOWN)
+
+    def test_stale_review_id_falls_back_to_the_session(self):
+        session = _finished_session(self.user, self.partner)
+        offer = surveys.offer_post_call_survey(self.user, session)
+
+        response = self._submit(live_session=session, response_id=offer.pk + 10_000)
+
+        self.assertEqual(response.pk, offer.pk)
+        self.assertEqual(response.rating, 4)
+
+    def test_own_review_is_still_editable(self):
+        session = _finished_session(self.user, self.partner)
+        first = self._submit(live_session=session)
+        second = self._submit(live_session=session, rating=1, review="actually poor", response_id=first.pk)
+
+        self.assertEqual(first.pk, second.pk)
+        second.refresh_from_db()
+        self.assertEqual(second.rating, 1)
+        self.assertEqual(second.answers["comment"], "actually poor")
+
+    def test_review_without_a_session_is_still_recorded(self):
+        # The old endpoint always stored the review, session or not. Each one gets its own
+        # context key so the uniqueness rule does not silently drop the second.
+        first = self._submit()
+        second = self._submit(rating=2, review="second thought")
+
+        self.assertNotEqual(first.pk, second.pk)
+        self.assertTrue(first.context_key.startswith("legacy:"))
+        self.assertEqual(
+            SurveyResponse.objects.filter(campaign=self.campaign, status=SurveyResponse.Status.SUBMITTED).count(), 2
+        )
+
+    def test_retired_campaign_takes_no_new_reviews(self):
+        SurveyCampaign.objects.filter(pk=self.campaign.pk).update(active=False)
+        with self.assertRaises(ValidationError):
+            self._submit(live_session=_finished_session(self.user, self.partner))
+
+    def test_retired_campaign_still_accepts_an_open_offer(self):
+        session = _finished_session(self.user, self.partner)
+        offer = surveys.offer_post_call_survey(self.user, session)
+        SurveyCampaign.objects.filter(pk=self.campaign.pk).update(active=False)
+
+        response = self._submit(live_session=session)
+
+        self.assertEqual(response.pk, offer.pk)
+        self.assertEqual(response.status, SurveyResponse.Status.SUBMITTED)
 
 
 class AdminSurveyApiTests(TestCase):
