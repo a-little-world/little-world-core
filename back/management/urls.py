@@ -16,7 +16,9 @@ from management.api import (
     firebase,
     help,
     journey_overview,
+    match_overview,
     match_proposal_stats,
+    match_success,
     matches,
     notifications,
     options,
@@ -108,6 +110,11 @@ dynamic_user_list_single_user_api = DynamicUserListSingleUserViewSet.as_view(
 user_data_apis = [
     path("api/api_options", options.api_options),
     path("api/matches", matches.matches, name="matches_api"),
+    path(
+        "api/matches/<uuid:match_uuid>/overview",
+        match_overview.match_overview,
+        name="match_overview_api",
+    ),
     *user_api_urls,
     path("api/community", community_events.community_events, name="community_events_api"),
     path(
@@ -167,6 +174,7 @@ api_routes = [
     *matching_users_advanced_api_urls,
     *still_in_contact_api_urls,
     *journey_overview.api_urls,
+    *match_success.api_urls,
     *scores_advanced.api_urls,
     *videocalls_advanced.api_urls,
     *user_advanced_statistics.api_urls,

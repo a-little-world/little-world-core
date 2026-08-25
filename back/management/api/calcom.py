@@ -68,7 +68,7 @@ from translations import get_translation
 from management.controller import UserNotFoundErr, get_user_by_email, get_user_by_uuid
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.state import State
-from management.tasks import send_sms_background
+from management.tasks import onboarding_call_reminder_push_notification, send_sms_background
 
 
 def translate_to_german_date(date_str, target_timezone="Europe/Berlin"):
@@ -276,6 +276,10 @@ def callcom_websocket_callback(request):
                     eta=start_time_parsed - timedelta(hours=1),
                 )
                 appointment.sms_task = new_async_result.id
+            onboarding_call_reminder_push_notification.apply_async(
+                (user.pk),
+                eta=start_time_parsed - timedelta(hours=1),
+            )
             appointment.save()
         else:
             appointment = PreMatchingAppointment(user=user, start_time=start_time_parsed, end_time=end_time_parsed)
@@ -285,6 +289,10 @@ def callcom_websocket_callback(request):
                     eta=start_time_parsed - timedelta(hours=1),
                 )
                 appointment.sms_task = async_result.id
+            onboarding_call_reminder_push_notification.apply_async(
+                (user.pk),
+                eta=start_time_parsed - timedelta(hours=1),
+            )
             appointment.save()
 
         from chat.consumers.messages import PreMatchingAppointmentBooked

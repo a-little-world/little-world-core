@@ -30,11 +30,13 @@ from datetime import timedelta
 
 from chat.models import Message
 from django.db.models import Exists, OuterRef, Q, QuerySet
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, Greatest
 from django.utils import timezone
 from video.models import LivekitSession
 
 from management.match_success import match_tokens_by_id, success_token_threshold
+from management.models.matches import Match
+from management.models.unconfirmed_matches import MatchType
 
 ENGAGEMENT_DAYS = 4 * 7  # 28 — still-in-contact window for successful matches
 FAILURE_CLIFF_DAYS = 10 * 7  # 70 — no activity → failed
@@ -117,8 +119,20 @@ def _days_ago(days: int, as_of=None):
 
 
 def _with_activity(qs: QuerySet) -> QuerySet:
-    """Annotate coalesced activity time (last interaction, else match created)."""
-    return qs.annotate(_activity_at=Coalesce("latest_interaction_at", "created_at"))
+    """Annotate coalesced activity time (last interaction, else match created).
+
+    Floored at ``created_at``: a match cannot have been stale for longer than it has
+    existed. Random Call matches inherit the pair's lobby history, so
+    ``latest_interaction_at`` can predate the match — without the floor, one created
+    from an old lobby call is past the failure cliff the moment it is made. A no-op for
+    every match whose history starts at the match itself.
+    """
+    return qs.annotate(_activity_at=Greatest("created_at", Coalesce("latest_interaction_at", "created_at")))
+
+
+def _engagement_at() -> Greatest:
+    """``latest_interaction_at`` on the same footing as ``_with_activity`` — see there."""
+    return Greatest("created_at", Coalesce("latest_interaction_at", "created_at"))
 
 
 def _qualifying_session_exists() -> Exists:
@@ -130,6 +144,36 @@ def _qualifying_session_exists() -> Exists:
             created_at__gte=OuterRef("created_at"),
             end_time__isnull=False,
         )
+    )
+
+
+def _pre_match_random_call_exists() -> Exists:
+    """Lobby sessions with no lower time bound, for Random Call matches only.
+
+    Mirrors the ``random_call_session`` arm of ``match_success.qualifying_sessions``:
+    the call that produced a Random Call match predates the match itself, so a time
+    bound would hide it. Without this the token rule and the video-path test disagree —
+    a Random Call match whose only call predates it counts tokens here but is bucketed
+    as if it had never had one.
+    """
+    return Exists(
+        LivekitSession.objects.filter(
+            Q(u1_id=OuterRef("user1_id"), u2_id=OuterRef("user2_id"))
+            | Q(u1_id=OuterRef("user2_id"), u2_id=OuterRef("user1_id")),
+            both_have_been_active=True,
+            end_time__isnull=False,
+            random_call_session=True,
+        )
+    )
+
+
+def _video_path_q() -> Q:
+    """Match reached the video path. Kept as one expression so the ``with`` and
+    ``without`` sides cannot drift apart."""
+    return (
+        Q(total_mutal_video_calls_counter__gte=1)
+        | _qualifying_session_exists()
+        | (Q(match_type=MatchType.RANDOM_CALL) & _pre_match_random_call_exists())
     )
 
 
@@ -147,11 +191,11 @@ def _messages_one_way() -> Q:
 
 def _with_video_path(qs: QuerySet) -> QuerySet:
     """Mutual video call counter ≥ 1, or at least one qualifying LiveKit session."""
-    return qs.filter(Q(total_mutal_video_calls_counter__gte=1) | _qualifying_session_exists())
+    return qs.filter(_video_path_q())
 
 
 def _without_video_path(qs: QuerySet) -> QuerySet:
-    return qs.exclude(Q(total_mutal_video_calls_counter__gte=1) | _qualifying_session_exists())
+    return qs.exclude(_video_path_q())
 
 
 def _tokens_map(qs: QuerySet) -> dict[int, int]:
@@ -204,8 +248,11 @@ def _ids_with_tokens(pool: QuerySet, *, minimum: int | None = None, exact: int |
 
 
 def all_matches(qs: QuerySet) -> QuerySet:
-    """Non-support matches — the partition denominator."""
-    return qs.filter(support_matching=False)
+    """Non-support Standard and Random Call matches — the partition denominator.
+
+    TEMPORARY rows are lobby placeholders, not a match journey.
+    """
+    return Match.journey(qs)
 
 
 # ---------------------------------------------------------------------------
@@ -323,11 +370,11 @@ def _past_failure_cliff(qs: QuerySet, as_of=None) -> QuerySet:
 
 
 def _engaged(qs: QuerySet, as_of=None) -> QuerySet:
-    return qs.filter(latest_interaction_at__gte=_days_ago(ENGAGEMENT_DAYS, as_of))
+    return qs.annotate(_engaged_at=_engagement_at()).filter(_engaged_at__gte=_days_ago(ENGAGEMENT_DAYS, as_of))
 
 
 def _dormant_engagement(qs: QuerySet, as_of=None) -> QuerySet:
-    return qs.exclude(latest_interaction_at__gte=_days_ago(ENGAGEMENT_DAYS, as_of))
+    return qs.annotate(_engaged_at=_engagement_at()).exclude(_engaged_at__gte=_days_ago(ENGAGEMENT_DAYS, as_of))
 
 
 # ---------------------------------------------------------------------------
@@ -499,9 +546,9 @@ def failed_tokens_7(qs: QuerySet, as_of=None) -> QuerySet:
 
 
 def _in_flight_pool(qs: QuerySet, as_of=None) -> QuerySet:
-    return _with_video_path(
-        _within_failure_cliff(_not_successful(qs).filter(active=True), as_of).filter(confirmed=True)
-    )
+    # Confirmation is not required: Random Call matches already have the lobby call
+    # before either user views the match card, and that call is part of the journey.
+    return _with_video_path(_within_failure_cliff(_not_successful(qs).filter(active=True), as_of))
 
 
 def _in_flight_tokens(qs: QuerySet, n: int, as_of=None) -> QuerySet:

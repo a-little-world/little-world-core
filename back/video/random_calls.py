@@ -829,9 +829,6 @@ def request_random_call_matching(request, match_uuid):
             match_users(
                 {match.u1, match.u2},
                 match_type=MatchType.RANDOM_CALL,
-                send_message=False,
-                send_email=False,
-                send_notification=False,
             )
     else:
         # First requester: create proposal so the partner (non-requester) sees it in unconfirmed matches

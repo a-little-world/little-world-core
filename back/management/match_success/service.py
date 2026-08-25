@@ -11,6 +11,7 @@ from management.match_success.sessions import annotate_total_call_minutes, total
 from management.match_success.versions import (
     ACTIVE_VERSION_ID,
     activatable_version_ids,
+    documentation,
     get_version,
     list_versions,
 )
@@ -77,6 +78,7 @@ __all__ = [
     "ACTIVE_VERSION_ID",
     "activatable_version_ids",
     "annotate_match_tokens",
+    "documentation",
     "get_version",
     "list_versions",
     "match_is_successful",

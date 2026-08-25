@@ -4,6 +4,7 @@ from rest_framework.test import APIRequestFactory
 
 from management.api import register
 from management.controller import get_user_by_email
+from management.models.user import User
 
 valid_register_request_data = dict(
     email="benjamin.tim@gmx.de",
@@ -50,7 +51,7 @@ def register_user_api(data=None) -> Response:
     return response
 
 
-def register_user(data=None) -> Response:
+def register_user(data=None) -> User:
     data = assure_default_data(data)
     response = register_user_api(data=data)
     assert response.status_code == 200
