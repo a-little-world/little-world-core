@@ -12,7 +12,6 @@ from chat.consumers.messages import (
     OutgoingCallRejected,
     OutUserWentOffline,
     OutUserWentOnline,
-    PostCallSurvey,
     PreMatchingAppointmentBooked,
 )
 from django.conf import settings
@@ -110,10 +109,6 @@ class CoreConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data=None, bytes_data=None):
         print(f"User {self.user} received message: {text_data}")
-
-    async def post_call_survey(self, event):
-        assert event["type"] == MessageTypes.post_call_survey.value
-        await self.send(text_data=PostCallSurvey(**event).action_json())
 
     async def user_went_online(self, event):
         assert event["type"] == MessageTypes.user_went_online.value

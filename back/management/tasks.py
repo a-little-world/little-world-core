@@ -2088,6 +2088,29 @@ def automatic_emails_fm021_fm022__ghosted_matches():
     return {"status": "sent", "matches": matches_in_ko_with_single_party_contact}
 
 
+def _scrub_survey_free_text(user):
+    """Strip free-text survey answers for a deleted account.
+
+    Ratings are anonymous once the account is scrubbed and stay in aggregates, but a comment
+    can name a person or an employer. Which keys are free text is a property of the campaign,
+    so the question set decides rather than a hardcoded field name.
+    """
+    from management.models.survey import SurveyResponse
+
+    responses = SurveyResponse.objects.filter(user=user).select_related("campaign")
+    scrubbed = []
+    for response in responses:
+        text_ids = [qid for qid in response.campaign.text_question_ids() if qid in response.answers]
+        if not text_ids:
+            continue
+        for qid in text_ids:
+            del response.answers[qid]
+        scrubbed.append(response)
+    if scrubbed:
+        SurveyResponse.objects.bulk_update(scrubbed, ["answers"])
+    return len(scrubbed)
+
+
 @shared_task(name="management.tasks.cleanup_deleted_users_full_user_data")
 def cleanup_deleted_users_full_user_data(days_since_deletion: int = 30):
     from management.models.user import User
@@ -2132,6 +2155,8 @@ def cleanup_deleted_users_full_user_data(days_since_deletion: int = 30):
         state.past_emails = []
         state.deleted_full_user_data_cleared = True
         state.save()
+
+        _scrub_survey_free_text(user)
 
         processed_user_ids.append(user.pk)
 

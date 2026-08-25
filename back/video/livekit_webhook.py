@@ -1,6 +1,5 @@
 import json
 import logging
-from datetime import timedelta
 
 from chat.consumers.messages import InBlockIncomingCall, NewActiveCallRoom
 from django.db.models import F, Q
@@ -9,7 +8,9 @@ from django.urls import path
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from management.models.matches import Match
+from management.models.survey import QUALIFYING_CALL_MIN_DURATION
 from management.models.user import User
+from management.surveys import offer_post_call_survey
 
 from video.models import (
     LiveKitRoom,
@@ -182,16 +183,15 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
                 except Exception:
                     print("Cound't send call widged to first_active_user")
 
-        # check if the call review pop-up should be triggered
+        # Offer the post-call survey to the user who just left. Creating the offer is the
+        # whole job — the client's next poll of /api/surveys/pending finds it, so the survey
+        # no longer depends on the user holding an open WebSocket at this exact moment.
         call_duration = end_time - session.created_at
-        if session.both_have_been_active and call_duration >= timedelta(minutes=5):
+        if session.both_have_been_active and call_duration >= QUALIFYING_CALL_MIN_DURATION:
             try:
-                # Now we can trigger the call review pop-up for the user that left
-                from chat.consumers.messages import PostCallSurvey
-
-                PostCallSurvey(post_call_survey={"live_session_id": str(session.uuid)}).send(str(user.uuid))
+                offer_post_call_survey(user, session)
             except Exception:
-                print("Cound't tigger the post call survey")
+                logger.exception("Could not offer the post call survey for session %s", session.uuid)
 
     if session is not None:
         session.webhook_events.add(event)

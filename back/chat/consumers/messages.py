@@ -22,7 +22,6 @@ class MessageTypes(Enum):
     new_message = "new_message"
     messages_read_chat = "messages_read_chat"
     pre_matching_appointment_booked = "pre_matching_appointment_booked"
-    post_call_survey = "post_call_survey"
     notification = "notification"
 
 
@@ -164,15 +163,6 @@ class NewMessage(MessageBase):
 
 
 @dataclass
-class PostCallSurvey(MessageBase):
-    post_call_survey: dict
-    type: str = MessageTypes.post_call_survey.value
-
-    def build_redux_action(self):
-        return {"action": "addPostCallSurvey", "payload": self.post_call_survey}
-
-
-@dataclass
 class NotificationMessage(MessageBase):
     notification: dict
     type: str = MessageTypes.notification.value
@@ -183,7 +173,6 @@ class NotificationMessage(MessageBase):
 
 
 CALLBACKS = {
-    MessageTypes.post_call_survey.value: PostCallSurvey,
     MessageTypes.user_went_online.value: OutUserWentOnline,
     MessageTypes.user_went_offline.value: OutUserWentOffline,
     MessageTypes.match_proposal_added.value: InMatchProposalAdded,

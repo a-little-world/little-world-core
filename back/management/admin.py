@@ -3,6 +3,7 @@ import base64
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.sessions.models import Session
+from django.db.models import Avg, Count, Q
 from django.http import HttpResponse
 from django.urls import reverse
 from django.utils.html import format_html
@@ -16,13 +17,13 @@ from management.models import (
     dynamic_user_list,
     mobile_device,
     newsletter,
-    post_call_review,
     pre_matching_appointment,
     question_cards,
     scores,
     short_links,
     sms,
     stats,
+    survey,
 )
 
 
@@ -400,9 +401,128 @@ class DynamicUserListAdmin(admin.ModelAdmin):
     list_display = ("name", "description", "created_at", "updated_at")
 
 
-@admin.register(post_call_review.PostCallReview)
-class PostCallReviewAdmin(admin.ModelAdmin):
-    list_display = ("user", "live_session", "rating", "created_at", "updated_at")
+@admin.register(survey.SurveyCampaign)
+class SurveyCampaignAdmin(admin.ModelAdmin):
+    list_display = (
+        "slug",
+        "active",
+        "audience",
+        "trigger",
+        "repeat_scope",
+        "offered",
+        "answered",
+        "response_rate",
+        "mean_rating",
+    )
+    list_filter = ("active", "trigger", "audience_type", "repeat_scope")
+    search_fields = ("slug", "name")
+    readonly_fields = ("created_at", "updated_at", "locked_questions", "copy_status")
+
+    def get_queryset(self, request):
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(
+                _offered=Count("responses", distinct=True),
+                _answered=Count(
+                    "responses",
+                    filter=Q(responses__status=survey.SurveyResponse.Status.SUBMITTED),
+                    distinct=True,
+                ),
+                _rendered=Count("responses", filter=Q(responses__shown_count__gt=0), distinct=True),
+                _mean_rating=Avg("responses__rating"),
+            )
+        )
+
+    @admin.display(description="Audience")
+    def audience(self, obj):
+        from management.surveys import audience_label
+
+        return audience_label(obj)
+
+    @admin.display(description="Offered", ordering="_offered")
+    def offered(self, obj):
+        return obj._offered
+
+    @admin.display(description="Answered", ordering="_answered")
+    def answered(self, obj):
+        return obj._answered
+
+    @admin.display(description="Response rate")
+    def response_rate(self, obj):
+        """Offered / rendered / answered.
+
+        Rendered coming back as 0 while offers climb is the signature of a broken client —
+        the failure that hid the old post-call survey for a year.
+        """
+        if not obj._offered:
+            return "—"
+        return f"{obj._answered / obj._offered:.0%} ({obj._rendered} rendered)"
+
+    @admin.display(description="Mean rating")
+    def mean_rating(self, obj):
+        return f"{obj._mean_rating:.2f}" if obj._mean_rating else "—"
+
+    @admin.display(description="Locked questions")
+    def locked_questions(self, obj):
+        """Questions somebody has answered, so the editor sees the rule before hitting it.
+
+        The rule itself is enforced in ``SurveyCampaign.save()`` — this is only the explanation.
+        """
+        if not obj.pk:
+            return "—"
+        responses = survey.SurveyResponse.objects.filter(campaign=obj)
+        locked = [q["id"] for q in obj.questions if responses.filter(answers__has_key=q["id"]).exists()]
+        if not locked:
+            return "None — no answers recorded yet, so questions can still be changed freely."
+        return (
+            f"{', '.join(locked)} — these have answers, so their id, type and used choice "
+            "options are fixed. Add a new question or a new campaign slug instead."
+        )
+
+    @admin.display(description="Copy status")
+    def copy_status(self, obj):
+        """Campaigns are normally edited in the admin panel; this is the same check that
+        blocks activation, so the Django admin does not silently disagree with it."""
+        missing = obj.missing_copy()
+        if not missing:
+            return "Complete — this campaign can be activated."
+        return mark_safe("Missing:<br>" + "<br>".join(missing))
+
+
+@admin.register(survey.SurveyResponse)
+class SurveyResponseAdmin(admin.ModelAdmin):
+    list_display = ("campaign", "user", "status", "rating", "comment", "shown_count", "created_at", "submitted_at")
+    list_filter = ("campaign", "status", "rating")
+    list_select_related = ("campaign", "user")
+    search_fields = ("user__email",)
+    readonly_fields = ("created_at", "updated_at", "shown_at", "submitted_at")
+    date_hierarchy = "created_at"
+
+    @admin.display(description="Free text")
+    def comment(self, obj):
+        texts = [obj.answers.get(qid) for qid in obj.campaign.text_question_ids()]
+        return " / ".join(text for text in texts if text) or "—"
+
+    def get_search_results(self, request, queryset, search_term):
+        """Search users and free-text answers.
+
+        ``search_fields`` cannot reach into JSON, so the answer lookup is spelled out. Every
+        text-typed question of every campaign is searched, which keeps this working when a
+        campaign names its comment field something other than ``comment``.
+        """
+        queryset, may_have_duplicates = super().get_search_results(request, queryset, search_term)
+        if not search_term:
+            return queryset, may_have_duplicates
+
+        text_ids = {qid for campaign in survey.SurveyCampaign.objects.all() for qid in campaign.text_question_ids()}
+        if not text_ids:
+            return queryset, may_have_duplicates
+
+        answer_match = Q()
+        for qid in text_ids:
+            answer_match |= Q(**{f"answers__{qid}__icontains": search_term})
+        return queryset | self.model.objects.filter(answer_match), True
 
 
 @admin.register(sms.SmsModel)
