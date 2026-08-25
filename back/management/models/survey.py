@@ -65,7 +65,7 @@ def resolve_localized(value, language: str) -> str:
 
 
 #: A call counts as "qualifying" for the post-call trigger and for ``first_qualifying_call``.
-#: One definition, so "qualifying call" means the same thing everywhere in this feature.
+#: Standard calls only (not random calls), ≥5 min, both active — one definition everywhere.
 QUALIFYING_CALL_MIN_DURATION = timedelta(minutes=5)
 
 
@@ -90,13 +90,12 @@ class SurveyCampaign(models.Model):
 
     class Trigger(models.TextChoices):
         ON_SESSION = "on_session", _("Next time the user is in the app")
-        CALL_ENDED = "event:call_ended", _("After a qualifying call")
+        CALL_ENDED = "event:call_ended", _("After a qualifying call (excludes random calls)")
 
     class EligibleAfterEvent(models.TextChoices):
         NONE = "", _("Immediately")
         ONBOARDED = "onboarded", _("Onboarded")
-        FIRST_QUALIFYING_CALL = "first_qualifying_call", _("First qualifying call")
-        FIRST_QUALIFYING_CALL_14D = "first_qualifying_call_14d", _("2 weeks after first qualifying call")
+        FIRST_QUALIFYING_CALL = "first_qualifying_call", _("First qualifying call (excludes random calls)")
         MATCH_CREATED = "match_created", _("Match created")
         MATCH_SUCCESS = "match_success", _("Match success")
 
@@ -111,7 +110,7 @@ class SurveyCampaign(models.Model):
     slug = models.SlugField(
         max_length=64,
         unique=True,
-        help_text=_("Stable identifier, e.g. 'post_call'. Referenced by code and analytics."),
+        help_text=_("Stable URL-safe identifier using hyphens, e.g. 'post-call'. Referenced by code and analytics."),
     )
     name = models.CharField(max_length=255, help_text=_("Internal name for the campaign"))
 
@@ -157,9 +156,10 @@ class SurveyCampaign(models.Model):
         blank=True,
         default="",
         help_text=_(
-            "Named journey condition. Most take effect as soon as the person matches it. "
+            "Named journey condition. Takes effect as soon as the person matches it. "
             "Match conditions count if any of the user's matches qualify; once-per-user "
-            "campaigns still offer the survey only once."
+            "campaigns still offer the survey only once. Timing is controlled with "
+            "eligible_after_since."
         ),
     )
     eligible_after_since = models.DateTimeField(
@@ -292,6 +292,10 @@ class SurveyCampaign(models.Model):
         super().clean()
         errors: dict[str, list[str]] = {}
         try:
+            self._validate_slug()
+        except ValidationError as e:
+            errors["slug"] = e.messages
+        try:
             validate_question_set(self.questions)
         except ValidationError as e:
             errors["questions"] = e.messages
@@ -330,6 +334,11 @@ class SurveyCampaign(models.Model):
             self.eligible_after_since = None
         self.full_clean(validate_unique=False)
         super().save(*args, **kwargs)
+
+    def _validate_slug(self):
+        """Hyphens only — underscores break URL path segments we reuse this for."""
+        if "_" in (self.slug or ""):
+            raise ValidationError(_("Use hyphens instead of underscores (e.g. 'post-call')."))
 
     def _validate_copy(self):
         if not isinstance(self.copy, dict):

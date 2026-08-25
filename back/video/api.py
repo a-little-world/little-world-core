@@ -114,7 +114,7 @@ def post_call_review(request):
     """Deprecated: use ``POST /api/surveys/<id>/submit``.
 
     Kept while clients that predate the survey endpoints are still in use. Feedback lands in
-    ``SurveyResponse`` on the ``post_call`` campaign either way.
+    ``SurveyResponse`` on the ``post-call`` campaign either way.
     """
     serializer = PostCallReviewParams(data=request.data)
     if not serializer.is_valid():

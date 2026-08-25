@@ -11,9 +11,9 @@ from management.tests.helpers import register_user
 
 
 def _campaign(**overrides) -> SurveyCampaign:
-    """Build a campaign, reusing the slug if a migration already seeded it (e.g. post_call)."""
+    """Build a campaign, reusing the slug if a migration already seeded it (e.g. post-call)."""
     fields = {
-        "slug": "test_campaign",
+        "slug": "test-campaign",
         "name": "Test campaign",
         "copy": {
             "title": localized(de="Wie gefällt es dir?", en="How are you finding it?"),
@@ -81,6 +81,10 @@ class CampaignCopyTests(TestCase):
         card = campaign.card_for("en")
         self.assertEqual(card["title"], "Nur Deutsch")
         self.assertEqual(card["questions"][0]["label"], "Kommentar")
+
+    def test_rejects_underscore_in_slug(self):
+        with self.assertRaises(ValidationError):
+            _campaign(slug="bad_slug")
 
     def test_cannot_activate_without_german_copy(self):
         with self.assertRaises(ValidationError):
@@ -308,33 +312,20 @@ class SurveyOfferTests(TestCase):
         _finished_session(self.user, self.partner, minutes=2)
         self.assertFalse(surveys.user_is_eligible(campaign, self.user))
 
+    def test_random_calls_do_not_count_as_qualifying(self):
+        campaign = _campaign(
+            eligible_after_event=SurveyCampaign.EligibleAfterEvent.FIRST_QUALIFYING_CALL,
+        )
+        session = _finished_session(self.user, self.partner, minutes=10)
+        LivekitSession.objects.filter(pk=session.pk).update(random_call_session=True)
+        self.assertFalse(surveys.user_is_eligible(campaign, self.user))
+
     def test_onboarded_is_immediate(self):
         campaign = _campaign(eligible_after_event=SurveyCampaign.EligibleAfterEvent.ONBOARDED)
         self.assertFalse(surveys.user_is_eligible(campaign, self.user))
 
         self.user.state.is_onboarded = True
         self.user.state.save()
-        self.assertTrue(surveys.user_is_eligible(campaign, self.user))
-
-    def test_two_weeks_after_first_call(self):
-        campaign = _campaign(
-            eligible_after_event=SurveyCampaign.EligibleAfterEvent.FIRST_QUALIFYING_CALL_14D,
-        )
-        session = _finished_session(self.user, self.partner, minutes=10)
-        self.assertFalse(surveys.user_is_eligible(campaign, self.user))
-
-        ended = timezone.now() - timedelta(days=13)
-        LivekitSession.objects.filter(pk=session.pk).update(
-            end_time=ended,
-            created_at=ended - timedelta(minutes=10),
-        )
-        self.assertFalse(surveys.user_is_eligible(campaign, self.user))
-
-        ended = timezone.now() - timedelta(days=14)
-        LivekitSession.objects.filter(pk=session.pk).update(
-            end_time=ended,
-            created_at=ended - timedelta(minutes=10),
-        )
         self.assertTrue(surveys.user_is_eligible(campaign, self.user))
 
     def test_match_created_is_any_active_match(self):
@@ -452,6 +443,20 @@ class SurveyOfferTests(TestCase):
         self.assertEqual(first.context_key, f"live_session:{first_session.uuid}")
         self.assertEqual(SurveyResponse.objects.filter(campaign=campaign).count(), 2)
 
+    def test_post_call_survey_skips_random_call_sessions(self):
+        _campaign(
+            slug=surveys.POST_CALL_SLUG,
+            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
+            context_type=SurveyCampaign.ContextType.LIVE_SESSION,
+        )
+        session = _finished_session(self.user, self.partner)
+        LivekitSession.objects.filter(pk=session.pk).update(random_call_session=True)
+        session.refresh_from_db()
+
+        self.assertIsNone(surveys.offer_post_call_survey(self.user, session))
+        self.assertEqual(SurveyResponse.objects.count(), 0)
+
     def test_context_scoped_campaign_refuses_an_empty_context_key(self):
         campaign = _campaign(
             repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
@@ -512,7 +517,7 @@ class PendingSurveyTests(TestCase):
         self.assertEqual(pending.status, SurveyResponse.Status.EXPIRED)
 
     def test_event_offers_are_delivered_before_session_campaigns(self):
-        session_campaign = _campaign(slug="session_campaign")
+        session_campaign = _campaign(slug="session-campaign")
         post_call = _campaign(
             slug=surveys.POST_CALL_SLUG,
             trigger=SurveyCampaign.Trigger.CALL_ENDED,
@@ -586,7 +591,7 @@ class AdminSurveyApiTests(TestCase):
 
     def _payload(self, **overrides):
         payload = {
-            "slug": "acme_checkin",
+            "slug": "acme-checkin",
             "name": "Acme check-in",
             "copy": {
                 "title": localized(de="Wie läuft es?"),
@@ -622,7 +627,7 @@ class AdminSurveyApiTests(TestCase):
     def test_creates_a_campaign_with_copy(self):
         response = self._post(self._payload())
         self.assertEqual(response.status_code, 201)
-        campaign = SurveyCampaign.objects.get(slug="acme_checkin")
+        campaign = SurveyCampaign.objects.get(slug="acme-checkin")
         self.assertEqual(campaign.card_for("de")["title"], "Wie läuft es?")
         # No English was supplied, so English readers get the German.
         self.assertEqual(campaign.card_for("en")["title"], "Wie läuft es?")
@@ -632,7 +637,7 @@ class AdminSurveyApiTests(TestCase):
         response = self._post(payload)
         self.assertEqual(response.status_code, 400)
         self.assertIn("copy", response.json()["errors"])
-        self.assertFalse(SurveyCampaign.objects.filter(slug="acme_checkin").exists())
+        self.assertFalse(SurveyCampaign.objects.filter(slug="acme-checkin").exists())
 
     def test_draft_without_copy_is_allowed(self):
         payload = self._payload(
@@ -700,7 +705,7 @@ class AdminSurveyResponseApiTests(TestCase):
         self.staff.save(update_fields=["is_staff"])
         self.client.force_login(self.staff)
         self.campaign = _campaign()
-        self.other = _campaign(slug="other_campaign", name="Other campaign")
+        self.other = _campaign(slug="other-campaign", name="Other campaign")
         self.user = register_user()
         self.offer = surveys.offer_survey(self.campaign, self.user)
         self.offer.mark_shown()

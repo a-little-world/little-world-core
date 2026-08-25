@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from django.conf import settings
 from django.db import migrations
 
-CAMPAIGN_SLUG = "post_call"
+CAMPAIGN_SLUG = "post-call"
 DISCARDED_EXPORT_COLUMNS = [
     "id",
     "user_id",
@@ -181,7 +181,7 @@ def unmigrate_reviews(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("management", "0169_survey_campaigns"),
+        ("management", "0171_survey_campaigns"),
     ]
 
     operations = [

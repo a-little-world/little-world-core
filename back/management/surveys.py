@@ -28,7 +28,7 @@ from management.models.survey import (
     option_values,
 )
 
-POST_CALL_SLUG = "post_call"
+POST_CALL_SLUG = "post-call"
 
 #: An unanswered offer is re-presented on a later visit, not on the next route change.
 SHOW_COOLDOWN = timedelta(hours=12)
@@ -66,11 +66,19 @@ def live_campaigns(trigger: str | None = None) -> list[SurveyCampaign]:
 
 
 def qualifying_sessions(user):
-    """Finished calls where both users were active and which ran at least five minutes."""
+    """Finished standard calls where both users were active and which ran at least five minutes.
+
+    Random calls are excluded — the same rule as the post-call offer trigger.
+    """
     from video.models import LivekitSession
 
     return (
-        LivekitSession.objects.filter(Q(u1=user) | Q(u2=user), both_have_been_active=True, end_time__isnull=False)
+        LivekitSession.objects.filter(
+            Q(u1=user) | Q(u2=user),
+            both_have_been_active=True,
+            end_time__isnull=False,
+            random_call_session=False,
+        )
         .annotate(duration=ExpressionWrapper(F("end_time") - F("created_at"), output_field=DurationField()))
         .filter(duration__gte=QUALIFYING_CALL_MIN_DURATION)
     )
@@ -78,10 +86,6 @@ def qualifying_sessions(user):
 
 def first_qualifying_call_at(user):
     return qualifying_sessions(user).order_by("end_time").values_list("end_time", flat=True).first()
-
-
-#: Named preset: "2 weeks after first qualifying call".
-FIRST_CALL_ELIGIBILITY_DELAY = timedelta(days=14)
 
 
 def onboarded_at(user):
@@ -158,9 +162,6 @@ def _eligible_event_at(event: str, user):
         return onboarded_at(user)
     if event == SurveyCampaign.EligibleAfterEvent.FIRST_QUALIFYING_CALL:
         return first_qualifying_call_at(user)
-    if event == SurveyCampaign.EligibleAfterEvent.FIRST_QUALIFYING_CALL_14D:
-        happened_at = first_qualifying_call_at(user)
-        return None if happened_at is None else happened_at + FIRST_CALL_ELIGIBILITY_DELAY
     if event == SurveyCampaign.EligibleAfterEvent.MATCH_CREATED:
         return (
             _matches_for_user(user, active_only=True)
@@ -178,9 +179,9 @@ def _eligible_event_at(event: str, user):
 def user_is_eligible(campaign: SurveyCampaign, user) -> bool:
     """Audience and named journey condition — repeat rules are handled per context key.
 
-    Conditions are instantaneous except ``first_qualifying_call_14d``. Match created /
-    match success qualify if *any* tandem match satisfies the rule. ``eligible_after_since``
-    is a lower bound on when that condition counted: older events do not qualify.
+    Conditions take effect as soon as they are true. Match created / match success qualify
+    if *any* tandem match satisfies the rule. ``eligible_after_since`` is a lower bound on
+    when that condition counted: older events do not qualify.
     """
     if not user_matches_audience(campaign, user):
         return False
@@ -302,7 +303,13 @@ def offer_survey(campaign: SurveyCampaign, user, *, context_key: str = "", live_
 
 
 def offer_post_call_survey(user, live_session) -> SurveyResponse | None:
-    """Create the post-call offer for one participant of a finished call."""
+    """Create the post-call offer for one participant of a finished standard call.
+
+    Random calls (``LivekitSession.random_call_session``) are excluded — that flow has its
+    own post-call UX and should not surface the standard call survey.
+    """
+    if getattr(live_session, "random_call_session", False):
+        return None
     campaign = next((c for c in live_campaigns(SurveyCampaign.Trigger.CALL_ENDED) if c.slug == POST_CALL_SLUG), None)
     if campaign is None or not user_is_eligible(campaign, user):
         return None

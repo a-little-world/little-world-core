@@ -38,7 +38,7 @@ def drop_answers_gin(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("management", "0168_alter_profile_target_groups"),
+        ("management", "0170_mobile_device_session_active_at"),
         ("video", "0028_randomcallmatching_u1_status_and_more"),
     ]
 
@@ -50,7 +50,7 @@ class Migration(migrations.Migration):
                 (
                     "slug",
                     models.SlugField(
-                        help_text="Stable identifier, e.g. 'post_call'. Referenced by code and analytics.",
+                        help_text="Stable URL-safe identifier using hyphens, e.g. 'post-call'. Referenced by code and analytics.",
                         max_length=64,
                         unique=True,
                     ),
@@ -120,7 +120,7 @@ class Migration(migrations.Migration):
                     models.CharField(
                         choices=[
                             ("on_session", "Next time the user is in the app"),
-                            ("event:call_ended", "After a qualifying call"),
+                            ("event:call_ended", "After a qualifying call (excludes random calls)"),
                         ],
                         default="on_session",
                         max_length=32,
@@ -133,18 +133,30 @@ class Migration(migrations.Migration):
                         choices=[
                             ("", "Immediately"),
                             ("onboarded", "Onboarded"),
-                            ("first_qualifying_call", "First qualifying call"),
-                            ("first_qualifying_call_14d", "2 weeks after first qualifying call"),
+                            ("first_qualifying_call", "First qualifying call (excludes random calls)"),
                             ("match_created", "Match created"),
                             ("match_success", "Match success"),
                         ],
                         default="",
                         help_text=(
-                            "Named journey condition. Most take effect as soon as the person matches it. "
+                            "Named journey condition. Takes effect as soon as the person matches it. "
                             "Match conditions count if any of the user's matches qualify; once-per-user "
-                            "campaigns still offer the survey only once."
+                            "campaigns still offer the survey only once. Timing is controlled with "
+                            "eligible_after_since."
                         ),
                         max_length=32,
+                    ),
+                ),
+                (
+                    "eligible_after_since",
+                    models.DateTimeField(
+                        blank=True,
+                        help_text=(
+                            "Lower bound on when eligible_after_event counts. Only people who reached that "
+                            "condition on or after this instant are eligible. Empty means any time. Ignored "
+                            "when the event is empty."
+                        ),
+                        null=True,
                     ),
                 ),
                 (
