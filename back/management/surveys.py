@@ -38,7 +38,7 @@ POST_CALL_SLUG = "post-call"
 #: instant they finish the first one — which is how a feedback system turns into popups. It
 #: also covers re-presenting one unanswered offer: that waits for a later visit rather than
 #: the next route change.
-SHOW_COOLDOWN = timedelta(hours=0)
+SHOW_COOLDOWN = timedelta(hours=12)
 
 #: How long a negative eligibility result is remembered per user. The pending endpoint is
 #: polled on every route change, so without this a user who matches nothing would re-run the
