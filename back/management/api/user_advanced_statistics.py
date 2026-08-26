@@ -1344,10 +1344,13 @@ def _v5_phase_count(partition, phase_id: str, qs, *, as_of) -> int:
     """Matches in one phase, counting only that phase's own buckets.
 
     Deliberately not ``compute_partition``: that builds all 45 buckets and every pairwise
-    id-set intersection to prove the partition balances, holding every match id in memory —
-    its own docstring warns against pointing it at a cohort this size, and the Match Quality
-    pie asks for three phase totals over every match ever created. Three phases is 14
-    counting queries against 45 plus ~990 intersections.
+    id-set intersection to prove the partition balances, and the pie reads three phase totals.
+
+    **Must be called inside ``classification_run``.** The cells share their derived maps —
+    the token map above all — through that run cache, so calling them outside it recomputes
+    the shared passes once per bucket. Measured over 3,653 matches: 94 queries / 6.2s for
+    ``compute_partition``, 105 / 8.3s for these three phases *without* the run (worse than
+    what it replaced), 63 / 4.3s *with* it.
 
     The trade is that the balance check is gone, so the caller checks the one thing that
     would have shown up here: whether the slices still add up to the universe.
@@ -1366,6 +1369,7 @@ def _match_quality_distribution(matches_qs, *, as_of=None):
     is one remainder slice.
     """
     from management.analytics.core import display_time
+    from management.analytics.match_journey.queries.state import classification_run
     from management.analytics.registry import get_partition
     from management.match_success import successful_matches
 
@@ -1378,9 +1382,13 @@ def _match_quality_distribution(matches_qs, *, as_of=None):
     total = universe.count()
     successful = successful_matches(universe).count()
 
-    kickoff = _v5_phase_count(partition, "kickoff", universe, as_of=as_of)
-    in_flight = _v5_phase_count(partition, "in_flight", universe, as_of=as_of)
-    other = _v5_phase_count(partition, "other", universe, as_of=as_of)
+    # Scoped to `universe`, which is exactly what these cells classify: `classification_run`
+    # takes the token map's scope from the run, so seeding it from anything narrower makes
+    # later cells under-count silently.
+    with classification_run(universe):
+        kickoff = _v5_phase_count(partition, "kickoff", universe, as_of=as_of)
+        in_flight = _v5_phase_count(partition, "in_flight", universe, as_of=as_of)
+        other = _v5_phase_count(partition, "other", universe, as_of=as_of)
 
     # The remainder is only ever negative if a match is counted both as successful and in a
     # pre-success phase. The kickoff and in-flight buckets are built on `_not_successful`, so

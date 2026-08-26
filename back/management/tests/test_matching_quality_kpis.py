@@ -10,7 +10,8 @@ from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 from video.models import LivekitSession
 
-from management.analytics.registry import get_partition
+from management.analytics.core import display_time
+from management.analytics.registry import compute_partition, get_partition
 from management.api.user_advanced_statistics import (
     MATCH_JOURNEY_V5_ID,
     _v5_phase,
@@ -136,17 +137,20 @@ class MatchingQualitySuccessDrivenTests(TestCase):
         self.assertNotIn("finished-matching", by_id)
         self.assertNotIn("match_journey_v2__completed_match", by_id)
 
-    def test_pie_counts_three_phases_not_the_whole_partition(self):
-        """The pie needs three phase totals, not all 45 buckets and their intersections.
+    def test_pie_costs_less_than_a_whole_partition_run(self):
+        """The pie reads three phase totals; it must not cost a full partition computation.
 
-        `compute_partition` builds every bucket and every pairwise id-set intersection to
-        prove the partition balances; its own docstring warns against pointing it at a
-        cohort this size, and this endpoint defaults to every match ever created.
+        Measured against `compute_partition` over the same universe rather than a fixed
+        number, because the absolute count depends on the data. Over 3,653 matches on dev:
+        94 queries for `compute_partition`, 63 for the endpoint.
+
+        The bound also guards the subtler half of this: the phase cells share their derived
+        maps through `classification_run`, and counting them *outside* that run costs 105
+        queries — worse than the whole-partition run it replaced.
         """
         partition = get_partition(MATCH_JOURNEY_V5_ID)
         counted = sum(len(_v5_phase(partition, phase).buckets) for phase in ("kickoff", "in_flight", "other"))
-        all_buckets = sum(len(phase.buckets) for phase in partition.phases)
-        self.assertLess(counted, all_buckets)
+        self.assertLess(counted, sum(len(phase.buckets) for phase in partition.phases))
 
         request = self.factory.post(
             "/api/matching/users/statistics/match_quality/",
@@ -154,11 +158,13 @@ class MatchingQualitySuccessDrivenTests(TestCase):
             format="json",
         )
         force_authenticate(request, user=self.staff)
-        with CaptureQueriesContext(connection) as queries:
+        with CaptureQueriesContext(connection) as endpoint_queries:
             match_quality_statistics(request)
-        # Three phases' buckets plus the universe and success counts, with headroom. The
-        # point of the bound is that it cannot quietly grow back to a whole-partition run.
-        self.assertLess(len(queries), all_buckets)
+
+        with CaptureQueriesContext(connection) as partition_queries:
+            compute_partition(partition, Match.journey(Match.objects.all()), as_of=display_time.now())
+
+        self.assertLess(len(endpoint_queries), len(partition_queries))
 
     def test_unknown_phase_names_itself(self):
         partition = get_partition(MATCH_JOURNEY_V5_ID)
