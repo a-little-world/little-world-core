@@ -11,19 +11,12 @@ from management.permissions import ManagementPermission
 
 from open_chat.helpers import (
     FALLBACK_USER_MESSAGE,
-    build_chat_text_markup_hint,
     build_open_chat_client,
     build_session_tool_init_payload,
     build_tool_session_context,
     resolve_open_chat_automation_task_creator_user,
     rewrite_open_chat_url_for_browser,
     value_or,
-)
-from open_chat.interaction_config import (
-    DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT,
-    DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS,
-    DEFAULT_OPEN_CHAT_SUGGESTION_TEMPERATURE,
-    build_interaction_overrides,
 )
 from open_chat.models import OpenChatConfiguration
 from open_chat.tool_definitions import (
@@ -34,56 +27,12 @@ from open_chat.tool_definitions import (
 
 logger = logging.getLogger(__name__)
 
-RUN_INTERACTION_TASK_NAME = "management.tasks.open_chat_run_message_reply_suggestion_interaction"
+RUN_INTERACTION_TASK_NAME = (
+    "management.tasks.open_chat_run_message_reply_suggestion_interaction"
+)
 
 # Pre-provisioned Open Chat bot that owns the message-reply-suggestion interaction config.
 SUGGESTION_BOT = "little_world_reply_suggestion"
-MESSAGE_REPLY_SUGGESTION_CONTEXT = DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT
-
-
-def build_message_reply_suggestion_system_prompt() -> str:
-    return f"""
-You are a Little World support assistant helping staff draft replies to user messages.
-
-This Open Chat thread is an internal workspace only. Text you write here is NOT saved as a support reply suggestion.
-
-Your tools:
-- `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}` — load earlier messages in the current conversation for context.
-- `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` — the ONLY way to persist a reply draft on the open support task.
-
-Workflow:
-1. Use `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}` when you need more conversation context.
-2. Draft a helpful support reply based on the latest user message and any context you retrieved.
-3. You MUST finish by calling `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` exactly once with the complete draft
-   in `parameters`, e.g. `{{"message": "<your full suggested reply>"}}`.
-
-Rules:
-- Never treat plain assistant text in this thread as the saved suggestion.
-- Do not skip `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` — if you skip it, nothing is stored on the support task.
-- Put the draft (including any link markup) in the tool's `parameters.message` field, not in assistant text here.
-- If you already used `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}`, still call `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` afterward.
-- When the draft includes admin panel or external links, use the Little World chat markup described below.
-
-{build_chat_text_markup_hint()}
-
-Reminder: your last action must be `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` with the draft in `parameters.message`.
-""".strip()
-
-
-MESSAGE_REPLY_SUGGESTION_SYSTEM_PROMPT = build_message_reply_suggestion_system_prompt()
-
-
-def _message_reply_suggestion_overrides() -> dict[str, object]:
-    return build_interaction_overrides(
-        system_prompt=build_message_reply_suggestion_system_prompt(),
-        context=MESSAGE_REPLY_SUGGESTION_CONTEXT,
-        max_tokens=DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS,
-        temperature=DEFAULT_OPEN_CHAT_SUGGESTION_TEMPERATURE,
-        tools=[
-            RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
-            MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
-        ],
-    )
 
 
 def _is_skipped_matching_staff_sender(user: User) -> bool:
@@ -136,8 +85,12 @@ def create_or_reuse_support_reply_task_for_message(
     )
     if existing_action is not None:
         if existing_action.task.assigned_to is None:
-            SupportTask.objects.filter(pk=existing_action.task.pk).update(assigned_to_id=assigned_to_user.pk)
-        has_suggestion = bool((existing_action.parameters or {}).get("message", "").strip())
+            SupportTask.objects.filter(pk=existing_action.task.pk).update(
+                assigned_to_id=assigned_to_user.pk
+            )
+        has_suggestion = bool(
+            (existing_action.parameters or {}).get("message", "").strip()
+        )
         result = {
             "message_uuid": str(latest_message.uuid),
             "chat_uuid": str(latest_message.chat.uuid),
@@ -178,7 +131,9 @@ def create_or_reuse_support_reply_task_for_message(
         related_user=source_user,
     )
     if support_task.assigned_to is None:
-        SupportTask.objects.filter(pk=support_task.pk).update(assigned_to_id=assigned_to_user.pk)
+        SupportTask.objects.filter(pk=support_task.pk).update(
+            assigned_to_id=assigned_to_user.pk
+        )
 
     result = {
         "message_uuid": str(latest_message.uuid),
@@ -213,7 +168,11 @@ def idempotent_actions__generate_message_replies(
 ):
     target_user = User.objects.filter(uuid=target_user_uuid).first()
     if target_user is None:
-        return {"status": "skipped", "reason": "target_user_missing", "target_user_uuid": target_user_uuid}
+        return {
+            "status": "skipped",
+            "reason": "target_user_missing",
+            "target_user_uuid": target_user_uuid,
+        }
     if not target_user.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
         return {
             "status": "skipped",
@@ -242,7 +201,9 @@ def idempotent_actions__generate_message_replies(
 
     # Only suggest replies for users whose latest message to the management user
     # is still unread (i.e. not yet handled). Read messages are skipped.
-    pending_users = list(get_user_with_message_to_admin(User.objects.filter(is_active=True)))
+    pending_users = list(
+        get_user_with_message_to_admin(User.objects.filter(is_active=True))
+    )
     processed_messages: list[dict] = []
     created_tasks = 0
     enqueued_interactions = 0
@@ -303,7 +264,9 @@ def open_chat_run_message_reply_suggestion_interaction(
             "reason": "configuration_user_missing",
             "configuration_user_uuid": configuration_user_uuid,
         }
-    configuration = OpenChatConfiguration.objects.filter(user_id=configuration_user.pk).first()
+    configuration = OpenChatConfiguration.objects.filter(
+        user_id=configuration_user.pk
+    ).first()
     if configuration is None:
         return {
             "status": "skipped",
@@ -313,15 +276,28 @@ def open_chat_run_message_reply_suggestion_interaction(
 
     sender = User.objects.filter(uuid=sender_uuid).first()
     if sender is None:
-        return {"status": "skipped", "reason": "sender_missing", "sender_uuid": sender_uuid}
+        return {
+            "status": "skipped",
+            "reason": "sender_missing",
+            "sender_uuid": sender_uuid,
+        }
     recipient = User.objects.filter(uuid=recipient_uuid).first()
     if recipient is None:
-        return {"status": "skipped", "reason": "recipient_missing", "recipient_uuid": recipient_uuid}
+        return {
+            "status": "skipped",
+            "reason": "recipient_missing",
+            "recipient_uuid": recipient_uuid,
+        }
     if not recipient.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
-        return {"status": "skipped", "reason": "recipient_has_no_open_chat_access_permission"}
+        return {
+            "status": "skipped",
+            "reason": "recipient_has_no_open_chat_access_permission",
+        }
 
     support_action = (
-        SupportTaskAction.objects.select_related("task", "task__created_by").filter(task_id=support_task_id).first()
+        SupportTaskAction.objects.select_related("task", "task__created_by")
+        .filter(task_id=support_task_id)
+        .first()
         if support_task_id is not None
         else None
     )
@@ -340,7 +316,9 @@ def open_chat_run_message_reply_suggestion_interaction(
             "support_task_action_status": support_action.status,
         }
 
-    session_id, csrf_token, api_host = build_tool_session_context(support_action.task.created_by or recipient)
+    session_id, csrf_token, api_host = build_tool_session_context(
+        support_action.task.created_by or recipient
+    )
     try:
         client = build_open_chat_client(configuration)
         login_user = client.login()
@@ -356,7 +334,6 @@ def open_chat_run_message_reply_suggestion_interaction(
             bot=SUGGESTION_BOT,
             message=message,
             share=True,
-            overrides=_message_reply_suggestion_overrides(),
             tool_init={
                 MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME: {
                     **session_init,
@@ -382,7 +359,11 @@ def open_chat_run_message_reply_suggestion_interaction(
             shared_url,
         )
     except Exception as exc:
-        return {"status": "error", "reason": "open_chat_interaction_failed", "detail": str(exc)}
+        return {
+            "status": "error",
+            "reason": "open_chat_interaction_failed",
+            "detail": str(exc),
+        }
 
     static_parameters = dict(support_action.static_parameters or {})
     static_parameters["interaction_id"] = interaction_uuid

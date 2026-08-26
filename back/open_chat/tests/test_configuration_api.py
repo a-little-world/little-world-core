@@ -15,6 +15,7 @@ from open_chat.helpers import resolve_open_chat_frontend_host
 from open_chat.models import DEFAULT_OPEN_CHAT_HOST, OpenChatConfiguration
 
 API_URL = "/api/matching/open-chat-configuration/"
+BROWSER_TOKEN_URL = "/api/matching/open-chat/browser-token/"
 TEST_CONNECTION_URL = "/api/matching/open-chat/test-connection/"
 ACCESS_USERS_URL = "/api/matching/open-chat-access-users/"
 USER_CONFIGURATION_URL = "/api/matching/open-chat-access-users/{user_id}/configuration/"
@@ -23,10 +24,16 @@ BOTS_URL = "/api/matching/open-chat/bots/"
 BOT_DETAIL_URL = "/api/matching/open-chat/bots/{bot_identifier}/"
 INTERACTIONS_URL = "/api/matching/open-chat/interactions/"
 INTERACTION_DETAIL_URL = "/api/matching/open-chat/interactions/{interaction_uuid}/"
-INTERACTION_STATE_URL = "/api/matching/open-chat/interactions/{interaction_share_uuid}/state/"
+INTERACTION_STATE_URL = (
+    "/api/matching/open-chat/interactions/{interaction_share_uuid}/state/"
+)
 DELETE_CHAT_URL = "/api/matching/open-chat/chats/{chat_uuid}/"
-AUTOMATION_GENERATE_MESSAGE_REPLIES_URL = "/api/matching/open-chat/automation-triggers/generate-message-replies/"
-AUTOMATION_CLEAR_MESSAGE_REPLIES_URL = "/api/matching/open-chat/automation-triggers/generate-message-replies/clear/"
+AUTOMATION_GENERATE_MESSAGE_REPLIES_URL = (
+    "/api/matching/open-chat/automation-triggers/generate-message-replies/"
+)
+AUTOMATION_CLEAR_MESSAGE_REPLIES_URL = (
+    "/api/matching/open-chat/automation-triggers/generate-message-replies/clear/"
+)
 IDEMPOTENT_ACTIONS_URL = "/api/matching/open-chat/idempotent-actions/"
 REST_TOOLS_SYNC_URL = "/api/matching/open-chat/rest-tools/sync/"
 DEFAULT_HOST = DEFAULT_OPEN_CHAT_HOST
@@ -56,10 +63,18 @@ class OpenChatConfigurationApiTests(TestCase):
             )
             return permission
 
-        cls.open_chat_perm = ensure_permission(ManagementPermission.OPEN_CHAT_ACCESS.codename)
-        cls.edit_open_chat_perm = ensure_permission(ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION.codename)
-        cls.manage_open_chat_perm = ensure_permission(ManagementPermission.MANAGE_OPEN_CHAT_ACCESS.codename)
-        cls.matching_perm = ensure_permission(ManagementPermission.MATCHING_USER.codename)
+        cls.open_chat_perm = ensure_permission(
+            ManagementPermission.OPEN_CHAT_ACCESS.codename
+        )
+        cls.edit_open_chat_perm = ensure_permission(
+            ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION.codename
+        )
+        cls.manage_open_chat_perm = ensure_permission(
+            ManagementPermission.MANAGE_OPEN_CHAT_ACCESS.codename
+        )
+        cls.matching_perm = ensure_permission(
+            ManagementPermission.MATCHING_USER.codename
+        )
 
         cls.authorized_user = User.objects.create_user(
             email="open-chat-user@test.de",
@@ -68,7 +83,9 @@ class OpenChatConfigurationApiTests(TestCase):
             first_name="Open",
             last_name="Chat",
         )
-        cls.authorized_user.user_permissions.add(cls.open_chat_perm, cls.edit_open_chat_perm)
+        cls.authorized_user.user_permissions.add(
+            cls.open_chat_perm, cls.edit_open_chat_perm
+        )
 
         cls.manager_user = User.objects.create_user(
             email="open-chat-manager@test.de",
@@ -131,6 +148,104 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["open_chat_user"], "view-only-user")
         self.assertEqual(response.data["open_chat_host"], DEFAULT_HOST)
+
+    @patch("open_chat.api.exchange_open_chat_browser_token")
+    def test_browser_token_exchanges_target_configuration(self, mock_exchange):
+        configuration = OpenChatConfiguration.objects.create(
+            user=self.authorized_user,
+            open_chat_api_key="ocat_parent",
+            open_chat_user="open-chat-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_exchange.return_value = {
+            "access_token": "ocat_browser",
+            "token_type": "Bearer",
+            "expires_at": "2026-08-26T12:00:00Z",
+            "expires_in": 900,
+            "scopes": ["bots:read", "bots:write"],
+        }
+        self.api_client.force_authenticate(user=self.authorized_user)
+
+        response = self.api_client.post(
+            BROWSER_TOKEN_URL,
+            {"scopes": ["bots:read", "bots:write"]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["access_token"], "ocat_browser")
+        self.assertEqual(
+            response.data["api_base_url"],
+            resolve_open_chat_frontend_host(configuration),
+        )
+        self.assertEqual(response["Cache-Control"], "no-store")
+        mock_exchange.assert_called_once_with(
+            configuration,
+            scopes=["bots:read", "bots:write"],
+            label=f"little-world-admin:{self.authorized_user.uuid}",
+        )
+
+    def test_browser_token_rejects_bot_write_without_edit_permission(self):
+        OpenChatConfiguration.objects.create(
+            user=self.view_only_user,
+            open_chat_api_key="ocat_parent",
+            open_chat_user="view-only-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        self.api_client.force_authenticate(user=self.view_only_user)
+
+        response = self.api_client.post(
+            BROWSER_TOKEN_URL,
+            {"scopes": ["bots:read", "bots:write"]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    @patch("open_chat.api.exchange_open_chat_browser_token")
+    def test_browser_token_manager_can_authorize_selected_user(self, mock_exchange):
+        target = User.objects.create_user(
+            email="open-chat-target@test.de",
+            username="open-chat-target@test.de",
+            password="Test123!",
+            first_name="Open Chat",
+            last_name="Target",
+        )
+        target.user_permissions.add(self.open_chat_perm)
+        configuration = OpenChatConfiguration.objects.create(
+            user=target,
+            open_chat_api_key="ocat_target-parent",
+            open_chat_user="target",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_exchange.return_value = {
+            "access_token": "ocat_browser",
+            "expires_at": "2026-08-26T12:00:00Z",
+            "expires_in": 900,
+        }
+        self.api_client.force_authenticate(user=self.manager_user)
+
+        response = self.api_client.post(
+            f"{BROWSER_TOKEN_URL}?user_uuid={target.uuid}",
+            {"scopes": ["interactions:list", "interactions:read"]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mock_exchange.assert_called_once_with(
+            configuration,
+            scopes=["interactions:list", "interactions:read"],
+            label=f"little-world-admin:{self.manager_user.uuid}",
+        )
+
+    def test_browser_token_rejects_unknown_scope(self):
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.post(
+            BROWSER_TOKEN_URL,
+            {"scopes": ["admin:write"]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
 
     def test_post_requires_edit_permission(self):
         self.api_client.force_authenticate(user=self.view_only_user)
@@ -379,7 +494,9 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.data, _configuration_response(update_payload))
 
         configuration = OpenChatConfiguration.objects.get(user=self.authorized_user)
-        self.assertEqual(configuration.open_chat_api_key, update_payload["open_chat_api_key"])
+        self.assertEqual(
+            configuration.open_chat_api_key, update_payload["open_chat_api_key"]
+        )
         self.assertEqual(configuration.open_chat_user, update_payload["open_chat_user"])
         self.assertEqual(configuration.open_chat_host, update_payload["open_chat_host"])
 
@@ -600,7 +717,9 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(configuration.open_chat_api_key, "view-only-key")
 
     @patch("open_chat.api.build_open_chat_client")
-    def test_interactions_returns_interactions_for_current_user(self, mock_build_client):
+    def test_interactions_returns_interactions_for_current_user(
+        self, mock_build_client
+    ):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
             open_chat_api_key="test-api-key",
@@ -703,7 +822,9 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(configuration.open_chat_api_key, "authorized-key")
 
     @patch("open_chat.api.build_open_chat_client")
-    def test_interactions_manage_only_user_can_query_other_user(self, mock_build_client):
+    def test_interactions_manage_only_user_can_query_other_user(
+        self, mock_build_client
+    ):
         OpenChatConfiguration.objects.create(
             user=self.view_only_user,
             open_chat_api_key="view-only-key",
@@ -731,7 +852,9 @@ class OpenChatConfigurationApiTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["results"][0]["interaction_id"], "interaction-manage-only")
+        self.assertEqual(
+            response.data["results"][0]["interaction_id"], "interaction-manage-only"
+        )
 
     @patch("open_chat.api.build_open_chat_client")
     def test_interaction_detail_returns_interaction(self, mock_build_client):
@@ -767,7 +890,9 @@ class OpenChatConfigurationApiTests(TestCase):
         mock_client.get_interaction.assert_called_once_with(interaction_uuid)
 
     @patch("open_chat.api.build_open_chat_client")
-    def test_interaction_state_returns_shared_interaction_status(self, mock_build_client):
+    def test_interaction_state_returns_shared_interaction_status(
+        self, mock_build_client
+    ):
         share_uuid = "6ece98ca-8d5c-4791-a198-0b971c0ac0d6"
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
@@ -927,12 +1052,18 @@ class OpenChatConfigurationApiTests(TestCase):
         response = self.api_client.get(IDEMPOTENT_ACTIONS_URL)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["target_user_uuid"], str(self.authorized_user.uuid))
+        self.assertEqual(
+            response.data["target_user_uuid"], str(self.authorized_user.uuid)
+        )
         self.assertEqual(len(response.data["results"]), 1)
         item = response.data["results"][0]
-        self.assertEqual(item["idempotent_action"], "idempotent_actions__generate_message_replies")
+        self.assertEqual(
+            item["idempotent_action"], "idempotent_actions__generate_message_replies"
+        )
         self.assertEqual(item["trigger_method"], "POST")
-        self.assertEqual(item["support_task_relation"]["action_types"], ["support_reply"])
+        self.assertEqual(
+            item["support_task_relation"]["action_types"], ["support_reply"]
+        )
         self.assertEqual(item["support_task_relation"]["open_count"], 1)
         self.assertEqual(
             item["support_task_relation"]["suggested_filters"],
@@ -966,8 +1097,12 @@ class OpenChatConfigurationApiTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["target_user_uuid"], str(self.view_only_user.uuid))
-        self.assertEqual(response.data["results"][0]["support_task_relation"]["open_count"], 1)
+        self.assertEqual(
+            response.data["target_user_uuid"], str(self.view_only_user.uuid)
+        )
+        self.assertEqual(
+            response.data["results"][0]["support_task_relation"]["open_count"], 1
+        )
 
     def test_automation_clear_message_replies_deletes_related_support_tasks(self):
         kept_task = SupportTask.create_of_type(
@@ -1033,7 +1168,9 @@ class OpenChatConfigurationApiTests(TestCase):
 
     @patch("open_chat.api.sync_rest_tool_definitions")
     @patch("open_chat.api.build_open_chat_client")
-    def test_sync_rest_tools_creates_or_updates(self, mock_build_client, mock_sync_tools):
+    def test_sync_rest_tools_creates_or_updates(
+        self, mock_build_client, mock_sync_tools
+    ):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
             open_chat_api_key="test-api-key",
@@ -1050,7 +1187,9 @@ class OpenChatConfigurationApiTests(TestCase):
         }
 
         self.api_client.force_authenticate(user=self.authorized_user)
-        response = self.api_client.post(REST_TOOLS_SYNC_URL, {"reload": False}, format="json")
+        response = self.api_client.post(
+            REST_TOOLS_SYNC_URL, {"reload": False}, format="json"
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["created"], ["little_world_chat_reply"])
@@ -1076,7 +1215,9 @@ class OpenChatConfigurationApiTests(TestCase):
         }
 
         self.api_client.force_authenticate(user=self.authorized_user)
-        response = self.api_client.post(REST_TOOLS_SYNC_URL, {"reload": True}, format="json")
+        response = self.api_client.post(
+            REST_TOOLS_SYNC_URL, {"reload": True}, format="json"
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["reload"])

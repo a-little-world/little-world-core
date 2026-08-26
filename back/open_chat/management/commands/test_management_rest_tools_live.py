@@ -22,7 +22,6 @@ from open_chat.helpers import (
 
 if TYPE_CHECKING:
     from client import OpenChatClient
-from open_chat.interaction_config import DEFAULT_OPEN_CHAT_MAX_TOKENS, DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT
 from open_chat.models import OpenChatConfiguration
 from open_chat.tool_definitions import (
     RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
@@ -62,13 +61,33 @@ class InteractionToolCase:
 
 
 API_TOOL_CASES: tuple[ApiToolCase, ...] = (
-    ApiToolCase(LIST_USER_FILTERS_REST_TOOL_NAME, "GET", "/api/matching/users/filters/", expect_key="lists"),
-    ApiToolCase(LIST_MATCH_FILTERS_REST_TOOL_NAME, "GET", "/api/matching/matches/filters/", expect_key="lists"),
     ApiToolCase(
-        LIST_VIDEO_CALL_FILTERS_REST_TOOL_NAME, "GET", "/api/matching/video_calls/filters/", expect_key="filters"
+        LIST_USER_FILTERS_REST_TOOL_NAME,
+        "GET",
+        "/api/matching/users/filters/",
+        expect_key="lists",
     ),
-    ApiToolCase(LIST_SCORE_FILTERS_REST_TOOL_NAME, "GET", "/api/matching/scores/filters/", expect_key="filters"),
-    ApiToolCase(LIST_DYNAMIC_USER_LISTS_REST_TOOL_NAME, "GET", "/api/dynamic_user_lists/"),
+    ApiToolCase(
+        LIST_MATCH_FILTERS_REST_TOOL_NAME,
+        "GET",
+        "/api/matching/matches/filters/",
+        expect_key="lists",
+    ),
+    ApiToolCase(
+        LIST_VIDEO_CALL_FILTERS_REST_TOOL_NAME,
+        "GET",
+        "/api/matching/video_calls/filters/",
+        expect_key="filters",
+    ),
+    ApiToolCase(
+        LIST_SCORE_FILTERS_REST_TOOL_NAME,
+        "GET",
+        "/api/matching/scores/filters/",
+        expect_key="filters",
+    ),
+    ApiToolCase(
+        LIST_DYNAMIC_USER_LISTS_REST_TOOL_NAME, "GET", "/api/dynamic_user_lists/"
+    ),
     ApiToolCase(
         QUERY_USERS_REST_TOOL_NAME,
         "GET",
@@ -109,15 +128,27 @@ API_TOOL_CASES: tuple[ApiToolCase, ...] = (
         "GET",
         "/api/matching/users/{id}/",
     ),
-    ApiToolCase(GET_SUPPORT_TASK_STATS_REST_TOOL_NAME, "GET", "/api/support_task/stats/", expect_key="NEW"),
+    ApiToolCase(
+        GET_SUPPORT_TASK_STATS_REST_TOOL_NAME,
+        "GET",
+        "/api/support_task/stats/",
+        expect_key="NEW",
+    ),
     ApiToolCase(
         SUPPORT_TASK_USER_SEARCH_REST_TOOL_NAME,
         "GET",
         "/api/support_task/user_search/",
         query={"q": "tim"},
     ),
-    ApiToolCase(LIST_SUPPORT_STAFF_REST_TOOL_NAME, "GET", "/api/support_task/staff_users/"),
-    ApiToolCase(RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME, "GET", "/api/matching/me/", expect_key="email"),
+    ApiToolCase(
+        LIST_SUPPORT_STAFF_REST_TOOL_NAME, "GET", "/api/support_task/staff_users/"
+    ),
+    ApiToolCase(
+        RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
+        "GET",
+        "/api/matching/me/",
+        expect_key="email",
+    ),
 )
 
 INTERACTION_TOOL_CASES: tuple[InteractionToolCase, ...] = (
@@ -144,21 +175,9 @@ INTERACTION_TOOL_CASES: tuple[InteractionToolCase, ...] = (
 )
 
 
-def _single_tool_interaction_overrides(tool_name: str) -> dict[str, object]:
-    """Minimal Open Chat overrides: only the one management tool under test."""
-    return {
-        "system_prompt": (
-            f"You are testing the Little World REST tool `{tool_name}`.\n"
-            f"Call `{tool_name}` exactly once with appropriate arguments.\n"
-            "Do not call any other tools."
-        ),
-        "context": DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT,
-        "max_tokens": DEFAULT_OPEN_CHAT_MAX_TOKENS,
-        "tools": [tool_name],
-    }
-
-
-def _single_tool_init(session_init: dict[str, str], tool_name: str) -> dict[str, dict[str, str]]:
+def _single_tool_init(
+    session_init: dict[str, str], tool_name: str
+) -> dict[str, dict[str, str]]:
     """Init payload for only the tool under test."""
     return {tool_name: dict(session_init)}
 
@@ -185,14 +204,24 @@ def _result_succeeded(result: str | None) -> bool:
     lowered = result.lower()
     if "failed with error" in lowered:
         return False
-    if "not in allow_hosts" in lowered or "connection refused" in lowered or "connect:" in lowered:
+    if (
+        "not in allow_hosts" in lowered
+        or "connection refused" in lowered
+        or "connect:" in lowered
+    ):
         return False
-    if any(code in result for code in ('"403"', '"401"', '"404"', " 403 ", " 401 ", " 404 ")):
+    if any(
+        code in result
+        for code in ('"403"', '"401"', '"404"', " 403 ", " 401 ", " 404 ")
+    ):
         return False
     stripped = result.strip()
     if stripped.startswith("{") or stripped.startswith("["):
         return True
-    if any(key in result for key in ('"lists"', '"filters"', '"items_total"', '"email"', '"NEW"')):
+    if any(
+        key in result
+        for key in ('"lists"', '"filters"', '"items_total"', '"email"', '"NEW"')
+    ):
         return True
     return len(stripped) > 50 and "please continue" not in lowered
 
@@ -221,12 +250,18 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         user = User.objects.filter(email=settings.MATCHING_USER_MAIL).first()
         if user is None:
-            self.stderr.write(self.style.ERROR(f"Management user not found: {settings.MATCHING_USER_MAIL}"))
+            self.stderr.write(
+                self.style.ERROR(
+                    f"Management user not found: {settings.MATCHING_USER_MAIL}"
+                )
+            )
             return
 
         configuration = OpenChatConfiguration.objects.filter(user=user).first()
         if configuration is None:
-            self.stderr.write(self.style.ERROR("OpenChatConfiguration missing for management user."))
+            self.stderr.write(
+                self.style.ERROR("OpenChatConfiguration missing for management user.")
+            )
             return
 
         session_id, csrf_token, api_host = build_tool_session_context(user)
@@ -256,10 +291,14 @@ class Command(BaseCommand):
         if total_failures:
             self.stderr.write(self.style.ERROR(f"\n{total_failures} check(s) failed."))
             raise SystemExit(1)
-        self.stdout.write(self.style.SUCCESS("\nAll management REST tool checks passed."))
+        self.stdout.write(
+            self.style.SUCCESS("\nAll management REST tool checks passed.")
+        )
 
     def _run_api_cases(self, user: User, session_id: str, csrf_token: str) -> int:
-        self.stdout.write(self.style.MIGRATE_HEADING("\nDirect API checks (Django test client)"))
+        self.stdout.write(
+            self.style.MIGRATE_HEADING("\nDirect API checks (Django test client)")
+        )
         client = Client()
         client.cookies["sessionid"] = session_id
         client.cookies["csrftoken"] = csrf_token
@@ -271,9 +310,13 @@ class Command(BaseCommand):
                 path = path.replace("{id}", user.email)
 
             if case.method == "GET":
-                response = client.get(path, case.query or {}, HTTP_X_CSRFTOKEN=csrf_token)
+                response = client.get(
+                    path, case.query or {}, HTTP_X_CSRFTOKEN=csrf_token
+                )
             else:
-                response = client.generic(case.method, path, HTTP_X_CSRFTOKEN=csrf_token)
+                response = client.generic(
+                    case.method, path, HTTP_X_CSRFTOKEN=csrf_token
+                )
 
             ok = response.status_code == 200
             detail = ""
@@ -284,17 +327,23 @@ class Command(BaseCommand):
                     value: Any = payload
                     for key in keys:
                         value = value[key]
-                    detail = f" ({case.expect_key}={value!r})" if value is not None else ""
+                    detail = (
+                        f" ({case.expect_key}={value!r})" if value is not None else ""
+                    )
                     ok = value is not None
                 except (json.JSONDecodeError, KeyError, TypeError) as exc:
                     ok = False
                     detail = f" (missing {case.expect_key}: {exc})"
 
             status = self.style.SUCCESS("PASS") if ok else self.style.ERROR("FAIL")
-            self.stdout.write(f"  [{status}] {case.tool_name} -> {case.method} {path}{detail}")
+            self.stdout.write(
+                f"  [{status}] {case.tool_name} -> {case.method} {path}{detail}"
+            )
             if not ok:
                 failures += 1
-                self.stdout.write(f"         status={response.status_code} body={response.content[:200]!r}")
+                self.stdout.write(
+                    f"         status={response.status_code} body={response.content[:200]!r}"
+                )
 
         return failures
 
@@ -308,7 +357,11 @@ class Command(BaseCommand):
         skip_sync: bool,
         timeout: int,
     ) -> int:
-        self.stdout.write(self.style.MIGRATE_HEADING("\nOpen Chat interaction checks (one tool per interaction)"))
+        self.stdout.write(
+            self.style.MIGRATE_HEADING(
+                "\nOpen Chat interaction checks (one tool per interaction)"
+            )
+        )
         client = build_open_chat_client(configuration)
         client.login()
 
@@ -316,7 +369,9 @@ class Command(BaseCommand):
             self.stdout.write("  Skipping REST tool sync (--skip-sync).")
         else:
             sync_result = sync_rest_tool_definitions(client, reload=True)
-            self.stdout.write(f"  Synced tools (reload): created={len(sync_result['created'])}")
+            self.stdout.write(
+                f"  Synced tools (reload): created={len(sync_result['created'])}"
+            )
 
         session_init = build_session_tool_init_payload(
             api_host=api_host,
@@ -326,12 +381,13 @@ class Command(BaseCommand):
 
         failures = 0
         for case in INTERACTION_TOOL_CASES:
-            self.stdout.write(f"\n  Interaction for `{case.tool_name}` (tools: [{case.tool_name}])...")
+            self.stdout.write(
+                f"\n  Interaction for `{case.tool_name}` (tools: [{case.tool_name}])..."
+            )
             interaction = client.interact(
                 bot=CHAT_REPLY_BOT,
                 message=case.message,
                 share=False,
-                overrides=_single_tool_interaction_overrides(case.tool_name),
                 tool_init=_single_tool_init(session_init, case.tool_name),
             )
             uuid = str(interaction.uuid)
@@ -345,7 +401,9 @@ class Command(BaseCommand):
             )
 
             if not finished:
-                self.stdout.write(self.style.WARNING("    timed out waiting for finished meta"))
+                self.stdout.write(
+                    self.style.WARNING("    timed out waiting for finished meta")
+                )
             for line in details:
                 self.stdout.write(f"    {line}")
 
@@ -356,10 +414,14 @@ class Command(BaseCommand):
 
         return failures
 
-    def _wait_for_interaction(self, client: OpenChatClient, uuid: str, *, timeout: int) -> bool:
+    def _wait_for_interaction(
+        self, client: OpenChatClient, uuid: str, *, timeout: int
+    ) -> bool:
         deadline = time.time() + timeout
         while time.time() < deadline:
-            rows = value_or(client.list_interaction_messages(uuid, page=1, limit=50).rows, [])
+            rows = value_or(
+                client.list_interaction_messages(uuid, page=1, limit=50).rows, []
+            )
             for row in rows:
                 meta = row.to_dict().get("meta_data") or {}
                 if meta.get("finished"):
@@ -374,7 +436,9 @@ class Command(BaseCommand):
         *,
         expected_tool: str,
     ) -> tuple[bool, list[str]]:
-        rows = value_or(client.list_interaction_messages(uuid, page=1, limit=50).rows, [])
+        rows = value_or(
+            client.list_interaction_messages(uuid, page=1, limit=50).rows, []
+        )
         details: list[str] = []
         tool_ok = False
 

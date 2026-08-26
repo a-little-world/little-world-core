@@ -30,8 +30,8 @@ def build_open_chat_client(configuration) -> OpenChatClient:
     api_key = (configuration.open_chat_api_key or "").strip()
     open_chat_user = (configuration.open_chat_user or "").strip()
 
-    # Open Chat access tokens are UUIDs; local/dev often still stores a password
-    # in open_chat_api_key (e.g. CREATE_EXTRA_USER password).
+    # Open Chat originally issued UUID access tokens and now issues prefixed
+    # ``ocat_`` tokens. Local/dev can still store a password here.
     use_token_auth = bool(api_key) and _looks_like_open_chat_access_token(api_key)
 
     if use_token_auth:
@@ -50,11 +50,45 @@ def build_open_chat_client(configuration) -> OpenChatClient:
 
 
 def _looks_like_open_chat_access_token(value: str) -> bool:
+    if value.startswith(("ocat_", "oc_")):
+        return True
     try:
         parsed = uuid_lib.UUID(value)
     except ValueError:
         return False
     return str(parsed) == value.lower()
+
+
+def exchange_open_chat_browser_token(
+    configuration,
+    *,
+    scopes: list[str],
+    ttl_seconds: int = 900,
+    label: str = "little-world-admin",
+) -> dict[str, Any]:
+    """Exchange a stored Open Chat credential for an ephemeral browser token."""
+    client = build_open_chat_client(configuration)
+    client.login()
+    response = client._api.get_httpx_client().post(  # type: ignore[attr-defined]
+        "/api/v1/user/browser-token",
+        json={
+            "scopes": scopes,
+            "ttl_seconds": ttl_seconds,
+            "label": label,
+        },
+        timeout=10.0,
+    )
+    if response.status_code < 200 or response.status_code >= 300:
+        raise RuntimeError(
+            f"browser-token exchange returned HTTP {response.status_code}"
+        )
+
+    payload = response.json()
+    if not isinstance(payload, dict) or not isinstance(
+        payload.get("access_token"), str
+    ):
+        raise RuntimeError("browser-token exchange returned an invalid response")
+    return payload
 
 
 def resolve_open_chat_frontend_host(configuration=None) -> str:
@@ -63,7 +97,9 @@ def resolve_open_chat_frontend_host(configuration=None) -> str:
     Prefers ``DJ_DEFAULT_OPEN_CHAT_FRONTEND_HOST`` when set; otherwise uses the
     configuration's ``open_chat_host`` (server-side / Docker DNS host).
     """
-    override = (getattr(settings, "DEFAULT_OPEN_CHAT_FRONTEND_HOST", None) or "").strip()
+    override = (
+        getattr(settings, "DEFAULT_OPEN_CHAT_FRONTEND_HOST", None) or ""
+    ).strip()
     if override:
         return override.rstrip("/")
     if configuration is not None:
@@ -71,14 +107,18 @@ def resolve_open_chat_frontend_host(configuration=None) -> str:
     return str(settings.DEFAULT_OPEN_CHAT_CONFIGURATION["open_chat_host"]).rstrip("/")
 
 
-def rewrite_open_chat_url_for_browser(raw_url: str | None, configuration=None) -> str | None:
+def rewrite_open_chat_url_for_browser(
+    raw_url: str | None, configuration=None
+) -> str | None:
     """Rewrite an Open Chat URL's origin for browser/iframe use."""
     if not raw_url:
         return raw_url
     frontend_host = resolve_open_chat_frontend_host(configuration)
     try:
         parsed = urlparse(raw_url)
-        frontend = urlparse(frontend_host if "://" in frontend_host else f"http://{frontend_host}")
+        frontend = urlparse(
+            frontend_host if "://" in frontend_host else f"http://{frontend_host}"
+        )
     except ValueError:
         return raw_url
     if not parsed.scheme or not parsed.netloc:
@@ -92,31 +132,6 @@ def rewrite_open_chat_url_for_browser(raw_url: str | None, configuration=None) -
             netloc=frontend_netloc,
         )
     )
-
-
-def little_world_panel_base_url() -> str:
-    """Browser-facing origin for admin panel links embedded in chat messages."""
-    return str(settings.BASE_URL).rstrip("/")
-
-
-def build_chat_text_markup_hint(base_url: str | None = None) -> str:
-    origin = (base_url or little_world_panel_base_url()).rstrip("/")
-    return f"""
-User-visible message formatting (Little World chat text renderer):
-- Links: ALWAYS use <a {{"href": "URL", "target": "_blank"}}>link label</a>. Never paste bare URLs — they often fail to render as clickable links (especially on localhost).
-- Emphasis: <bold>text</bold>, <highlight>text</highlight>
-Little World admin panel base URL: {origin}
-When linking to management panel pages, use absolute URLs with this origin inside the href attribute (never relative paths alone).
-When a list link includes page_size, never set page_size below 20 (use page_size=20 or omit page_size).
-Admin panel link examples (use this exact syntax in user-visible replies):
-- Single user: <a {{"href": "{origin}/matching/user/22", "target": "_blank"}}>View user profile</a>
-- User chat tab: <a {{"href": "{origin}/matching/user/22?tab=chat", "target": "_blank"}}>Open user chat</a>
-- Onboarded learners list: <a {{"href": "{origin}/matching/users/?profile__user_type=learner&state__is_onboarded=true&page_size=20", "target": "_blank"}}>View onboarded learners</a>
-- Filtered user list: <a {{"href": "{origin}/matching/users/?list=all&page_size=20", "target": "_blank"}}>Open users</a>
-- Single match: <a {{"href": "{origin}/matching/match/{{match_id}}?tab=overview", "target": "_blank"}}>View match</a>
-- Filtered match list: <a {{"href": "{origin}/matching/matches/?list=match_journey_v2__active&page_size=20", "target": "_blank"}}>Open matches</a>
-Path rules: use /matching/user/{{numeric_id}} for one user (never /matching/users/?search=… when you know the id). Use /matching/users/?… only for cohort lists.
-""".strip()
 
 
 def value_or(value: "_T | Unset", default: _T) -> _T:
@@ -193,14 +208,20 @@ def build_session_tool_init_payload(
 def interaction_called_tool(interaction: InteractionSession, tool_name: str) -> bool:
     page = interaction.messages(page=1, limit=200)
     for message in value_or(page.rows, []):
-        if any(_tool_call_name(tc) == tool_name for tc in value_or(message.tool_calls, [])):
+        if any(
+            _tool_call_name(tc) == tool_name for tc in value_or(message.tool_calls, [])
+        ):
             return True
     return False
 
 
 def resolve_open_chat_automation_task_creator_user() -> User | None:
     automation_user_email = (settings.OPEN_CHAT_AUTOMATION_USER_EMAIL or "").strip()
-    created_by_user = User.objects.filter(email=automation_user_email).first() if automation_user_email else None
+    created_by_user = (
+        User.objects.filter(email=automation_user_email).first()
+        if automation_user_email
+        else None
+    )
     if created_by_user is None:
         created_by_user = controller.create_open_chat_automation_user()
     return created_by_user
