@@ -9,7 +9,11 @@ Everything here is a ``Q``, not a ``QuerySet``, so a caller composes it into wha
 base it already has instead of re-filtering.
 """
 
+import json
+
+from django.db.models import JSONField
 from django.db.models import Q
+from django.db.models.lookups import Lookup
 
 from management.models.profile import Profile
 from management.models.state import State
@@ -19,9 +23,36 @@ UNFILLED = State.UserFormStateChoices.UNFILLED
 SEARCHING = State.SearchingStateChoices.SEARCHING
 IDLE = State.SearchingStateChoices.IDLE
 
-# Matches a `lang_skill` entry claiming German at level 0. Postgres JSON containment;
-# this is why the partition balance tests cannot run on SQLite.
-A0_GERMAN = [{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}]
+class JSONArrayContainsObject(Lookup):
+    """Test whether a JSON array contains an object with the requested key/value pairs."""
+
+    lookup_name = "array_contains_object"
+    prepare_rhs = False
+
+    def as_postgresql(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        return f"{lhs} @> %s::jsonb", [*lhs_params, json.dumps([self.rhs])]
+
+    def as_sqlite(self, compiler, connection):
+        lhs, lhs_params = self.process_lhs(compiler, connection)
+        comparisons = []
+        params = list(lhs_params)
+        for key, value in self.rhs.items():
+            path = f"$.{json.dumps(str(key))}"
+            comparisons.append("JSON_EXTRACT(item.value, %s) = JSON_EXTRACT(%s, '$')")
+            params.extend((path, json.dumps(value)))
+
+        if not comparisons:
+            return f"JSON_TYPE({lhs}) = 'array'", params
+
+        sql = f"EXISTS (SELECT 1 FROM JSON_EACH({lhs}) AS item WHERE {' AND '.join(comparisons)})"
+        return sql, params
+
+
+JSONField.register_lookup(JSONArrayContainsObject)
+
+
+A0_GERMAN = {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
 
 
 def is_learner() -> Q:
@@ -34,7 +65,7 @@ def is_volunteer() -> Q:
 
 def has_a0_german() -> Q:
     """Claims German at level 0."""
-    return Q(profile__lang_skill__contains=A0_GERMAN)
+    return Q(profile__lang_skill__array_contains_object=A0_GERMAN)
 
 
 def resides_outside_germany() -> Q:
