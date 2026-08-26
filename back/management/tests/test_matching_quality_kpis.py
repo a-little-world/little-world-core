@@ -3,12 +3,17 @@
 from datetime import timedelta
 from uuid import uuid4
 
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 from video.models import LivekitSession
 
+from management.analytics.registry import get_partition
 from management.api.user_advanced_statistics import (
+    MATCH_JOURNEY_V5_ID,
+    _v5_phase,
     kpi_dashboard_statistics_matching,
     match_quality_statistics,
 )
@@ -127,5 +132,37 @@ class MatchingQualitySuccessDrivenTests(TestCase):
         by_id = {slice["id"]: slice["count"] for slice in response.data["distribution"]}
         self.assertEqual(by_id["successful"], successful_matches(Match.journey()).count())
         self.assertEqual(sum(by_id.values()), response.data["total_matches"])
+        self.assertTrue(response.data["distribution_balanced"])
         self.assertNotIn("finished-matching", by_id)
         self.assertNotIn("match_journey_v2__completed_match", by_id)
+
+    def test_pie_counts_three_phases_not_the_whole_partition(self):
+        """The pie needs three phase totals, not all 45 buckets and their intersections.
+
+        `compute_partition` builds every bucket and every pairwise id-set intersection to
+        prove the partition balances; its own docstring warns against pointing it at a
+        cohort this size, and this endpoint defaults to every match ever created.
+        """
+        partition = get_partition(MATCH_JOURNEY_V5_ID)
+        counted = sum(len(_v5_phase(partition, phase).buckets) for phase in ("kickoff", "in_flight", "other"))
+        all_buckets = sum(len(phase.buckets) for phase in partition.phases)
+        self.assertLess(counted, all_buckets)
+
+        request = self.factory.post(
+            "/api/matching/users/statistics/match_quality/",
+            {"start_date": "2021-01-01", "end_date": timezone.now().date().isoformat()},
+            format="json",
+        )
+        force_authenticate(request, user=self.staff)
+        with CaptureQueriesContext(connection) as queries:
+            match_quality_statistics(request)
+        # Three phases' buckets plus the universe and success counts, with headroom. The
+        # point of the bound is that it cannot quietly grow back to a whole-partition run.
+        self.assertLess(len(queries), all_buckets)
+
+    def test_unknown_phase_names_itself(self):
+        partition = get_partition(MATCH_JOURNEY_V5_ID)
+        with self.assertRaises(ValueError) as caught:
+            _v5_phase(partition, "no_such_phase")
+        self.assertIn("no_such_phase", str(caught.exception))
+        self.assertIn(MATCH_JOURNEY_V5_ID, str(caught.exception))

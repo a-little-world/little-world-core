@@ -1,4 +1,5 @@
 import csv
+import logging
 from datetime import date, datetime, time, timedelta
 from io import StringIO
 
@@ -19,6 +20,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from video.models import LivekitSession
 
+from management.analytics.registry import ALL_CATALOG
 from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
 from management.api.user_advanced import get_match_waiting_time
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_list_by_name
@@ -36,6 +38,8 @@ from management.models.state import State
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from management.models.user import User
 from management.permissions import ManagementPermission
+
+logger = logging.getLogger(__name__)
 
 
 def _get_accessible_users(caller):
@@ -1324,9 +1328,33 @@ def _journey_success_counts(matches_qs):
     }
 
 
-def _v5_phase_count(partition, counts: dict, phase_id: str) -> int:
-    phase = next(item for item in partition.phases if item.id == phase_id)
-    return sum(counts.get(bucket.list_id, 0) for bucket in phase.buckets)
+def _v5_phase(partition, phase_id: str):
+    """The named phase. Missing means the partition was renamed under us — say which.
+
+    ``next()`` without a default raises a bare ``StopIteration`` here, which reaches the
+    client as a 500 naming neither the partition nor the phase.
+    """
+    phase = next((item for item in partition.phases if item.id == phase_id), None)
+    if phase is None:
+        raise ValueError(f"Partition {partition.id!r} has no phase {phase_id!r}.")
+    return phase
+
+
+def _v5_phase_count(partition, phase_id: str, qs, *, as_of) -> int:
+    """Matches in one phase, counting only that phase's own buckets.
+
+    Deliberately not ``compute_partition``: that builds all 45 buckets and every pairwise
+    id-set intersection to prove the partition balances, holding every match id in memory —
+    its own docstring warns against pointing it at a cohort this size, and the Match Quality
+    pie asks for three phase totals over every match ever created. Three phases is 14
+    counting queries against 45 plus ~990 intersections.
+
+    The trade is that the balance check is gone, so the caller checks the one thing that
+    would have shown up here: whether the slices still add up to the universe.
+    """
+    return sum(
+        ALL_CATALOG[bucket.list_id].build(qs, as_of=as_of).count() for bucket in _v5_phase(partition, phase_id).buckets
+    )
 
 
 def _match_quality_distribution(matches_qs, *, as_of=None):
@@ -1338,23 +1366,39 @@ def _match_quality_distribution(matches_qs, *, as_of=None):
     is one remainder slice.
     """
     from management.analytics.core import display_time
-    from management.analytics.registry import compute_partition, get_partition
+    from management.analytics.registry import get_partition
     from management.match_success import successful_matches
 
     partition = get_partition(MATCH_JOURNEY_V5_ID)
     if partition is None:
         raise ValueError(f"Unknown partition {MATCH_JOURNEY_V5_ID!r}.")
 
+    as_of = as_of or display_time.now()
     universe = Match.journey(matches_qs)
     total = universe.count()
     successful = successful_matches(universe).count()
-    result = compute_partition(partition, universe, as_of=as_of or display_time.now())
-    counts = result["counts"]
 
-    kickoff = _v5_phase_count(partition, counts, "kickoff")
-    in_flight = _v5_phase_count(partition, counts, "in_flight")
-    other = _v5_phase_count(partition, counts, "other")
-    did_not_succeed = max(total - successful - kickoff - in_flight - other, 0)
+    kickoff = _v5_phase_count(partition, "kickoff", universe, as_of=as_of)
+    in_flight = _v5_phase_count(partition, "in_flight", universe, as_of=as_of)
+    other = _v5_phase_count(partition, "other", universe, as_of=as_of)
+
+    # The remainder is only ever negative if a match is counted both as successful and in a
+    # pre-success phase. The kickoff and in-flight buckets are built on `_not_successful`, so
+    # today it cannot happen — but clamping a negative to zero would leave the pie quietly
+    # adding up to less than the universe, which is the failure mode worth naming out loud.
+    remainder = total - successful - kickoff - in_flight - other
+    did_not_succeed = max(remainder, 0)
+    balanced = remainder >= 0
+    if not balanced:
+        logger.warning(
+            "Match quality slices do not balance: total=%d successful=%d kickoff=%d in_flight=%d other=%d leaves %d",
+            total,
+            successful,
+            kickoff,
+            in_flight,
+            other,
+            remainder,
+        )
 
     phase_title = {phase.id: phase.title for phase in partition.phases}
     distribution = [
@@ -1372,6 +1416,8 @@ def _match_quality_distribution(matches_qs, *, as_of=None):
         "successful_matches": successful,
         "successful_matches_percentage": _ratio_pct(successful, total),
         "distribution": distribution,
+        # False means the slices no longer sum to total_matches; see the warning logged above.
+        "distribution_balanced": balanced,
     }
 
 

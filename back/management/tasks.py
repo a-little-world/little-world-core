@@ -757,7 +757,13 @@ def _match_journey_matches():
 
 
 def _matches_with_mutual_messages(qs):
-    """Matches where each partner has sent at least one chat message to the other.
+    """Matches where each partner has sent the other at least one message *in this match*.
+
+    Scoped to messages from ``first_interaction_at`` onwards. A pair can be matched more than
+    once and their ``Chat`` outlives any single match, so an unscoped check reads an earlier
+    conversation as this match's first contact and starts the ladder on a match where nobody
+    has written yet. ``first_interaction_at`` is stamped in ``update_match_for_message``
+    before the ``Message`` row is inserted, so a match's own first message always qualifies.
 
     First-contact emails (m031–m042) are for this stage only — one-sided chats stay
     on the single-party-contact journey (m023/m024/m025).
@@ -765,9 +771,14 @@ def _matches_with_mutual_messages(qs):
     from chat.models import Message
     from django.db.models import Exists, OuterRef
 
-    user1_to_user2 = Message.objects.filter(sender=OuterRef("user1"), recipient=OuterRef("user2"))
-    user2_to_user1 = Message.objects.filter(sender=OuterRef("user2"), recipient=OuterRef("user1"))
-    return qs.filter(Exists(user1_to_user2), Exists(user2_to_user1))
+    def sent(sender_field: str, recipient_field: str):
+        return Message.objects.filter(
+            sender=OuterRef(sender_field),
+            recipient=OuterRef(recipient_field),
+            created__gte=OuterRef("first_interaction_at"),
+        )
+
+    return qs.filter(Exists(sent("user1", "user2")), Exists(sent("user2", "user1")))
 
 
 @shared_task

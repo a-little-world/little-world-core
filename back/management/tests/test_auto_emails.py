@@ -758,6 +758,28 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         assert str(self.invalid_match_one_sided.uuid) not in result["matches_m031"]
         assert str(self.valid_match_m031.uuid) in result["matches_m031"]
 
+    def test_ignores_messages_from_before_this_match(self):
+        """A pair can be matched twice, and their chat outlives the first match.
+
+        Messages from the earlier conversation must not make the new match look like it has
+        reached First Contact, or the ladder starts on a match where nobody has written.
+        """
+        match = self.invalid_match_one_sided
+        chat = Chat.objects.filter(u1__in=[match.user1, match.user2], u2__in=[match.user1, match.user2]).first()
+        # A full two-way conversation, but all of it predates this match's first message.
+        Message.objects.create(chat=chat, sender=match.user2, recipient=match.user1, text="Older reply")
+        Message.objects.filter(chat=chat).update(created=match.first_interaction_at - timedelta(days=1))
+
+        result = automatic_emails_m031_m032_m033_m042()
+        assert str(match.uuid) not in result["matches_m031"]
+
+        # The same pair writing inside the match does qualify it.
+        Message.objects.create(chat=chat, sender=match.user1, recipient=match.user2, text="Hello again")
+        Message.objects.create(chat=chat, sender=match.user2, recipient=match.user1, text="Hi again")
+
+        result = automatic_emails_m031_m032_m033_m042()
+        assert str(match.uuid) in result["matches_m031"]
+
 
 class TestAutomaticEmails_m053_m054_m055(TestCase):
     """Test for match milestone emails at 5, 8, and 10 weeks after match creation."""
