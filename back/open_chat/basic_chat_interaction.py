@@ -42,11 +42,7 @@ def _publish_interaction_chat_message(
     from chat.models import ChatSerializer, MessageSerializer
 
     chat = Chat.objects.filter(uuid=chat_uuid).first()
-    if (
-        chat is None
-        or not chat.is_participant(sender)
-        or not chat.is_participant(recipient)
-    ):
+    if chat is None or not chat.is_participant(sender) or not chat.is_participant(recipient):
         return None, None
 
     payload = {
@@ -103,12 +99,8 @@ def open_chat_basic_chat_interaction(
     configuration = OpenChatConfiguration.objects.filter(user_id=recipient.pk).first()
     config_owner = "recipient"
     if configuration is None:
-        sender_has_open_chat_access = sender.has_perm(
-            ManagementPermission.OPEN_CHAT_ACCESS
-        )
-        sender_configuration = OpenChatConfiguration.objects.filter(
-            user_id=sender.pk
-        ).first()
+        sender_has_open_chat_access = sender.has_perm(ManagementPermission.OPEN_CHAT_ACCESS)
+        sender_configuration = OpenChatConfiguration.objects.filter(user_id=sender.pk).first()
         if sender_has_open_chat_access and sender_configuration is not None:
             configuration = sender_configuration
             config_owner = "sender_fallback"
@@ -125,9 +117,7 @@ def open_chat_basic_chat_interaction(
             }
 
     session_actor = sender
-    actor_session_id, actor_csrf_token, api_host = build_tool_session_context(
-        session_actor
-    )
+    actor_session_id, actor_csrf_token, api_host = build_tool_session_context(session_actor)
     bot_session_id, bot_csrf_token, _ = build_tool_session_context(recipient)
     try:
         client = build_open_chat_client(configuration)
@@ -178,14 +168,12 @@ def open_chat_basic_chat_interaction(
             shared_url,
         )
 
-        interaction_message_uuid, interaction_message_payload = (
-            _publish_interaction_chat_message(
-                chat_uuid=chat_uuid,
-                sender=sender,
-                recipient=recipient,
-                interaction_uuid=interaction_uuid,
-                shared_url=shared_url or "",
-            )
+        interaction_message_uuid, interaction_message_payload = _publish_interaction_chat_message(
+            chat_uuid=chat_uuid,
+            sender=sender,
+            recipient=recipient,
+            interaction_uuid=interaction_uuid,
+            shared_url=shared_url or "",
         )
 
         return {

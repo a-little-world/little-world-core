@@ -27,9 +27,7 @@ from open_chat.tool_definitions import (
 
 logger = logging.getLogger(__name__)
 
-RUN_INTERACTION_TASK_NAME = (
-    "management.tasks.open_chat_run_message_reply_suggestion_interaction"
-)
+RUN_INTERACTION_TASK_NAME = "management.tasks.open_chat_run_message_reply_suggestion_interaction"
 
 # Pre-provisioned Open Chat bot that owns the message-reply-suggestion interaction config.
 SUGGESTION_BOT = "little_world_reply_suggestion"
@@ -85,12 +83,8 @@ def create_or_reuse_support_reply_task_for_message(
     )
     if existing_action is not None:
         if existing_action.task.assigned_to is None:
-            SupportTask.objects.filter(pk=existing_action.task.pk).update(
-                assigned_to_id=assigned_to_user.pk
-            )
-        has_suggestion = bool(
-            (existing_action.parameters or {}).get("message", "").strip()
-        )
+            SupportTask.objects.filter(pk=existing_action.task.pk).update(assigned_to_id=assigned_to_user.pk)
+        has_suggestion = bool((existing_action.parameters or {}).get("message", "").strip())
         result = {
             "message_uuid": str(latest_message.uuid),
             "chat_uuid": str(latest_message.chat.uuid),
@@ -131,9 +125,7 @@ def create_or_reuse_support_reply_task_for_message(
         related_user=source_user,
     )
     if support_task.assigned_to is None:
-        SupportTask.objects.filter(pk=support_task.pk).update(
-            assigned_to_id=assigned_to_user.pk
-        )
+        SupportTask.objects.filter(pk=support_task.pk).update(assigned_to_id=assigned_to_user.pk)
 
     result = {
         "message_uuid": str(latest_message.uuid),
@@ -201,9 +193,7 @@ def idempotent_actions__generate_message_replies(
 
     # Only suggest replies for users whose latest message to the management user
     # is still unread (i.e. not yet handled). Read messages are skipped.
-    pending_users = list(
-        get_user_with_message_to_admin(User.objects.filter(is_active=True))
-    )
+    pending_users = list(get_user_with_message_to_admin(User.objects.filter(is_active=True)))
     processed_messages: list[dict] = []
     created_tasks = 0
     enqueued_interactions = 0
@@ -264,9 +254,7 @@ def open_chat_run_message_reply_suggestion_interaction(
             "reason": "configuration_user_missing",
             "configuration_user_uuid": configuration_user_uuid,
         }
-    configuration = OpenChatConfiguration.objects.filter(
-        user_id=configuration_user.pk
-    ).first()
+    configuration = OpenChatConfiguration.objects.filter(user_id=configuration_user.pk).first()
     if configuration is None:
         return {
             "status": "skipped",
@@ -295,9 +283,7 @@ def open_chat_run_message_reply_suggestion_interaction(
         }
 
     support_action = (
-        SupportTaskAction.objects.select_related("task", "task__created_by")
-        .filter(task_id=support_task_id)
-        .first()
+        SupportTaskAction.objects.select_related("task", "task__created_by").filter(task_id=support_task_id).first()
         if support_task_id is not None
         else None
     )
@@ -316,9 +302,7 @@ def open_chat_run_message_reply_suggestion_interaction(
             "support_task_action_status": support_action.status,
         }
 
-    session_id, csrf_token, api_host = build_tool_session_context(
-        support_action.task.created_by or recipient
-    )
+    session_id, csrf_token, api_host = build_tool_session_context(support_action.task.created_by or recipient)
     try:
         client = build_open_chat_client(configuration)
         login_user = client.login()

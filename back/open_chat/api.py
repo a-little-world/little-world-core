@@ -105,9 +105,7 @@ class OpenChatConfigurationSerializer(serializers.ModelSerializer):
     def get_open_chat_frontend_host(self, configuration: OpenChatConfiguration) -> str:
         return resolve_open_chat_frontend_host(configuration)
 
-    def _get_matching_partner(
-        self, configuration: OpenChatConfiguration
-    ) -> User | None:
+    def _get_matching_partner(self, configuration: OpenChatConfiguration) -> User | None:
         if hasattr(self, "_matching_partner"):
             return self._matching_partner
 
@@ -117,9 +115,7 @@ class OpenChatConfigurationSerializer(serializers.ModelSerializer):
             return None
 
         user = request.user
-        open_chat_automation_email = getattr(
-            settings, "OPEN_CHAT_AUTOMATION_USER_EMAIL", None
-        )
+        open_chat_automation_email = getattr(settings, "OPEN_CHAT_AUTOMATION_USER_EMAIL", None)
         if not open_chat_automation_email:
             self._matching_partner = None
             return None
@@ -197,9 +193,7 @@ def _build_open_chat_interaction_state_summary(status) -> dict:
         "chat_uuid": value_or(getattr(status, "chat_uuid", None), None),
         "is_active": bool(value_or(getattr(status, "is_active", None), False)),
         "state": state,
-        "latest_message_uuid": value_or(
-            getattr(status, "latest_message_uuid", None), None
-        ),
+        "latest_message_uuid": value_or(getattr(status, "latest_message_uuid", None), None),
         "latest_message_finished": latest_finished,
         "source": value_or(getattr(status, "source", None), None),
     }
@@ -214,9 +208,7 @@ def _build_open_chat_interaction_summary(interaction, configuration=None) -> dic
     interaction_id = str(value_or(interaction.uuid, ""))
     partner = value_or(interaction.partner, None)
     partner_name = value_or(partner.name, "") if partner is not None else ""
-    title = partner_name or (
-        f"Interaction {interaction_id}" if interaction_id else "Interaction"
-    )
+    title = partner_name or (f"Interaction {interaction_id}" if interaction_id else "Interaction")
     shared_url = value_or(interaction.shared_interaction_url, None)
 
     return {
@@ -249,9 +241,7 @@ def _open_chat_client_response(configuration, operation) -> Response:
 def _resolve_open_chat_target_user(request) -> User | Response:
     target_user = request.user
     requested_user_uuid = (request.query_params.get("user_uuid") or "").strip()
-    can_manage_open_chat_access = request.user.has_perm(
-        ManagementPermission.MANAGE_OPEN_CHAT_ACCESS
-    )
+    can_manage_open_chat_access = request.user.has_perm(ManagementPermission.MANAGE_OPEN_CHAT_ACCESS)
 
     if requested_user_uuid and can_manage_open_chat_access:
         parsed_uuid = _parse_uuid(requested_user_uuid)
@@ -264,9 +254,7 @@ def _resolve_open_chat_target_user(request) -> User | Response:
         is_self = parsed_uuid == request.user.uuid
         if not is_self:
             requested_user = User.objects.filter(uuid=parsed_uuid).first()
-            if requested_user is None or not requested_user.has_perm(
-                ManagementPermission.OPEN_CHAT_ACCESS
-            ):
+            if requested_user is None or not requested_user.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
                 return Response(
                     {"detail": "Open chat access user not found."},
                     status=status.HTTP_404_NOT_FOUND,
@@ -377,11 +365,7 @@ def open_chat_configuration(request):
                 {"detail": "Open chat configuration not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        return Response(
-            OpenChatConfigurationSerializer(
-                configuration, context={"request": request}
-            ).data
-        )
+        return Response(OpenChatConfigurationSerializer(configuration, context={"request": request}).data)
 
     serializer = OpenChatConfigurationSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -389,9 +373,7 @@ def open_chat_configuration(request):
     if request.method == "POST":
         if OpenChatConfiguration.objects.filter(user=request.user).exists():
             return Response(
-                {
-                    "detail": "Open chat configuration already exists. Use PUT to update."
-                },
+                {"detail": "Open chat configuration already exists. Use PUT to update."},
                 status=status.HTTP_409_CONFLICT,
             )
         configuration = OpenChatConfiguration.objects.create(
@@ -439,9 +421,7 @@ def open_chat_browser_token(request):
     request_serializer.is_valid(raise_exception=True)
     scopes = request_serializer.validated_data["scopes"]
 
-    if "bots:write" in scopes and not request.user.has_perm(
-        ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION
-    ):
+    if "bots:write" in scopes and not request.user.has_perm(ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION):
         return Response(
             {"detail": "You do not have permission to edit Open Chat bots."},
             status=status.HTTP_403_FORBIDDEN,
@@ -570,9 +550,7 @@ def open_chat_user_configuration(request, user_id: int):
     if request.method == "POST":
         if OpenChatConfiguration.objects.filter(user=target_user).exists():
             return Response(
-                {
-                    "detail": "Open chat configuration already exists. Use PUT to update."
-                },
+                {"detail": "Open chat configuration already exists. Use PUT to update."},
                 status=status.HTTP_409_CONFLICT,
             )
         configuration = OpenChatConfiguration.objects.create(
@@ -686,15 +664,11 @@ def open_chat_create_chat(request, user_id: int):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    can_manage_open_chat_access = request.user.has_perm(
-        ManagementPermission.MANAGE_OPEN_CHAT_ACCESS
-    )
+    can_manage_open_chat_access = request.user.has_perm(ManagementPermission.MANAGE_OPEN_CHAT_ACCESS)
     if not can_manage_open_chat_access:
         if target_user.email != settings.OPEN_CHAT_AUTOMATION_USER_EMAIL:
             return Response(
-                {
-                    "detail": "You can only create chats with the configured Open Chat automation user."
-                },
+                {"detail": "You can only create chats with the configured Open Chat automation user."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -778,34 +752,16 @@ def open_chat_delete_chat(request, chat_uuid: str):
                 name="OpenChatBotSummary",
                 many=True,
                 fields={
-                    "uuid": serializers.CharField(
-                        required=False, allow_blank=True, allow_null=True
-                    ),
-                    "name": serializers.CharField(
-                        required=False, allow_blank=True, allow_null=True
-                    ),
-                    "description": serializers.CharField(
-                        required=False, allow_blank=True, allow_null=True
-                    ),
-                    "bot_username": serializers.CharField(
-                        required=False, allow_blank=True, allow_null=True
-                    ),
-                    "bot_user_uuid": serializers.CharField(
-                        required=False, allow_blank=True, allow_null=True
-                    ),
-                    "is_active": serializers.BooleanField(
-                        required=False, allow_null=True
-                    ),
-                    "is_public": serializers.BooleanField(
-                        required=False, allow_null=True
-                    ),
+                    "uuid": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "name": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "description": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "bot_username": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "bot_user_uuid": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "is_active": serializers.BooleanField(required=False, allow_null=True),
+                    "is_public": serializers.BooleanField(required=False, allow_null=True),
                     "is_legacy_contact_bot": serializers.BooleanField(),
-                    "model": serializers.CharField(
-                        required=False, allow_blank=True, allow_null=True
-                    ),
-                    "default_shared_config": serializers.JSONField(
-                        required=False, allow_null=True
-                    ),
+                    "model": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "default_shared_config": serializers.JSONField(required=False, allow_null=True),
                 },
             )
         },
@@ -836,17 +792,13 @@ def open_chat_bots(request):
 
 class OpenChatBotUpdateSerializer(serializers.Serializer):
     name = serializers.CharField(required=False, allow_blank=True)
-    description = serializers.CharField(
-        required=False, allow_blank=True, allow_null=True
-    )
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     is_active = serializers.BooleanField(required=False)
     is_public = serializers.BooleanField(required=False)
     default_shared_config = serializers.JSONField(required=False)
 
 
-def _merge_bot_default_shared_config(
-    client, bot_identifier: str, patch: dict | None
-) -> dict | None:
+def _merge_bot_default_shared_config(client, bot_identifier: str, patch: dict | None) -> dict | None:
     if patch is None:
         return None
     existing = client.get_bot(bot_identifier).default_config()
@@ -859,30 +811,16 @@ def _merge_bot_default_shared_config(
     responses=inline_serializer(
         name="OpenChatBotDetailResponse",
         fields={
-            "uuid": serializers.CharField(
-                required=False, allow_blank=True, allow_null=True
-            ),
-            "name": serializers.CharField(
-                required=False, allow_blank=True, allow_null=True
-            ),
-            "description": serializers.CharField(
-                required=False, allow_blank=True, allow_null=True
-            ),
-            "bot_username": serializers.CharField(
-                required=False, allow_blank=True, allow_null=True
-            ),
-            "bot_user_uuid": serializers.CharField(
-                required=False, allow_blank=True, allow_null=True
-            ),
+            "uuid": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "name": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "description": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "bot_username": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "bot_user_uuid": serializers.CharField(required=False, allow_blank=True, allow_null=True),
             "is_active": serializers.BooleanField(required=False, allow_null=True),
             "is_public": serializers.BooleanField(required=False, allow_null=True),
             "is_legacy_contact_bot": serializers.BooleanField(),
-            "model": serializers.CharField(
-                required=False, allow_blank=True, allow_null=True
-            ),
-            "default_shared_config": serializers.JSONField(
-                required=False, allow_null=True
-            ),
+            "model": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "default_shared_config": serializers.JSONField(required=False, allow_null=True),
         },
     ),
 )
@@ -950,18 +888,10 @@ def open_chat_bot_detail(request, bot_identifier: str):
                 many=True,
                 fields={
                     "interaction_id": serializers.CharField(),
-                    "title": serializers.CharField(
-                        required=False, allow_blank=True, allow_null=True
-                    ),
-                    "created": serializers.CharField(
-                        required=False, allow_blank=True, allow_null=True
-                    ),
-                    "updated": serializers.CharField(
-                        required=False, allow_blank=True, allow_null=True
-                    ),
-                    "status": serializers.CharField(
-                        required=False, allow_blank=True, allow_null=True
-                    ),
+                    "title": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "created": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "updated": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "status": serializers.CharField(required=False, allow_blank=True, allow_null=True),
                     "shared_interaction_url": serializers.CharField(
                         required=False,
                         allow_blank=True,
@@ -1004,20 +934,12 @@ def open_chat_interactions(request):
     responses=inline_serializer(
         name="OpenChatInteractionStateResponse",
         fields={
-            "chat_uuid": serializers.CharField(
-                required=False, allow_blank=True, allow_null=True
-            ),
+            "chat_uuid": serializers.CharField(required=False, allow_blank=True, allow_null=True),
             "is_active": serializers.BooleanField(),
             "state": serializers.CharField(),
-            "latest_message_uuid": serializers.CharField(
-                required=False, allow_blank=True, allow_null=True
-            ),
-            "latest_message_finished": serializers.BooleanField(
-                required=False, allow_null=True
-            ),
-            "source": serializers.CharField(
-                required=False, allow_blank=True, allow_null=True
-            ),
+            "latest_message_uuid": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "latest_message_finished": serializers.BooleanField(required=False, allow_null=True),
+            "source": serializers.CharField(required=False, allow_blank=True, allow_null=True),
         },
     ),
 )
@@ -1045,9 +967,7 @@ def open_chat_interaction_state(request, interaction_share_uuid: str):
 
     def respond(client, _login_user):
         return Response(
-            _build_open_chat_interaction_state_summary(
-                client.get_shared_interaction_status(interaction_share_uuid)
-            )
+            _build_open_chat_interaction_state_summary(client.get_shared_interaction_status(interaction_share_uuid))
         )
 
     return _open_chat_client_response(configuration, respond)
@@ -1059,18 +979,10 @@ def open_chat_interaction_state(request, interaction_share_uuid: str):
         name="OpenChatInteractionDetailResponse",
         fields={
             "interaction_id": serializers.CharField(),
-            "title": serializers.CharField(
-                required=False, allow_blank=True, allow_null=True
-            ),
-            "created": serializers.CharField(
-                required=False, allow_blank=True, allow_null=True
-            ),
-            "updated": serializers.CharField(
-                required=False, allow_blank=True, allow_null=True
-            ),
-            "status": serializers.CharField(
-                required=False, allow_blank=True, allow_null=True
-            ),
+            "title": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "created": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "updated": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "status": serializers.CharField(required=False, allow_blank=True, allow_null=True),
             "shared_interaction_url": serializers.CharField(
                 required=False,
                 allow_blank=True,
@@ -1133,12 +1045,8 @@ def open_chat_interaction_detail(request, interaction_uuid: str):
                     "support_task_relation": inline_serializer(
                         name="OpenChatIdempotentActionSupportTaskRelation",
                         fields={
-                            "action_types": serializers.ListField(
-                                child=serializers.CharField()
-                            ),
-                            "open_statuses": serializers.ListField(
-                                child=serializers.CharField()
-                            ),
+                            "action_types": serializers.ListField(child=serializers.CharField()),
+                            "open_statuses": serializers.ListField(child=serializers.CharField()),
                             "open_count": serializers.IntegerField(),
                             "suggested_filters": serializers.JSONField(),
                         },
@@ -1236,9 +1144,7 @@ def open_chat_automation_clear_message_replies(request):
         static_parameters__recipient_user_id=target_user.pk,
     ).exclude(task__status=SupportTask.Status.COMPLETED)
     deleted_actions_count = related_actions_qs.count()
-    related_task_ids = list(
-        related_actions_qs.values_list("task_id", flat=True).distinct()
-    )
+    related_task_ids = list(related_actions_qs.values_list("task_id", flat=True).distinct())
     deleted_tasks_count = len(related_task_ids)
     if related_task_ids:
         SupportTask.objects.filter(pk__in=related_task_ids).delete()

@@ -26,9 +26,7 @@ class BuildOpenChatClientTests(SimpleTestCase):
             client = build_open_chat_client(configuration)
 
         token_auth.assert_not_called()
-        password_auth.assert_called_once_with(
-            email="user@example.com", password="Test123!"
-        )
+        password_auth.assert_called_once_with(email="user@example.com", password="Test123!")
         client_cls.assert_called_once()
         self.assertEqual(client._cookie_domain(), "")
 
@@ -73,9 +71,7 @@ class BuildOpenChatClientTests(SimpleTestCase):
 
 class ResolveOpenChatFrontendHostTests(SimpleTestCase):
     def test_falls_back_to_configuration_host(self):
-        configuration = SimpleNamespace(
-            open_chat_host="http://open-chat-go-backend:1984"
-        )
+        configuration = SimpleNamespace(open_chat_host="http://open-chat-go-backend:1984")
         with self.settings(DEFAULT_OPEN_CHAT_FRONTEND_HOST=None):
             self.assertEqual(
                 resolve_open_chat_frontend_host(configuration),
@@ -83,9 +79,7 @@ class ResolveOpenChatFrontendHostTests(SimpleTestCase):
             )
 
     def test_prefers_frontend_host_override(self):
-        configuration = SimpleNamespace(
-            open_chat_host="http://open-chat-go-backend:1984"
-        )
+        configuration = SimpleNamespace(open_chat_host="http://open-chat-go-backend:1984")
         with self.settings(DEFAULT_OPEN_CHAT_FRONTEND_HOST="http://localhost:1984"):
             self.assertEqual(
                 resolve_open_chat_frontend_host(configuration),
@@ -93,9 +87,7 @@ class ResolveOpenChatFrontendHostTests(SimpleTestCase):
             )
 
     def test_rewrites_shared_url_origin_for_browser(self):
-        configuration = SimpleNamespace(
-            open_chat_host="http://open-chat-go-backend:1984"
-        )
+        configuration = SimpleNamespace(open_chat_host="http://open-chat-go-backend:1984")
         with self.settings(DEFAULT_OPEN_CHAT_FRONTEND_HOST="http://localhost:1984"):
             rewritten = rewrite_open_chat_url_for_browser(
                 "http://open-chat-go-backend:1984/interaction/abc",

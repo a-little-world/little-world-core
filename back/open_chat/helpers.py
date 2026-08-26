@@ -79,14 +79,10 @@ def exchange_open_chat_browser_token(
         timeout=10.0,
     )
     if response.status_code < 200 or response.status_code >= 300:
-        raise RuntimeError(
-            f"browser-token exchange returned HTTP {response.status_code}"
-        )
+        raise RuntimeError(f"browser-token exchange returned HTTP {response.status_code}")
 
     payload = response.json()
-    if not isinstance(payload, dict) or not isinstance(
-        payload.get("access_token"), str
-    ):
+    if not isinstance(payload, dict) or not isinstance(payload.get("access_token"), str):
         raise RuntimeError("browser-token exchange returned an invalid response")
     return payload
 
@@ -97,9 +93,7 @@ def resolve_open_chat_frontend_host(configuration=None) -> str:
     Prefers ``DJ_DEFAULT_OPEN_CHAT_FRONTEND_HOST`` when set; otherwise uses the
     configuration's ``open_chat_host`` (server-side / Docker DNS host).
     """
-    override = (
-        getattr(settings, "DEFAULT_OPEN_CHAT_FRONTEND_HOST", None) or ""
-    ).strip()
+    override = (getattr(settings, "DEFAULT_OPEN_CHAT_FRONTEND_HOST", None) or "").strip()
     if override:
         return override.rstrip("/")
     if configuration is not None:
@@ -107,18 +101,14 @@ def resolve_open_chat_frontend_host(configuration=None) -> str:
     return str(settings.DEFAULT_OPEN_CHAT_CONFIGURATION["open_chat_host"]).rstrip("/")
 
 
-def rewrite_open_chat_url_for_browser(
-    raw_url: str | None, configuration=None
-) -> str | None:
+def rewrite_open_chat_url_for_browser(raw_url: str | None, configuration=None) -> str | None:
     """Rewrite an Open Chat URL's origin for browser/iframe use."""
     if not raw_url:
         return raw_url
     frontend_host = resolve_open_chat_frontend_host(configuration)
     try:
         parsed = urlparse(raw_url)
-        frontend = urlparse(
-            frontend_host if "://" in frontend_host else f"http://{frontend_host}"
-        )
+        frontend = urlparse(frontend_host if "://" in frontend_host else f"http://{frontend_host}")
     except ValueError:
         return raw_url
     if not parsed.scheme or not parsed.netloc:
@@ -208,20 +198,14 @@ def build_session_tool_init_payload(
 def interaction_called_tool(interaction: InteractionSession, tool_name: str) -> bool:
     page = interaction.messages(page=1, limit=200)
     for message in value_or(page.rows, []):
-        if any(
-            _tool_call_name(tc) == tool_name for tc in value_or(message.tool_calls, [])
-        ):
+        if any(_tool_call_name(tc) == tool_name for tc in value_or(message.tool_calls, [])):
             return True
     return False
 
 
 def resolve_open_chat_automation_task_creator_user() -> User | None:
     automation_user_email = (settings.OPEN_CHAT_AUTOMATION_USER_EMAIL or "").strip()
-    created_by_user = (
-        User.objects.filter(email=automation_user_email).first()
-        if automation_user_email
-        else None
-    )
+    created_by_user = User.objects.filter(email=automation_user_email).first() if automation_user_email else None
     if created_by_user is None:
         created_by_user = controller.create_open_chat_automation_user()
     return created_by_user

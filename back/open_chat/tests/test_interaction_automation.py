@@ -62,9 +62,7 @@ class UserAdvancedFilterMessageReplyTests(TestCase):
             last_name="User",
         )
 
-        chat_unread = Chat.objects.create(
-            u1=cls.admin_user, u2=cls.user_unread, is_temporary=False
-        )
+        chat_unread = Chat.objects.create(u1=cls.admin_user, u2=cls.user_unread, is_temporary=False)
         ChatMessage.objects.create(
             chat=chat_unread,
             sender=cls.user_unread,
@@ -73,9 +71,7 @@ class UserAdvancedFilterMessageReplyTests(TestCase):
             read=False,
         )
 
-        chat_read = Chat.objects.create(
-            u1=cls.admin_user, u2=cls.user_read, is_temporary=False
-        )
+        chat_read = Chat.objects.create(u1=cls.admin_user, u2=cls.user_read, is_temporary=False)
         ChatMessage.objects.create(
             chat=chat_read,
             sender=cls.user_read,
@@ -84,9 +80,7 @@ class UserAdvancedFilterMessageReplyTests(TestCase):
             read=True,
         )
 
-        chat_replied = Chat.objects.create(
-            u1=cls.admin_user, u2=cls.user_replied, is_temporary=False
-        )
+        chat_replied = Chat.objects.create(u1=cls.admin_user, u2=cls.user_replied, is_temporary=False)
         ChatMessage.objects.create(
             chat=chat_replied,
             sender=cls.user_replied,
@@ -104,15 +98,9 @@ class UserAdvancedFilterMessageReplyTests(TestCase):
 
     def test_read_or_unread_not_replied_returns_union_of_pending_users(self):
         unread_ids = set(get_user_with_message_to_admin().values_list("id", flat=True))
-        read_ids = set(
-            get_user_with_message_to_admin_that_are_read_but_not_replied().values_list(
-                "id", flat=True
-            )
-        )
+        read_ids = set(get_user_with_message_to_admin_that_are_read_but_not_replied().values_list("id", flat=True))
         union_ids = set(
-            get_user_with_message_to_admin_that_are_read_or_not_read_but_not_replied().values_list(
-                "id", flat=True
-            )
+            get_user_with_message_to_admin_that_are_read_or_not_read_but_not_replied().values_list("id", flat=True)
         )
 
         self.assertEqual(unread_ids, {self.user_unread.id})
@@ -150,9 +138,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             open_chat_user="admin-open-chat-user",
             open_chat_host=DEFAULT_OPEN_CHAT_HOST,
         )
-        automation_email = (
-            getattr(settings, "OPEN_CHAT_AUTOMATION_USER_EMAIL", "") or ""
-        ).strip()
+        automation_email = (getattr(settings, "OPEN_CHAT_AUTOMATION_USER_EMAIL", "") or "").strip()
         if automation_email and automation_email != cls.admin_user.email:
             cls.automation_user = User.objects.create_user(
                 email=automation_email,
@@ -183,9 +169,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
         cls.matching_source_user.user_permissions.add(matching_user_permission)
 
-        cls.chat = Chat.objects.create(
-            u1=cls.admin_user, u2=cls.source_user, is_temporary=False
-        )
+        cls.chat = Chat.objects.create(u1=cls.admin_user, u2=cls.source_user, is_temporary=False)
         cls.source_message = ChatMessage.objects.create(
             chat=cls.chat,
             sender=cls.source_user,
@@ -205,9 +189,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
 
     @patch("open_chat.message_reply_suggestion.current_app.send_task")
-    def test_idempotent_generate_message_replies_creates_single_task_per_message(
-        self, mock_send_task
-    ):
+    def test_idempotent_generate_message_replies_creates_single_task_per_message(self, mock_send_task):
         mock_send_task.return_value = MagicMock(id="interaction-task-id")
 
         first_result = idempotent_actions__generate_message_replies(
@@ -267,9 +249,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertEqual(queued_kwargs["support_task_id"], action.task.pk)
 
     @patch("open_chat.message_reply_suggestion.current_app.send_task")
-    def test_idempotent_generate_message_replies_skips_reenqueue_when_draft_exists(
-        self, mock_send_task
-    ):
+    def test_idempotent_generate_message_replies_skips_reenqueue_when_draft_exists(self, mock_send_task):
         mock_send_task.return_value = MagicMock(id="interaction-task-id")
 
         first_result = idempotent_actions__generate_message_replies(
@@ -300,9 +280,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         mock_send_task.assert_called_once()
 
     @patch("open_chat.message_reply_suggestion.current_app.send_task")
-    def test_idempotent_generate_message_replies_skips_matching_user_senders(
-        self, mock_send_task
-    ):
+    def test_idempotent_generate_message_replies_skips_matching_user_senders(self, mock_send_task):
         mock_send_task.return_value = MagicMock(id="interaction-task-id")
 
         result = idempotent_actions__generate_message_replies(
@@ -328,22 +306,16 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
 
     @patch("open_chat.message_reply_suggestion.current_app.send_task")
-    def test_create_support_reply_accepts_open_chat_automation_sender(
-        self, mock_send_task
-    ):
+    def test_create_support_reply_accepts_open_chat_automation_sender(self, mock_send_task):
         from open_chat.message_reply_suggestion import (
             create_or_reuse_support_reply_task_for_message,
         )
 
         mock_send_task.return_value = MagicMock(id="interaction-task-id")
         if self.automation_user.pk == self.admin_user.pk:
-            self.skipTest(
-                "Automation user is the same as admin in this settings fixture"
-            )
+            self.skipTest("Automation user is the same as admin in this settings fixture")
 
-        chat = Chat.objects.create(
-            u1=self.admin_user, u2=self.automation_user, is_temporary=False
-        )
+        chat = Chat.objects.create(u1=self.admin_user, u2=self.automation_user, is_temporary=False)
         message = ChatMessage.objects.create(
             chat=chat,
             sender=self.automation_user,
@@ -380,9 +352,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
         mock_interaction = MagicMock()
         mock_interaction.uuid = "7e4b91f9-2bf9-4f10-b650-11a4345acf71"
-        raw_shared_url = (
-            "http://localhost:1984/interaction/7e4b91f9-2bf9-4f10-b650-11a4345acf71"
-        )
+        raw_shared_url = "http://localhost:1984/interaction/7e4b91f9-2bf9-4f10-b650-11a4345acf71"
         mock_interaction.shared_url.return_value = raw_shared_url
         mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
@@ -405,9 +375,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertEqual(result["session_actor_email"], self.source_user.email)
         self.assertEqual(result["session_bot_user_id"], self.admin_user.pk)
         self.assertEqual(result["session_bot_email"], self.admin_user.email)
-        self.assertEqual(
-            result["interaction_uuid"], "7e4b91f9-2bf9-4f10-b650-11a4345acf71"
-        )
+        self.assertEqual(result["interaction_uuid"], "7e4b91f9-2bf9-4f10-b650-11a4345acf71")
         self.assertEqual(result["shared_url"], expected_shared_url)
         mock_interaction.wait_until_finished.assert_not_called()
         mock_ensure_tools.assert_called_once_with(mock_client)
@@ -416,21 +384,15 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertTrue(interact_kwargs["share"])
         self.assertNotIn("overrides", interact_kwargs)
         chat_reply_init = interact_kwargs["tool_init"][CHAT_REPLY_REST_TOOL_NAME]
-        past_messages_init = interact_kwargs["tool_init"][
-            "little_world_retrieve_past_messages"
-        ]
-        permissions_init = interact_kwargs["tool_init"][
-            "little_world_retrieve_management_permissions"
-        ]
+        past_messages_init = interact_kwargs["tool_init"]["little_world_retrieve_past_messages"]
+        permissions_init = interact_kwargs["tool_init"]["little_world_retrieve_management_permissions"]
         self.assertEqual(chat_reply_init["chat_uuid"], str(self.chat.uuid))
         self.assertEqual(past_messages_init["chat_uuid"], str(self.chat.uuid))
         self.assertIn("sessionid=", chat_reply_init["cookie_header"])
         self.assertIn("csrftoken=", chat_reply_init["cookie_header"])
         self.assertTrue(chat_reply_init["api_host"])
         self.assertNotIn("chat_uuid", permissions_init)
-        self.assertNotEqual(
-            chat_reply_init["cookie_header"], permissions_init["cookie_header"]
-        )
+        self.assertNotEqual(chat_reply_init["cookie_header"], permissions_init["cookie_header"])
         management_init = build_management_tool_init(
             {
                 "api_host": permissions_init["api_host"],
@@ -439,9 +401,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             }
         )
         for tool_name in MANAGEMENT_REST_TOOL_NAMES:
-            self.assertEqual(
-                interact_kwargs["tool_init"][tool_name], management_init[tool_name]
-            )
+            self.assertEqual(interact_kwargs["tool_init"][tool_name], management_init[tool_name])
 
     @patch("open_chat.message_reply_suggestion.ensure_rest_tool_definitions")
     @patch("chat.consumers.messages.NewMessage.send")
@@ -498,12 +458,8 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertTrue(interact_kwargs["share"])
         self.assertEqual(interact_kwargs["message"], self.source_message.text)
         self.assertNotIn("overrides", interact_kwargs)
-        suggestion_init = interact_kwargs["tool_init"][
-            "little_world_message_reply_suggestion"
-        ]
-        past_messages_init = interact_kwargs["tool_init"][
-            "little_world_retrieve_past_messages"
-        ]
+        suggestion_init = interact_kwargs["tool_init"]["little_world_message_reply_suggestion"]
+        past_messages_init = interact_kwargs["tool_init"]["little_world_retrieve_past_messages"]
         self.assertEqual(suggestion_init["task_pk"], support_task.pk)
         self.assertEqual(past_messages_init["chat_uuid"], str(self.chat.uuid))
         self.assertIn("sessionid=", suggestion_init["cookie_header"])
@@ -595,9 +551,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
         mock_interaction = MagicMock()
         mock_interaction.uuid = "recipient-session-interaction"
-        mock_interaction.shared_url.return_value = (
-            "http://localhost:1984/interaction/recipient-session-interaction"
-        )
+        mock_interaction.shared_url.return_value = "http://localhost:1984/interaction/recipient-session-interaction"
         mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
 
