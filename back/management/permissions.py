@@ -54,11 +54,7 @@ def users_with_effective_permission(permission: ManagementPermission):
         return User.objects.none()
     return (
         User.objects.filter(is_active=True)
-        .filter(
-            Q(is_superuser=True)
-            | Q(user_permissions=permission_object)
-            | Q(groups__permissions=permission_object)
-        )
+        .filter(Q(is_superuser=True) | Q(user_permissions=permission_object) | Q(groups__permissions=permission_object))
         .distinct()
     )
 
