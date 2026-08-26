@@ -26,6 +26,7 @@ from management.api.user_journey_filters import (
     user_form_completed_awaiting_onboarding,
     user_form_completed_excluding_a0_german,
 )
+from management.self_onboarding_progress import self_onboarding_started_q
 
 # ---------------------------------------------------------------------------
 # Baseline / legacy stuck buckets (still used by journey lists & other charts)
@@ -150,7 +151,7 @@ def users_eligible_for_onboarding(qs: QuerySet) -> QuerySet:
 def users_who_started_onboarding(qs: QuerySet) -> QuerySet:
     """Users who started onboarding (booked call, self-onboarding, or already onboarded)."""
     return qs.filter(
-        Q(state__is_onboarded=True) | Q(prematchingappointment__isnull=False) | Q(state__self_onboarding_started=True)
+        Q(state__is_onboarded=True) | Q(prematchingappointment__isnull=False) | self_onboarding_started_q()
     ).distinct()
 
 
