@@ -9,10 +9,8 @@ Everything here is a ``Q``, not a ``QuerySet``, so a caller composes it into wha
 base it already has instead of re-filtering.
 """
 
-import json
-
-from django.db.models import JSONField
-from django.db.models import Q
+from django.db import connection
+from django.db.models import JSONField, Q
 from django.db.models.lookups import Lookup
 
 from management.models.profile import Profile
@@ -23,36 +21,26 @@ UNFILLED = State.UserFormStateChoices.UNFILLED
 SEARCHING = State.SearchingStateChoices.SEARCHING
 IDLE = State.SearchingStateChoices.IDLE
 
-class JSONArrayContainsObject(Lookup):
-    """Test whether a JSON array contains an object with the requested key/value pairs."""
+A0_GERMAN = [{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}]
 
-    lookup_name = "array_contains_object"
+
+class SQLiteHasA0German(Lookup):
+    """SQLite equivalent of ``lang_skill__contains=A0_GERMAN``."""
+
+    lookup_name = "has_a0_german"
     prepare_rhs = False
-
-    def as_postgresql(self, compiler, connection):
-        lhs, lhs_params = self.process_lhs(compiler, connection)
-        return f"{lhs} @> %s::jsonb", [*lhs_params, json.dumps([self.rhs])]
 
     def as_sqlite(self, compiler, connection):
         lhs, lhs_params = self.process_lhs(compiler, connection)
-        comparisons = []
-        params = list(lhs_params)
-        for key, value in self.rhs.items():
-            path = f"$.{json.dumps(str(key))}"
-            comparisons.append("JSON_EXTRACT(item.value, %s) = JSON_EXTRACT(%s, '$')")
-            params.extend((path, json.dumps(value)))
-
-        if not comparisons:
-            return f"JSON_TYPE({lhs}) = 'array'", params
-
-        sql = f"EXISTS (SELECT 1 FROM JSON_EACH({lhs}) AS item WHERE {' AND '.join(comparisons)})"
-        return sql, params
+        sql = (
+            f"EXISTS (SELECT 1 FROM JSON_EACH({lhs}) AS item "
+            "WHERE JSON_EXTRACT(item.value, '$.lang') = %s "
+            "AND JSON_EXTRACT(item.value, '$.level') = %s)"
+        )
+        return sql, [*lhs_params, A0_GERMAN[0]["lang"], A0_GERMAN[0]["level"]]
 
 
-JSONField.register_lookup(JSONArrayContainsObject)
-
-
-A0_GERMAN = {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
+JSONField.register_lookup(SQLiteHasA0German)
 
 
 def is_learner() -> Q:
@@ -65,7 +53,9 @@ def is_volunteer() -> Q:
 
 def has_a0_german() -> Q:
     """Claims German at level 0."""
-    return Q(profile__lang_skill__array_contains_object=A0_GERMAN)
+    if connection.features.supports_json_field_contains:
+        return Q(profile__lang_skill__contains=A0_GERMAN)
+    return Q(profile__lang_skill__has_a0_german=True)
 
 
 def resides_outside_germany() -> Q:
