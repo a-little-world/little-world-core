@@ -114,7 +114,6 @@ class AdvancedUserMessageReplyTests(TestCase):
             },
             parameters={"message": ""},
             created_by=self.support_user,
-            assigned_to=self.support_user,
             related_user=self.target_user,
         )
 

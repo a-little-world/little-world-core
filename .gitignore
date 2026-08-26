@@ -180,3 +180,4 @@ dev/postgres_data/
 dev/db_backup/
 back/celerybeat-schedule-shm
 back/celerybeat-schedule-wal
+kubeconfig.yaml

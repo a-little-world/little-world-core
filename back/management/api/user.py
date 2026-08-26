@@ -37,6 +37,7 @@ from management.models.pre_matching_appointment import PreMatchingAppointment, P
 from management.models.profile import SelfProfileSerializer
 from management.models.state import FrontendStatusSerializer, State
 from management.permissions import ManagementPermission
+from management.self_onboarding_progress import self_onboarding_user_payload
 from management.tasks import send_email_background
 
 """
@@ -610,11 +611,7 @@ def get_user_data(user):
         ManagementPermission.USE_RANDOM_CALLS
     )
 
-    # Self-onboarding progress as a fraction in [0, 1] based on the ordered step list.
-    onboarding_rank = get_rank_from_stored_self_onboarding_value(user_state.self_onboarding_step_id)
-    self_onboarding_progress = 0.0
-    if SELF_ONBOARDING_COMPLETED_RANK > 0:
-        self_onboarding_progress = max(0.0, min(1.0, onboarding_rank / float(SELF_ONBOARDING_COMPLETED_RANK)))
+    onboarding = self_onboarding_user_payload(user)
 
     return {
         "id": str(user.uuid),
@@ -629,11 +626,11 @@ def get_user_data(user):
         "calComAppointmentLink": cal_data_link,
         "hadPreMatchingCall": user_state.had_prematching_call,
         "hasMatchingPermissions": user.has_perm(ManagementPermission.MATCHING_USER),
-        "selfOnboardingCompleted": user_state.self_onboarding_completed,
-        "selfOnboardingStepId": user_state.self_onboarding_step_id or "",
-        "selfOnboardingProgress": self_onboarding_progress,
+        "selfOnboardingCompleted": onboarding["selfOnboardingCompleted"],
+        "selfOnboardingStepId": onboarding["selfOnboardingStepId"],
+        "selfOnboardingProgress": onboarding["selfOnboardingProgress"],
         "isOnboarded": user_state.is_onboarded,
-        "selfOnboardingStarted": user_state.self_onboarding_started,
+        "selfOnboardingStarted": onboarding["selfOnboardingStarted"],
         "forceMatchEligible": user_state.force_match_eligible,
         "emailVerified": user_state.email_authenticated,
         "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED,

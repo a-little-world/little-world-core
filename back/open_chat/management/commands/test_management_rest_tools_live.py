@@ -22,7 +22,6 @@ from open_chat.helpers import (
 
 if TYPE_CHECKING:
     from client import OpenChatClient
-from open_chat.interaction_config import DEFAULT_OPEN_CHAT_MAX_TOKENS, DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT
 from open_chat.models import OpenChatConfiguration
 from open_chat.tool_definitions import (
     RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
@@ -34,7 +33,7 @@ from open_chat.tool_definitions_management import (
     LIST_DYNAMIC_USER_LISTS_REST_TOOL_NAME,
     LIST_MATCH_FILTERS_REST_TOOL_NAME,
     LIST_SCORE_FILTERS_REST_TOOL_NAME,
-    LIST_SUPPORT_STAFF_REST_TOOL_NAME,
+    LIST_SUPPORT_ASSIGNEES_REST_TOOL_NAME,
     LIST_USER_FILTERS_REST_TOOL_NAME,
     LIST_VIDEO_CALL_FILTERS_REST_TOOL_NAME,
     QUERY_MATCHES_REST_TOOL_NAME,
@@ -62,12 +61,30 @@ class InteractionToolCase:
 
 
 API_TOOL_CASES: tuple[ApiToolCase, ...] = (
-    ApiToolCase(LIST_USER_FILTERS_REST_TOOL_NAME, "GET", "/api/matching/users/filters/", expect_key="lists"),
-    ApiToolCase(LIST_MATCH_FILTERS_REST_TOOL_NAME, "GET", "/api/matching/matches/filters/", expect_key="lists"),
     ApiToolCase(
-        LIST_VIDEO_CALL_FILTERS_REST_TOOL_NAME, "GET", "/api/matching/video_calls/filters/", expect_key="filters"
+        LIST_USER_FILTERS_REST_TOOL_NAME,
+        "GET",
+        "/api/matching/users/filters/",
+        expect_key="lists",
     ),
-    ApiToolCase(LIST_SCORE_FILTERS_REST_TOOL_NAME, "GET", "/api/matching/scores/filters/", expect_key="filters"),
+    ApiToolCase(
+        LIST_MATCH_FILTERS_REST_TOOL_NAME,
+        "GET",
+        "/api/matching/matches/filters/",
+        expect_key="lists",
+    ),
+    ApiToolCase(
+        LIST_VIDEO_CALL_FILTERS_REST_TOOL_NAME,
+        "GET",
+        "/api/matching/video_calls/filters/",
+        expect_key="filters",
+    ),
+    ApiToolCase(
+        LIST_SCORE_FILTERS_REST_TOOL_NAME,
+        "GET",
+        "/api/matching/scores/filters/",
+        expect_key="filters",
+    ),
     ApiToolCase(LIST_DYNAMIC_USER_LISTS_REST_TOOL_NAME, "GET", "/api/dynamic_user_lists/"),
     ApiToolCase(
         QUERY_USERS_REST_TOOL_NAME,
@@ -109,15 +126,25 @@ API_TOOL_CASES: tuple[ApiToolCase, ...] = (
         "GET",
         "/api/matching/users/{id}/",
     ),
-    ApiToolCase(GET_SUPPORT_TASK_STATS_REST_TOOL_NAME, "GET", "/api/support_task/stats/", expect_key="NEW"),
+    ApiToolCase(
+        GET_SUPPORT_TASK_STATS_REST_TOOL_NAME,
+        "GET",
+        "/api/support_task/stats/",
+        expect_key="NEW",
+    ),
     ApiToolCase(
         SUPPORT_TASK_USER_SEARCH_REST_TOOL_NAME,
         "GET",
         "/api/support_task/user_search/",
         query={"q": "tim"},
     ),
-    ApiToolCase(LIST_SUPPORT_STAFF_REST_TOOL_NAME, "GET", "/api/support_task/staff_users/"),
-    ApiToolCase(RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME, "GET", "/api/matching/me/", expect_key="email"),
+    ApiToolCase(LIST_SUPPORT_ASSIGNEES_REST_TOOL_NAME, "GET", "/api/support_task/assignee_users/"),
+    ApiToolCase(
+        RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
+        "GET",
+        "/api/matching/me/",
+        expect_key="email",
+    ),
 )
 
 INTERACTION_TOOL_CASES: tuple[InteractionToolCase, ...] = (
@@ -142,20 +169,6 @@ INTERACTION_TOOL_CASES: tuple[InteractionToolCase, ...] = (
         f"Call `{RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME}`.",
     ),
 )
-
-
-def _single_tool_interaction_overrides(tool_name: str) -> dict[str, object]:
-    """Minimal Open Chat overrides: only the one management tool under test."""
-    return {
-        "system_prompt": (
-            f"You are testing the Little World REST tool `{tool_name}`.\n"
-            f"Call `{tool_name}` exactly once with appropriate arguments.\n"
-            "Do not call any other tools."
-        ),
-        "context": DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT,
-        "max_tokens": DEFAULT_OPEN_CHAT_MAX_TOKENS,
-        "tools": [tool_name],
-    }
 
 
 def _single_tool_init(session_init: dict[str, str], tool_name: str) -> dict[str, dict[str, str]]:
@@ -331,7 +344,6 @@ class Command(BaseCommand):
                 bot=CHAT_REPLY_BOT,
                 message=case.message,
                 share=False,
-                overrides=_single_tool_interaction_overrides(case.tool_name),
                 tool_init=_single_tool_init(session_init, case.tool_name),
             )
             uuid = str(interaction.uuid)

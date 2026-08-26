@@ -13,16 +13,23 @@ from management.models.user import User
 from management.permissions import ManagementPermission
 from rest_framework import serializers, status
 from rest_framework.authentication import SessionAuthentication
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
 from rest_framework.response import Response
 
 from open_chat.helpers import (
     build_open_chat_client,
+    exchange_open_chat_browser_token,
     resolve_open_chat_frontend_host,
     rewrite_open_chat_url_for_browser,
     value_or,
 )
-from open_chat.message_reply_suggestion import idempotent_actions__generate_message_replies
+from open_chat.message_reply_suggestion import (
+    idempotent_actions__generate_message_replies,
+)
 from open_chat.models import OpenChatConfiguration
 from open_chat.permissions import (
     HasEditOpenChatConfiguration,
@@ -225,7 +232,10 @@ def _open_chat_client_response(configuration, operation) -> Response:
         login_user = client.login()
         return operation(client, login_user)
     except Exception as exc:
-        return Response({"detail": f"Open chat request failed: {exc}"}, status=status.HTTP_502_BAD_GATEWAY)
+        return Response(
+            {"detail": f"Open chat request failed: {exc}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
 
 
 def _resolve_open_chat_target_user(request) -> User | Response:
@@ -252,6 +262,26 @@ def _resolve_open_chat_target_user(request) -> User | Response:
             target_user = requested_user
 
     return target_user
+
+
+OPEN_CHAT_BROWSER_TOKEN_SCOPES = frozenset(
+    {
+        "bots:read",
+        "bots:write",
+        "interactions:list",
+        "interactions:read",
+    }
+)
+
+
+class OpenChatBrowserTokenRequestSerializer(serializers.Serializer):
+    scopes = serializers.ListField(
+        child=serializers.ChoiceField(choices=sorted(OPEN_CHAT_BROWSER_TOKEN_SCOPES)),
+        allow_empty=False,
+    )
+
+    def validate_scopes(self, scopes: list[str]) -> list[str]:
+        return list(dict.fromkeys(scopes))
 
 
 def _get_open_chat_idempotent_action_specs() -> list[dict]:
@@ -366,6 +396,70 @@ def open_chat_configuration(request):
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(OpenChatConfigurationSummarySerializer(configuration).data)
+
+
+@extend_schema(
+    methods=["POST"],
+    request=OpenChatBrowserTokenRequestSerializer,
+    responses=inline_serializer(
+        name="OpenChatBrowserTokenResponse",
+        fields={
+            "access_token": serializers.CharField(),
+            "token_type": serializers.CharField(),
+            "expires_at": serializers.DateTimeField(),
+            "expires_in": serializers.IntegerField(),
+            "scopes": serializers.ListField(child=serializers.CharField()),
+            "api_base_url": serializers.URLField(),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([HasOpenChatOrManageOpenChatAccess])
+@authentication_classes([SessionAuthentication])
+def open_chat_browser_token(request):
+    request_serializer = OpenChatBrowserTokenRequestSerializer(data=request.data)
+    request_serializer.is_valid(raise_exception=True)
+    scopes = request_serializer.validated_data["scopes"]
+
+    if "bots:write" in scopes and not request.user.has_perm(ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION):
+        return Response(
+            {"detail": "You do not have permission to edit Open Chat bots."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    target_user = _resolve_open_chat_target_user(request)
+    if isinstance(target_user, Response):
+        return target_user
+    configuration = OpenChatConfiguration.objects.filter(user=target_user).first()
+    if configuration is None:
+        return Response(
+            {"detail": "Open chat configuration not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    try:
+        token_payload = exchange_open_chat_browser_token(
+            configuration,
+            scopes=scopes,
+            label=f"little-world-admin:{request.user.uuid}",
+        )
+    except Exception as exc:
+        return Response(
+            {"detail": f"Open chat browser authorization failed: {exc}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    response = Response(
+        {
+            **token_payload,
+            "token_type": token_payload.get("token_type") or "Bearer",
+            "scopes": token_payload.get("scopes") or scopes,
+            "api_base_url": resolve_open_chat_frontend_host(configuration),
+        }
+    )
+    response["Cache-Control"] = "no-store"
+    response["Pragma"] = "no-cache"
+    return response
 
 
 @extend_schema(
@@ -1125,6 +1219,11 @@ api_urls = [
         "api/matching/open-chat-configuration/",
         open_chat_configuration,
         name="open_chat_configuration",
+    ),
+    path(
+        "api/matching/open-chat/browser-token/",
+        open_chat_browser_token,
+        name="open_chat_browser_token",
     ),
     path(
         "api/matching/open-chat/test-connection/",

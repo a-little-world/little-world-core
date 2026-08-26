@@ -1,6 +1,7 @@
 from enum import StrEnum
 
 from django.contrib.auth.models import Permission
+from django.db.models import Q
 
 
 class ManagementPermission(StrEnum):
@@ -42,6 +43,20 @@ MANAGEMENT_PERMISSION_LABELS: dict[ManagementPermission, str] = {
 }
 
 MANAGEMENT_PERMISSION_DEFINITIONS = [(perm.codename, label) for perm, label in MANAGEMENT_PERMISSION_LABELS.items()]
+
+
+def users_with_effective_permission(permission: ManagementPermission):
+    """Return active users who receive a permission directly, through a group, or as superusers."""
+    from management.models.user import User
+
+    permission_object = permission.get_permission_object()
+    if permission_object is None:
+        return User.objects.none()
+    return (
+        User.objects.filter(is_active=True)
+        .filter(Q(is_superuser=True) | Q(user_permissions=permission_object) | Q(groups__permissions=permission_object))
+        .distinct()
+    )
 
 
 def user_can_edit_management_permissions(user) -> bool:

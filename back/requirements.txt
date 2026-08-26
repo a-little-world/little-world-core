@@ -1,4 +1,7 @@
 Django==5.2.17
+# >= 3.12.1 fixes event-loop deadlocks in ThreadSensitiveContext/AsyncToSync that froze
+# request handling and leaked idle DB connections until "too many clients" (asgiref #535, #562)
+asgiref>=3.12.1
 channels==4.1.0
 channels-redis==4.1.0 # For using channels with redis
 celery==5.6.2
@@ -69,4 +72,4 @@ google-api-python-client==2.108.0
 google-auth==2.23.4
 cbor2===5.9.0
 django-simple-reload @ git+https://github.com/tbscode/django-simple-reload.git
-open_chat_client_python @ git+https://github.com/msgmate-io/open-chat-go-python-client.git@ebf20b672857453ed65f38366f7caf2769148ab3
+open_chat_client_python @ git+https://github.com/msgmate-io/open-chat-go-python-client.git@3a2687cc9335c47a283e1631c10b478dfd9a552a
