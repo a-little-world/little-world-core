@@ -15,6 +15,7 @@ from open_chat.helpers import resolve_open_chat_frontend_host
 from open_chat.models import DEFAULT_OPEN_CHAT_HOST, OpenChatConfiguration
 
 API_URL = "/api/matching/open-chat-configuration/"
+BROWSER_TOKEN_URL = "/api/matching/open-chat/browser-token/"
 TEST_CONNECTION_URL = "/api/matching/open-chat/test-connection/"
 ACCESS_USERS_URL = "/api/matching/open-chat-access-users/"
 USER_CONFIGURATION_URL = "/api/matching/open-chat-access-users/{user_id}/configuration/"
@@ -131,6 +132,104 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["open_chat_user"], "view-only-user")
         self.assertEqual(response.data["open_chat_host"], DEFAULT_HOST)
+
+    @patch("open_chat.api.exchange_open_chat_browser_token")
+    def test_browser_token_exchanges_target_configuration(self, mock_exchange):
+        configuration = OpenChatConfiguration.objects.create(
+            user=self.authorized_user,
+            open_chat_api_key="ocat_parent",
+            open_chat_user="open-chat-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_exchange.return_value = {
+            "access_token": "ocat_browser",
+            "token_type": "Bearer",
+            "expires_at": "2026-08-26T12:00:00Z",
+            "expires_in": 900,
+            "scopes": ["bots:read", "bots:write"],
+        }
+        self.api_client.force_authenticate(user=self.authorized_user)
+
+        response = self.api_client.post(
+            BROWSER_TOKEN_URL,
+            {"scopes": ["bots:read", "bots:write"]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["access_token"], "ocat_browser")
+        self.assertEqual(
+            response.data["api_base_url"],
+            resolve_open_chat_frontend_host(configuration),
+        )
+        self.assertEqual(response["Cache-Control"], "no-store")
+        mock_exchange.assert_called_once_with(
+            configuration,
+            scopes=["bots:read", "bots:write"],
+            label=f"little-world-admin:{self.authorized_user.uuid}",
+        )
+
+    def test_browser_token_rejects_bot_write_without_edit_permission(self):
+        OpenChatConfiguration.objects.create(
+            user=self.view_only_user,
+            open_chat_api_key="ocat_parent",
+            open_chat_user="view-only-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        self.api_client.force_authenticate(user=self.view_only_user)
+
+        response = self.api_client.post(
+            BROWSER_TOKEN_URL,
+            {"scopes": ["bots:read", "bots:write"]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    @patch("open_chat.api.exchange_open_chat_browser_token")
+    def test_browser_token_manager_can_authorize_selected_user(self, mock_exchange):
+        target = User.objects.create_user(
+            email="open-chat-target@test.de",
+            username="open-chat-target@test.de",
+            password="Test123!",
+            first_name="Open Chat",
+            last_name="Target",
+        )
+        target.user_permissions.add(self.open_chat_perm)
+        configuration = OpenChatConfiguration.objects.create(
+            user=target,
+            open_chat_api_key="ocat_target-parent",
+            open_chat_user="target",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_exchange.return_value = {
+            "access_token": "ocat_browser",
+            "expires_at": "2026-08-26T12:00:00Z",
+            "expires_in": 900,
+        }
+        self.api_client.force_authenticate(user=self.manager_user)
+
+        response = self.api_client.post(
+            f"{BROWSER_TOKEN_URL}?user_uuid={target.uuid}",
+            {"scopes": ["interactions:list", "interactions:read"]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mock_exchange.assert_called_once_with(
+            configuration,
+            scopes=["interactions:list", "interactions:read"],
+            label=f"little-world-admin:{self.manager_user.uuid}",
+        )
+
+    def test_browser_token_rejects_unknown_scope(self):
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.post(
+            BROWSER_TOKEN_URL,
+            {"scopes": ["admin:write"]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
 
     def test_post_requires_edit_permission(self):
         self.api_client.force_authenticate(user=self.view_only_user)

@@ -202,7 +202,6 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                         source_user=request.user,
                         target_user=partner,
                         created_by_user=created_by_user,
-                        assigned_to_user=partner,
                         configuration_user_uuid=str(partner.uuid),
                         enqueue_interaction=True,
                     )

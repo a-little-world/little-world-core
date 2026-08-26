@@ -48,7 +48,7 @@ SCORES_DETAIL_PATH = "/api/matching/scores/{id}/"
 SUPPORT_TASK_LIST_PATH = "/api/support_task/"
 SUPPORT_TASK_DETAIL_PATH = "/api/support_task/{id}/"
 SUPPORT_TASK_STATS_PATH = "/api/support_task/stats/"
-SUPPORT_TASK_STAFF_USERS_PATH = "/api/support_task/staff_users/"
+SUPPORT_TASK_ASSIGNEE_USERS_PATH = "/api/support_task/assignee_users/"
 SUPPORT_TASK_USER_SEARCH_PATH = "/api/support_task/user_search/"
 
 DYNAMIC_USER_LISTS_PATH = "/api/dynamic_user_lists/"
@@ -92,7 +92,7 @@ GET_USER_EMAILS_REST_TOOL_NAME = "little_world_mgmt_get_user_emails"
 GET_MATCH_NOTES_REST_TOOL_NAME = "little_world_mgmt_get_match_notes"
 GET_SUPPORT_TASK_STATS_REST_TOOL_NAME = "little_world_mgmt_get_support_task_stats"
 SUPPORT_TASK_USER_SEARCH_REST_TOOL_NAME = "little_world_mgmt_support_task_user_search"
-LIST_SUPPORT_STAFF_REST_TOOL_NAME = "little_world_mgmt_list_support_staff"
+LIST_SUPPORT_ASSIGNEES_REST_TOOL_NAME = "little_world_mgmt_list_support_assignees"
 
 _LIST_SLUG_HINT = (
     " Prefer list=<slug> from the corresponding list_*_filters tool when the question maps to a named cohort; "
@@ -256,7 +256,7 @@ def _support_task_paths(*, paginated: bool) -> tuple[str, ...]:
         task_fields = ("action.parameters.message",)
     return (
         *_support_task_profile_paths("related_user_profile", paginated=paginated, include_email=True),
-        *_support_task_profile_paths("assigned_to_profile", paginated=paginated, include_email=False),
+        *_support_task_profile_paths("assignee_profiles.*", paginated=paginated, include_email=False),
         *_support_task_profile_paths("created_by_profile", paginated=paginated, include_email=False),
         *task_fields,
     )
@@ -462,9 +462,9 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
         SUPPORT_TASK_USER_SEARCH_PATH,
     ),
     MgmtGetToolSpec(
-        LIST_SUPPORT_STAFF_REST_TOOL_NAME,
-        "List staff users available for support task assignment.",
-        SUPPORT_TASK_STAFF_USERS_PATH,
+        LIST_SUPPORT_ASSIGNEES_REST_TOOL_NAME,
+        "List users with matching access available for support task assignment.",
+        SUPPORT_TASK_ASSIGNEE_USERS_PATH,
     ),
 )
 
@@ -525,7 +525,7 @@ def _censor_paths_for_spec(spec: MgmtGetToolSpec) -> tuple[str, ...]:
         return ("*.message",)
     if name == SUPPORT_TASK_USER_SEARCH_REST_TOOL_NAME:
         return _top_level_array_identity_paths()
-    if name == LIST_SUPPORT_STAFF_REST_TOOL_NAME:
+    if name == LIST_SUPPORT_ASSIGNEES_REST_TOOL_NAME:
         return _top_level_array_identity_paths(include_last_name=True)
     return ()
 
