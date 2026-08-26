@@ -37,6 +37,13 @@ from management.tasks import (
 )
 
 
+def add_mutual_messages(user1, user2):
+    chat = Chat.objects.create(u1=user1, u2=user2)
+    Message.objects.create(chat=chat, sender=user1, recipient=user2, text="Hello")
+    Message.objects.create(chat=chat, sender=user2, recipient=user1, text="Hi")
+    return chat
+
+
 class TestAutomaticEmails_023_024_025(TestCase):
     def setUp(self):
         settings.DJANGO_TESTING = True
@@ -567,6 +574,10 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
             self.invalid_user_m042_recent_1 = create_test_user(32014, None, "Test123!", "m042-invalid-recent1@test.de")
             self.invalid_user_m042_recent_2 = create_test_user(32015, None, "Test123!", "m042-invalid-recent2@test.de")
 
+            # Invalid match - only one partner has written (single-party contact)
+            self.invalid_user_one_sided_1 = create_test_user(32016, None, "Test123!", "m031-invalid-onesided1@test.de")
+            self.invalid_user_one_sided_2 = create_test_user(32017, None, "Test123!", "m031-invalid-onesided2@test.de")
+
         # Create valid match for m031 (first_interaction_at 8 days ago)
         self.valid_match_m031 = Match.objects.create(
             user1=self.valid_user_m031_1,
@@ -576,6 +587,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
             total_mutal_video_calls_counter=0,
             auto_email_m031_send=False,
         )
+        add_mutual_messages(self.valid_user_m031_1, self.valid_user_m031_2)
 
         # Create valid match for m032 (first_interaction_at 15 days ago, m031 already sent)
         self.valid_match_m032 = Match.objects.create(
@@ -587,6 +599,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
             auto_email_m031_send=True,  # m031 already sent
             auto_email_m032_send=False,
         )
+        add_mutual_messages(self.valid_user_m032_1, self.valid_user_m032_2)
 
         # Create valid match for m033 (first_interaction_at 22 days ago, m031 and m032 already sent)
         self.valid_match_m033 = Match.objects.create(
@@ -599,6 +612,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
             auto_email_m032_send=True,  # m032 already sent
             auto_email_m033_send=False,
         )
+        add_mutual_messages(self.valid_user_m033_1, self.valid_user_m033_2)
 
         # Create invalid match - too recent (5 days)
         self.invalid_match_recent = Match.objects.create(
@@ -628,6 +642,24 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
             first_interaction_at=dj_timezone.now() - timedelta(days=35),
             total_mutal_video_calls_counter=0,
             auto_email_m042_send=False,
+        )
+        add_mutual_messages(self.valid_user_m042_1, self.valid_user_m042_2)
+
+        # Create invalid match - only one partner has written (Oliver-style single-party contact)
+        self.invalid_match_one_sided = Match.objects.create(
+            user1=self.invalid_user_one_sided_1,
+            user2=self.invalid_user_one_sided_2,
+            confirmed=True,
+            first_interaction_at=dj_timezone.now() - timedelta(days=8),
+            total_mutal_video_calls_counter=0,
+            auto_email_m031_send=False,
+        )
+        one_sided_chat = Chat.objects.create(u1=self.invalid_user_one_sided_1, u2=self.invalid_user_one_sided_2)
+        Message.objects.create(
+            chat=one_sided_chat,
+            sender=self.invalid_user_one_sided_1,
+            recipient=self.invalid_user_one_sided_2,
+            text="Hello, still waiting for a reply",
         )
 
         # Create invalid match for m042 - recent interaction (only 20 days ago)
@@ -669,6 +701,9 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         )
         assert str(self.invalid_match_video.uuid) not in matches_m031, (
             f"Invalid match video: {self.invalid_match_video.uuid}, matches_m031: {matches_m031}"
+        )
+        assert str(self.invalid_match_one_sided.uuid) not in matches_m031, (
+            f"Invalid match one-sided: {self.invalid_match_one_sided.uuid}, matches_m031: {matches_m031}"
         )
         assert str(self.invalid_match_m042_recent.uuid) not in matches_m042, (
             f"Invalid match m042 recent: {self.invalid_match_m042_recent.uuid}, matches_m042: {matches_m042}"
@@ -715,6 +750,13 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         assert str(self.invalid_match_video.uuid) not in matches_m031, (
             f"Invalid match video: {self.invalid_match_video.uuid}"
         )
+
+    def test_excludes_one_sided_chats(self):
+        """m031 is for First Contact: both partners must have written at least once."""
+        result = automatic_emails_m031_m032_m033_m042()
+
+        assert str(self.invalid_match_one_sided.uuid) not in result["matches_m031"]
+        assert str(self.valid_match_m031.uuid) in result["matches_m031"]
 
 
 class TestAutomaticEmails_m053_m054_m055(TestCase):
@@ -1893,7 +1935,7 @@ class TestAutomaticEmailsIncludeRandomCallMatches(TestCase):
         )
 
     def test_m031_includes_random_call_and_excludes_temporary(self):
-        _u1, _u2, rc_match = self._create_pair(
+        u1, u2, rc_match = self._create_pair(
             "m031-rc",
             MatchType.RANDOM_CALL,
             confirmed=True,
@@ -1902,6 +1944,7 @@ class TestAutomaticEmailsIncludeRandomCallMatches(TestCase):
             total_mutal_video_calls_counter=0,
             auto_email_m031_send=False,
         )
+        add_mutual_messages(u1, u2)
         _t1, _t2, temp_match = self._create_pair(
             "m031-temp",
             MatchType.TEMPORARY,

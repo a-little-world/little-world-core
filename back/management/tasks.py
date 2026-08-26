@@ -756,6 +756,20 @@ def _match_journey_matches():
     return Match.objects.exclude(match_type=MatchType.TEMPORARY)
 
 
+def _matches_with_mutual_messages(qs):
+    """Matches where each partner has sent at least one chat message to the other.
+
+    First-contact emails (m031–m042) are for this stage only — one-sided chats stay
+    on the single-party-contact journey (m023/m024/m025).
+    """
+    from chat.models import Message
+    from django.db.models import Exists, OuterRef
+
+    user1_to_user2 = Message.objects.filter(sender=OuterRef("user1"), recipient=OuterRef("user2"))
+    user2_to_user1 = Message.objects.filter(sender=OuterRef("user2"), recipient=OuterRef("user1"))
+    return qs.filter(Exists(user1_to_user2), Exists(user2_to_user1))
+
+
 @shared_task
 def automatic_emails_m012_m013_m014():
     """
@@ -970,14 +984,17 @@ def automatic_emails_m024_m025():
 @shared_task
 def automatic_emails_m031_m032_m033_m042():
     """
-    No video call for 7, 14 and 21 days after first chat message or no video call for 30 days after the first interaction
+    No video call for 7, 14 and 21 days after first chat message or no video call for 30 days after the first interaction.
+
+    Only matches where both partners have sent at least one message (First Contact).
+    One-sided chats are handled by m023/m024/m025 instead.
     """
     from django.conf import settings
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M031_M032_M033_M042)
 
     # 1 - automatic-emails-m031
-    matches_m031 = _match_journey_matches().filter(
+    matches_m031 = _matches_with_mutual_messages(_match_journey_matches()).filter(
         active=True,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=7),
@@ -1004,7 +1021,7 @@ def automatic_emails_m031_m032_m033_m042():
     }
 
     # 2 - automatic-emails-m032
-    matches_m032 = _match_journey_matches().filter(
+    matches_m032 = _matches_with_mutual_messages(_match_journey_matches()).filter(
         active=True,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=14),
@@ -1034,7 +1051,7 @@ def automatic_emails_m031_m032_m033_m042():
         match.save()
 
     # 3 - automatic-emails-m033
-    matches_m033 = _match_journey_matches().filter(
+    matches_m033 = _matches_with_mutual_messages(_match_journey_matches()).filter(
         active=True,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=21),
@@ -1064,7 +1081,7 @@ def automatic_emails_m031_m032_m033_m042():
         match.save()
 
     # 4 - automatic-emails-m042
-    matches_m042 = _match_journey_matches().filter(
+    matches_m042 = _matches_with_mutual_messages(_match_journey_matches()).filter(
         active=True,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=30),
