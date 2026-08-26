@@ -33,7 +33,7 @@ from open_chat.tool_definitions_management import (
     LIST_DYNAMIC_USER_LISTS_REST_TOOL_NAME,
     LIST_MATCH_FILTERS_REST_TOOL_NAME,
     LIST_SCORE_FILTERS_REST_TOOL_NAME,
-    LIST_SUPPORT_STAFF_REST_TOOL_NAME,
+    LIST_SUPPORT_ASSIGNEES_REST_TOOL_NAME,
     LIST_USER_FILTERS_REST_TOOL_NAME,
     LIST_VIDEO_CALL_FILTERS_REST_TOOL_NAME,
     QUERY_MATCHES_REST_TOOL_NAME,
@@ -138,7 +138,7 @@ API_TOOL_CASES: tuple[ApiToolCase, ...] = (
         "/api/support_task/user_search/",
         query={"q": "tim"},
     ),
-    ApiToolCase(LIST_SUPPORT_STAFF_REST_TOOL_NAME, "GET", "/api/support_task/staff_users/"),
+    ApiToolCase(LIST_SUPPORT_ASSIGNEES_REST_TOOL_NAME, "GET", "/api/support_task/assignee_users/"),
     ApiToolCase(
         RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
         "GET",

@@ -4,7 +4,6 @@ from celery import current_app, shared_task
 from chat.models import Message as ChatMessage
 from django.conf import settings
 from django.db.models import Q
-from management import controller
 from management.models.support_task import SupportTask, SupportTaskAction
 from management.models.user import User
 from management.permissions import ManagementPermission
@@ -53,7 +52,6 @@ def create_or_reuse_support_reply_task_for_message(
     source_user: User,
     target_user: User,
     created_by_user: User,
-    assigned_to_user: User,
     configuration_user_uuid: str | None = None,
     enqueue_interaction: bool = True,
 ) -> dict:
@@ -82,8 +80,6 @@ def create_or_reuse_support_reply_task_for_message(
         .first()
     )
     if existing_action is not None:
-        if existing_action.task.assigned_to is None:
-            SupportTask.objects.filter(pk=existing_action.task.pk).update(assigned_to_id=assigned_to_user.pk)
         has_suggestion = bool((existing_action.parameters or {}).get("message", "").strip())
         result = {
             "message_uuid": str(latest_message.uuid),
@@ -121,11 +117,8 @@ def create_or_reuse_support_reply_task_for_message(
         },
         parameters={"message": ""},
         created_by=created_by_user,
-        assigned_to=assigned_to_user,
         related_user=source_user,
     )
-    if support_task.assigned_to is None:
-        SupportTask.objects.filter(pk=support_task.pk).update(assigned_to_id=assigned_to_user.pk)
 
     result = {
         "message_uuid": str(latest_message.uuid),
@@ -187,8 +180,6 @@ def idempotent_actions__generate_message_replies(
             "reason": "open_chat_automation_user_missing",
             "target_user_uuid": target_user_uuid,
         }
-    assigned_to_user = controller.get_base_management_user()
-
     from management.api.user_advanced_filter import get_user_with_message_to_admin
 
     # Only suggest replies for users whose latest message to the management user
@@ -215,7 +206,6 @@ def idempotent_actions__generate_message_replies(
             source_user=source_user,
             target_user=target_user,
             created_by_user=created_by_user,
-            assigned_to_user=assigned_to_user,
             configuration_user_uuid=str(configuration.user.uuid),
             enqueue_interaction=True,
         )

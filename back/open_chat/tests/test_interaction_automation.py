@@ -123,6 +123,11 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             content_type=content_type,
             defaults={"name": ManagementPermission.MATCHING_USER.codename},
         )
+        reply_permission, _ = Permission.objects.get_or_create(
+            codename=ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES.codename,
+            content_type=content_type,
+            defaults={"name": ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES.codename},
+        )
 
         cls.admin_user = User.objects.create_user(
             email=settings.MATCHING_USER_MAIL,
@@ -131,7 +136,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             first_name="Admin",
             last_name="User",
         )
-        cls.admin_user.user_permissions.add(open_chat_permission)
+        cls.admin_user.user_permissions.add(open_chat_permission, reply_permission)
         OpenChatConfiguration.objects.create(
             user=cls.admin_user,
             open_chat_api_key="admin-key",
@@ -231,13 +236,10 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             action.static_parameters.get("message_uuid"),
             str(self.source_message.uuid),
         )
-        assigned_to = action.task.assigned_to
         created_by = action.task.created_by
-        self.assertIsNotNone(assigned_to)
         self.assertIsNotNone(created_by)
-        assert assigned_to is not None
         assert created_by is not None
-        self.assertEqual(assigned_to.pk, self.admin_user.pk)
+        self.assertEqual(set(action.task.assignees.values_list("pk", flat=True)), {self.admin_user.pk})
         self.assertEqual(created_by.pk, self.automation_user.pk)
         self.assertEqual(mock_send_task.call_count, 2)
         send_task_args, send_task_kwargs = mock_send_task.call_args
@@ -329,7 +331,6 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             source_user=self.automation_user,
             target_user=self.admin_user,
             created_by_user=self.automation_user,
-            assigned_to_user=self.admin_user,
             configuration_user_uuid=str(self.admin_user.uuid),
             enqueue_interaction=True,
         )
@@ -422,7 +423,6 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             },
             parameters={"message": ""},
             created_by=self.automation_user,
-            assigned_to=self.admin_user,
             related_user=self.source_user,
         )
 
@@ -490,7 +490,6 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             },
             parameters={"message": ""},
             created_by=self.automation_user,
-            assigned_to=self.admin_user,
             related_user=self.source_user,
         )
         support_task.action.resolve(SupportTaskAction.Status.CANCELLED, self.admin_user)
@@ -544,7 +543,6 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             },
             parameters={"message": ""},
             created_by=self.automation_user,
-            assigned_to=self.admin_user,
             related_user=self.source_user,
         )
         mock_client = MagicMock()
