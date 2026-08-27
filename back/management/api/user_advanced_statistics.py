@@ -1,4 +1,5 @@
 import csv
+import logging
 from datetime import date, datetime, time, timedelta
 from io import StringIO
 
@@ -19,7 +20,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from video.models import LivekitSession
 
-from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS, get_match_list_by_name
+from management.analytics.registry import ALL_CATALOG
+from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
 from management.api.user_advanced import get_match_waiting_time
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_list_by_name
 from management.api.user_report_utils import (
@@ -37,6 +39,8 @@ from management.models.state import State
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from management.models.user import User
 from management.permissions import ManagementPermission
+
+logger = logging.getLogger(__name__)
 
 
 def _get_accessible_users(caller):
@@ -1288,70 +1292,157 @@ def user_signup_loss_statistic_v2(start_date="2022-01-01", end_date=date.today()
     }
 
 
+def _ratio_pct(numerator: int, denominator: int) -> float:
+    if denominator == 0:
+        return 0.0
+    return round(numerator / denominator * 100.0, 2)
+
+
+def _active_match_success_meta():
+    """Live match-success version — never restate token thresholds here."""
+    from management.match_success import get_version
+
+    version = get_version()
+    return {
+        "success_version_id": version.id,
+        "success_version_title": version.title,
+        "success_version_description": version.description,
+        "success_token_threshold": version.success_token_threshold,
+    }
+
+
+def _journey_success_counts(matches_qs):
+    """Success rate under the active match-success version.
+
+    Universe is ``Match.journey`` (non-support Standard / Random Call). Success is
+    ``successful_matches`` — not the legacy completed_match / free-play cluster.
+    """
+    from management.match_success import successful_matches
+
+    universe = Match.journey(matches_qs)
+    total = universe.count()
+    successful = successful_matches(universe).count()
+    return {
+        "total_matches": total,
+        "successful_matches": successful,
+        "successful_matches_percentage": _ratio_pct(successful, total),
+    }
+
+
+def _v5_phase(partition, phase_id: str):
+    """The named phase. Missing means the partition was renamed under us — say which.
+
+    ``next()`` without a default raises a bare ``StopIteration`` here, which reaches the
+    client as a 500 naming neither the partition nor the phase.
+    """
+    phase = next((item for item in partition.phases if item.id == phase_id), None)
+    if phase is None:
+        raise ValueError(f"Partition {partition.id!r} has no phase {phase_id!r}.")
+    return phase
+
+
+def _v5_phase_count(partition, phase_id: str, qs, *, as_of) -> int:
+    """Matches in one phase, counting only that phase's own buckets.
+
+    Deliberately not ``compute_partition``: that builds all 45 buckets and every pairwise
+    id-set intersection to prove the partition balances, and the pie reads three phase totals.
+
+    **Must be called inside ``classification_run``.** The cells share their derived maps —
+    the token map above all — through that run cache, so calling them outside it recomputes
+    the shared passes once per bucket. Measured over 3,653 matches: 94 queries / 6.2s for
+    ``compute_partition``, 105 / 8.3s for these three phases *without* the run (worse than
+    what it replaced), 63 / 4.3s *with* it.
+
+    The trade is that the balance check is gone, so the caller checks the one thing that
+    would have shown up here: whether the slices still add up to the universe.
+    """
+    return sum(
+        ALL_CATALOG[bucket.list_id].build(qs, as_of=as_of).count() for bucket in _v5_phase(partition, phase_id).buckets
+    )
+
+
+def _match_quality_distribution(matches_qs, *, as_of=None):
+    """Outcome slices for the Match Quality pie, keyed by match success.
+
+    Successful is ``successful_matches`` (includes closed matches that already
+    reached success). Kickoff / in-flight titles come from the V5 partition so
+    the pie does not hardcode token bands. Everything else that did not succeed
+    is one remainder slice.
+    """
+    from management.analytics.core import display_time
+    from management.analytics.match_journey.queries.state import classification_run
+    from management.analytics.registry import get_partition
+    from management.match_success import successful_matches
+
+    partition = get_partition(MATCH_JOURNEY_V5_ID)
+    if partition is None:
+        raise ValueError(f"Unknown partition {MATCH_JOURNEY_V5_ID!r}.")
+
+    as_of = as_of or display_time.now()
+    universe = Match.journey(matches_qs)
+    total = universe.count()
+    successful = successful_matches(universe).count()
+
+    # Scoped to `universe`, which is exactly what these cells classify: `classification_run`
+    # takes the token map's scope from the run, so seeding it from anything narrower makes
+    # later cells under-count silently.
+    with classification_run(universe):
+        kickoff = _v5_phase_count(partition, "kickoff", universe, as_of=as_of)
+        in_flight = _v5_phase_count(partition, "in_flight", universe, as_of=as_of)
+        other = _v5_phase_count(partition, "other", universe, as_of=as_of)
+
+    # The remainder is only ever negative if a match is counted both as successful and in a
+    # pre-success phase. The kickoff and in-flight buckets are built on `_not_successful`, so
+    # today it cannot happen — but clamping a negative to zero would leave the pie quietly
+    # adding up to less than the universe, which is the failure mode worth naming out loud.
+    remainder = total - successful - kickoff - in_flight - other
+    did_not_succeed = max(remainder, 0)
+    balanced = remainder >= 0
+    if not balanced:
+        logger.warning(
+            "Match quality slices do not balance: total=%d successful=%d kickoff=%d in_flight=%d other=%d leaves %d",
+            total,
+            successful,
+            kickoff,
+            in_flight,
+            other,
+            remainder,
+        )
+
+    phase_title = {phase.id: phase.title for phase in partition.phases}
+    distribution = [
+        {"id": "successful", "title": "Successful", "count": successful},
+        {"id": "in_flight", "title": phase_title["in_flight"], "count": in_flight},
+        {"id": "kickoff", "title": phase_title["kickoff"], "count": kickoff},
+        {"id": "did_not_succeed", "title": "Did not succeed", "count": did_not_succeed},
+    ]
+    if other:
+        distribution.append({"id": "other", "title": phase_title["other"], "count": other})
+
+    return {
+        **_active_match_success_meta(),
+        "total_matches": total,
+        "successful_matches": successful,
+        "successful_matches_percentage": _ratio_pct(successful, total),
+        "distribution": distribution,
+        # False means the slices no longer sum to total_matches; see the warning logged above.
+        "distribution_balanced": balanced,
+    }
+
+
 def match_quality_statistic(start_date="2022-01-01", end_date=date.today(), caller=None):
     if caller is None:
         raise ValueError("caller is required")
 
-    match_lists_required = [
-        "match_journey_v2__proposed_matches",
-        "match_journey_v2__unviewed",
-        "match_journey_v2__one_user_viewed",
-        "match_journey_v2__confirmed_no_contact",
-        "match_journey_v2__confirmed_single_party_contact",
-        "match_journey_v2__first_contact",
-        "match_journey_v2__match_ongoing",
-        "match_journey_v2__match_free_play",
-        "match_journey_v2__completed_match",
-        "match_journey_v2__never_confirmed",
-        "match_journey_v2__no_contact",
-        "match_journey_v2__user_ghosted",
-        "match_journey_v2__expired_proposals",
-    ]
+    from management.analytics.match_journey.cohorts import MatchPartitionCohort
 
-    exclude_intersection_check = ["all"]
-    intersection_check_lists = [
-        list_name for list_name in match_lists_required if list_name not in exclude_intersection_check
-    ]
-
-    pre_filtered_users = User.objects.all()
-    if not caller.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(
-            id__in=caller.managed_users_queryset(active_only=False).values("id")
-        )
-
-    pre_filtered_matches = Match.objects.filter(
-        Q(user1__in=pre_filtered_users) | Q(user2__in=pre_filtered_users), created_at__range=[start_date, end_date]
-    )
-
-    match_list_ids = {}
-
-    # retrieve all the id's we need
-    for list_name in match_lists_required:
-        match_list = get_match_list_by_name(list_name)
-        if match_list is None:
-            continue
-        filtered_list_matches = match_list.queryset(qs=pre_filtered_matches)
-
-        match_list_ids[list_name] = {
-            "ids": filtered_list_matches.values_list("id", flat=True),
-            "count": filtered_list_matches.count(),
-        }
-
-    # check for id's that are in multiple lists
-    for list_name in intersection_check_lists:
-        for other_list_name in intersection_check_lists:
-            if list_name != other_list_name:
-                intersecting_ids = set(match_list_ids[list_name]["ids"]).intersection(
-                    match_list_ids[other_list_name]["ids"]
-                )
-                if len(intersecting_ids) > 0:
-                    match_list_ids[f"{list_name}---{other_list_name}"] = intersecting_ids
-
+    start_date = _parse_date_input(start_date, date(2022, 1, 1))
+    end_date = _parse_date_input(end_date, date.today())
+    matches = MatchPartitionCohort(start_date=start_date, end_date=end_date).apply(_get_accessible_matches(caller))
     return {
-        "match_list_ids": match_list_ids,
-        "exclude_intersection_check": exclude_intersection_check,
         "start_date": start_date,
         "end_date": end_date,
+        **_match_quality_distribution(matches),
     }
 
 
@@ -1686,65 +1777,35 @@ def get_match_bucket_statistics_cluster(pre_filtered_matches):
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def kpi_dashboard_statistics_matching(request):
-    # - % angenommenen Match proposals  (letzte 2-4 Wochen)
-    # - % failed vs ongoing+finished Matches (total)
-    # - Matches gestartet von 6 bis 12 Wochen
+    """Matching quality KPIs driven by the active match-success version."""
+    accessible_users = _get_accessible_users(request.user)
+    accessible_matches = _get_accessible_matches(request.user)
 
     proposals_two_weeks = ProposedMatch.objects.filter(
-        potential_matching_created_at__range=[timezone.now() - timedelta(days=28), timezone.now() - timedelta(days=14)]
+        Q(user1__in=accessible_users) | Q(user2__in=accessible_users),
+        potential_matching_created_at__range=[timezone.now() - timedelta(days=28), timezone.now() - timedelta(days=14)],
     )
-    accepted_proposals_two_weeks = proposals_two_weeks.filter(closed=True, rejected=False)
-    accepted_proposals_two_weeks_percentage = accepted_proposals_two_weeks.count() / proposals_two_weeks.count() * 100.0
+    proposal_count = proposals_two_weeks.count()
+    accepted_proposals_two_weeks = proposals_two_weeks.filter(closed=True, rejected=False).count()
 
-    pre_filtered_users = User.objects.all()
-    if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(
-            id__in=request.user.managed_users_queryset(active_only=False).values("id")
-        )
+    overall = _journey_success_counts(accessible_matches)
 
-    # Get pre-filtered matches based on users and date range
-    pre_filtered_matches = Match.objects.filter(
-        Q(user1__in=pre_filtered_users) | Q(user2__in=pre_filtered_users),
+    now = timezone.now()
+    matches_6_12_weeks_ago = accessible_matches.filter(
+        created_at__range=[now - timedelta(weeks=12), now - timedelta(weeks=6)],
     )
-
-    # Calculating ongoing vs failed/finished is a little tricky
-    # first we sum over all match_journey_bucket clusters
-    cluster_sums = get_match_bucket_statistics_cluster(pre_filtered_matches)
-
-    cluster_sums["ongoing-matching"] + cluster_sums["finished-matching"]
-    amount_total_matches = (
-        cluster_sums["ongoing-matching"] + cluster_sums["finished-matching"] + cluster_sums["failed-matching"]
-    )
-    failed_vs_ongoing_finished_matches_percentage = 100.0 - (
-        cluster_sums["failed-matching"] / amount_total_matches * 100.0
-    )
-
-    # Now total_matches started 6-12 weeks ago
-    matches_6_12_weeks_ago = Match.objects.filter(
-        created_at__range=[timezone.now() - timedelta(days=126), timezone.now() - timedelta(days=63)],
-        support_matching=False,
-    )
-    cluster_sums_6_12_weeks_ago = get_match_bucket_statistics_cluster(matches_6_12_weeks_ago)
-    total_matches_6_12_weeks_ago = (
-        cluster_sums_6_12_weeks_ago["ongoing-matching"]
-        + cluster_sums_6_12_weeks_ago["finished-matching"]
-        + cluster_sums_6_12_weeks_ago["failed-matching"]
-    )
-    matches_6_12_weeks_ago_failed_vs_ongoing_finished_percentage = 100.0 - (
-        cluster_sums_6_12_weeks_ago["failed-matching"] / total_matches_6_12_weeks_ago * 100.0
-    )
+    cohort_6_12 = _journey_success_counts(matches_6_12_weeks_ago)
 
     return Response(
         {
-            "proposals_two_weeks": proposals_two_weeks.count(),
-            "accepted_proposals_two_weeks": accepted_proposals_two_weeks.count(),
-            "accepted_proposals_two_weeks_percentage": round(accepted_proposals_two_weeks_percentage, 2),
-            "cluster_sums": cluster_sums,
-            "failed_vs_ongoing_finished_matches_percentage": round(failed_vs_ongoing_finished_matches_percentage, 2),
-            "matches_started_6_12_weeks_ago": matches_6_12_weeks_ago.count(),
-            "matches_6_12_weeks_ago_failed_vs_ongoing_finished_percentage": round(
-                matches_6_12_weeks_ago_failed_vs_ongoing_finished_percentage, 2
-            ),
+            **_active_match_success_meta(),
+            "proposals_two_weeks": proposal_count,
+            "accepted_proposals_two_weeks": accepted_proposals_two_weeks,
+            "accepted_proposals_two_weeks_percentage": _ratio_pct(accepted_proposals_two_weeks, proposal_count),
+            **overall,
+            "matches_started_6_12_weeks_ago": cohort_6_12["total_matches"],
+            "matches_6_12_weeks_ago_successful": cohort_6_12["successful_matches"],
+            "matches_6_12_weeks_ago_successful_percentage": cohort_6_12["successful_matches_percentage"],
         }
     )
 

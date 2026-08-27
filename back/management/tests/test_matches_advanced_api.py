@@ -230,6 +230,33 @@ class AdvancedMatchViewsetTests(TestCase):
         assert str(self.off_platform_match.uuid) in returned_uuids
         assert str(self.match.uuid) not in returned_uuids
 
+    def test_export_of_an_inactive_bucket_with_user_columns(self):
+        """The export pre-joins user1/user2; the inactive-bucket classifier defers them.
+
+        `matches_export` applies `select_related("user1", ...)` before running the list
+        filter, and the closing-kind pass narrows to two columns with `.only()`. Inheriting
+        both makes Django refuse the query outright ("cannot be both deferred and traversed
+        using select_related"), which is why every `match_state__<kind>_<stage>` list failed
+        to export while the same list rendered fine on the page — the list view never joins.
+        """
+        unmatched = Match.objects.create(
+            user1=self.staff_user,
+            user2=self._create_user("export-unmatched"),
+            active=False,
+        )
+
+        request = self.factory.get(
+            "/api/matching/matches_export/"
+            "?list=match_state__unmatched_kickoff&page=1&page_size=50"
+            "&fields=uuid,user1.email,user1.profile.first_name,user2.email"
+        )
+        force_authenticate(request, user=self.staff_user)
+
+        response = self.export_view(request)
+
+        assert response.status_code == 200
+        assert unmatched.pk is not None
+
     def test_export_includes_completed_off_plattform_field(self):
         request = self.factory.get("/api/matching/matches_export/?list=match_completed_off_plattform")
         force_authenticate(request, user=self.staff_user)
