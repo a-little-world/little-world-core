@@ -7,7 +7,7 @@ from chat.models import Message
 from django.conf import settings
 from django.contrib.sessions.models import Session
 from django.db import connection
-from django.db.models import Avg, Count, F, Q, Sum
+from django.db.models import Avg, Count, F, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import TruncDay, TruncMonth, TruncWeek
 from django.urls import path
 from django.utils import timezone
@@ -29,6 +29,7 @@ from management.api.user_report_utils import (
 )
 from management.helpers import IsAdminOrMatchingUser
 from management.helpers.query_logger import QueryLogger
+from management.models.courses import Course, UserCourseProgress
 from management.models.matches import Match
 from management.models.profile import Profile
 from management.models.short_links import ShortLinkClick
@@ -1428,19 +1429,19 @@ def user_match_waiting_time_statistics(request):
 def _volunteer_onboarding_primary_path(row: dict) -> str:
     """
     Single bucket per user: self-onboarding vs prematch call by whichever completion
-    happened first. Matches get_match_waiting_time: self_onboarding_completed_at is
-    interpreted as start of that calendar day in the default timezone.
+    happened first. Course progress completed_at is preferred; State.self_onboarding_completed_at
+    is interpreted as start of that calendar day in the default timezone (legacy fallback).
     Returns 'self', 'prematch', or 'unclassified'.
     """
-    self_completed = row["state__self_onboarding_completed"]
-    self_at = row["state__self_onboarding_completed_at"]
+    self_at = row["self_onboarding_completed_at_dt"]
+    if self_at is None and row["state__self_onboarding_completed"] and row["state__self_onboarding_completed_at"]:
+        self_at = timezone.make_aware(datetime.combine(row["state__self_onboarding_completed_at"], time.min))
+    self_completed = self_at is not None or row["state__self_onboarding_completed"]
+
     had_prematch = row["state__had_prematching_call"]
     prematch_at = row["state__onboarding_call_completed_at"]
 
-    self_dt = None
-    if self_completed and self_at:
-        self_dt = timezone.make_aware(datetime.combine(self_at, time.min))
-
+    self_dt = self_at if self_completed else None
     prematch_dt = prematch_at if had_prematch and prematch_at else None
 
     has_self_time = self_dt is not None
@@ -1498,11 +1499,20 @@ def kpi_dashboard_statistics_signups(request):
         state__user_form_completed_at__isnull=False,
         state__user_form_completed_at__date__gt=volunteer_onboarding_path_cohort_cutoff,
     )
+    self_completed_at_sq = UserCourseProgress.objects.filter(
+        user_id=OuterRef("pk"),
+        course__slug=Course.SELF_ONBOARDING_SLUG,
+        completed=True,
+    ).values("completed_at")[:1]
+    volunteer_onboarded_cohort = volunteer_onboarded_cohort.annotate(
+        self_onboarding_completed_at_dt=Subquery(self_completed_at_sq)
+    )
     volunteer_onboarded_cohort_total = volunteer_onboarded_cohort.count()
     volunteer_cohort_self = 0
     volunteer_cohort_prematch = 0
     volunteer_cohort_unclassified = 0
     for row in volunteer_onboarded_cohort.values(
+        "self_onboarding_completed_at_dt",
         "state__self_onboarding_completed",
         "state__self_onboarding_completed_at",
         "state__had_prematching_call",

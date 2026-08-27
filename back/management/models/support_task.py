@@ -5,18 +5,16 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
-from management.models.object_history import ObjectHistory, ObjectHistorySerializer
+from management.models.object_history import ObjectHistory, ObjectHistorySerializer, log_history
 
-_TRACKED_TASK_FIELDS = ("title", "description", "status", "priority", "assigned_to")
+_TRACKED_TASK_FIELDS = ("title", "description", "status", "priority")
 _TRACKED_ACTION_FIELDS = ("status", "parameters")
 _FIELD_VALUE_MODELS: dict[str, str] = {
-    "assigned_to": "management.User",
+    "assignees": "management.User",
 }
 
 
 def _resolve_field(field, value):
-    if field == "assigned_to":
-        return field, value.pk if value is not None else None
     return field, value
 
 
@@ -51,11 +49,9 @@ class SupportTask(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW)
     priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.MEDIUM)
 
-    assigned_to = models.ForeignKey(
+    assignees = models.ManyToManyField(
         "management.User",
-        null=True,
         blank=True,
-        on_delete=models.DO_NOTHING,
         related_name="assigned_support_tasks",
     )
     created_by = models.ForeignKey(
@@ -105,9 +101,18 @@ class SupportTask(models.Model):
             )
 
     @classmethod
-    def create_of_type(cls, task_type: str, *, static_parameters: dict, parameters: dict, **kwargs) -> "SupportTask":
+    def create_of_type(
+        cls,
+        task_type: str,
+        *,
+        static_parameters: dict,
+        parameters: dict,
+        assignees=None,
+        **kwargs,
+    ) -> "SupportTask":
         """Atomically create a task of a registered type with the corresponding action."""
         from management.actions.registry import get_action_definition, get_task_definition, registered_task_types
+        from management.permissions import ManagementPermission, users_with_effective_permission
 
         if task_type not in registered_task_types():
             raise ValueError(f"Unknown task type: '{task_type}'")
@@ -140,7 +145,28 @@ class SupportTask(models.Model):
                 parameters=parameters,
             )
             action.save()
+            if task_type == "support_reply":
+                assignees = users_with_effective_permission(ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES)
+            if assignees is not None:
+                task.assignees.set(assignees)
         return task
+
+    def set_assignees(self, assignees, *, changed_by=None) -> None:
+        old_ids = sorted(self.assignees.values_list("id", flat=True))
+        self.assignees.set(assignees)
+        new_ids = sorted(self.assignees.values_list("id", flat=True))
+        if old_ids == new_ids:
+            return
+        log_history(
+            self,
+            type=ObjectHistory.Type.UPDATE,
+            changed_by=changed_by,
+            field="assignees",
+            old_value=old_ids,
+            new_value=new_ids,
+            value_model=_FIELD_VALUE_MODELS["assignees"],
+        )
+        SupportTask.objects.filter(pk=self.pk).update(updated_at=timezone.now())
 
     def can_complete(self) -> bool:
         return self.action.status != SupportTaskAction.Status.OPEN
@@ -297,24 +323,38 @@ class SupportTaskSerializer(serializers.ModelSerializer):
     action = SupportTaskActionSerializer(read_only=True)
     history = ObjectHistorySerializer(many=True, read_only=True)
     related_user_profile = serializers.SerializerMethodField()
-    assigned_to_profile = serializers.SerializerMethodField()
+    assignee_profiles = serializers.SerializerMethodField()
     created_by_profile = serializers.SerializerMethodField()
-    assigned_to_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
+    assignee_ids = serializers.ListField(child=serializers.IntegerField(), required=False, write_only=True)
 
     def get_related_user_profile(self, obj):
         return _serialize_related_user_profile(obj.related_user)
 
-    def get_assigned_to_profile(self, obj):
-        return _serialize_user_profile(obj.assigned_to)
+    def get_assignee_profiles(self, obj):
+        return [profile for user in obj.assignees.all() if (profile := _serialize_user_profile(user)) is not None]
 
     def get_created_by_profile(self, obj):
         return _serialize_user_profile(obj.created_by)
 
+    def validate_assignee_ids(self, value):
+        from management.models.user import User
+
+        unique_ids = list(dict.fromkeys(value))
+        if User.objects.filter(pk__in=unique_ids).count() != len(unique_ids):
+            raise serializers.ValidationError("One or more users do not exist.")
+        return unique_ids
+
     def update(self, instance, validated_data):
+        from management.models.user import User
+
         changed_by = validated_data.pop("changed_by", None)
+        assignee_ids = validated_data.pop("assignee_ids", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save(changed_by=changed_by)
+        if assignee_ids is not None:
+            assignees = list(User.objects.filter(pk__in=assignee_ids))
+            instance.set_assignees(assignees, changed_by=changed_by)
         return instance
 
     class Meta:
@@ -325,9 +365,9 @@ class SupportTaskSerializer(serializers.ModelSerializer):
             "description",
             "status",
             "priority",
-            "assigned_to_id",
+            "assignee_ids",
             "related_user_profile",
-            "assigned_to_profile",
+            "assignee_profiles",
             "created_by_profile",
             "created_at",
             "updated_at",

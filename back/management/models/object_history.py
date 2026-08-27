@@ -86,6 +86,15 @@ class ObjectHistorySerializer(serializers.ModelSerializer):
             try:
                 app_label, model_name = model_label.split(".", 1)
                 model_cls = apps.get_model(app_label, model_name)
+                if isinstance(value, list):
+                    instances = {
+                        instance.pk: instance
+                        for instance in model_cls.objects.select_related("profile").filter(pk__in=value)
+                    }
+                    return [
+                        _serialize_resolved(model_label, instances[item]) if item in instances else item
+                        for item in value
+                    ]
                 instance = model_cls.objects.select_related("profile").get(pk=value)
                 return _serialize_resolved(model_label, instance)
             except Exception:
