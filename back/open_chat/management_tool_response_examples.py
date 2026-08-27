@@ -19,7 +19,7 @@ SUPPORT_TASK_LIST_PATH = "/api/support_task/"
 SUPPORT_TASK_DETAIL_PATH = "/api/support_task/{id}/"
 SUPPORT_TASK_STATS_PATH = "/api/support_task/stats/"
 SUPPORT_TASK_USER_SEARCH_PATH = "/api/support_task/user_search/"
-SUPPORT_TASK_STAFF_USERS_PATH = "/api/support_task/staff_users/"
+SUPPORT_TASK_ASSIGNEE_USERS_PATH = "/api/support_task/assignee_users/"
 USERS_DETAIL_PATH = "/api/matching/users/{id}/"
 MATCHES_DETAIL_PATH = "/api/matching/matches/{id}/"
 USERS_MESSAGES_PATH = "/api/matching/users/{id}/messages/"
@@ -46,7 +46,7 @@ def swagger_example_is_trustworthy(path: str, example: Any) -> bool:
     if path == SUPPORT_TASK_STATS_PATH:
         return isinstance(example, dict) and {"NEW", "IN_PROGRESS", "COMPLETED"}.issubset(example.keys())
 
-    if path in {SUPPORT_TASK_STAFF_USERS_PATH, SUPPORT_TASK_USER_SEARCH_PATH, DYNAMIC_USER_LIST_DETAIL_PATH}:
+    if path in {SUPPORT_TASK_ASSIGNEE_USERS_PATH, SUPPORT_TASK_USER_SEARCH_PATH, DYNAMIC_USER_LIST_DETAIL_PATH}:
         return isinstance(example, list)
 
     if path == DYNAMIC_USER_LISTS_PATH:

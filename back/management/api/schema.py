@@ -37,7 +37,7 @@ class SupportTaskUserSearchEntrySerializer(serializers.Serializer):
     second_name = serializers.CharField()
 
 
-class SupportStaffUserEntrySerializer(serializers.Serializer):
+class SupportAssigneeUserEntrySerializer(serializers.Serializer):
     id = serializers.IntegerField()
     email = serializers.EmailField()
     first_name = serializers.CharField()

@@ -122,7 +122,7 @@ def create_self_onboarding_course() -> Course:
         defaults={
             "title": "Einführungs-Rundgang",
             "description": "",
-            "is_active": False,
+            "is_active": True,
             "is_listed": False,
             "available_to": UserTypeAvailabilityChoices.VOLUNTEER,
         },

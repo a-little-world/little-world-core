@@ -71,7 +71,7 @@
   "api.user.change_email_failed_email_exists": "E-Mail {email} existiert bereits",
   "api.user.change_email_successful": "Email Adresse aktualisiert, Email Adresse muss erneut authentifiziert werden.",
   "api.user_matches_successfully_confirmed": "Matches bestätigt!",
-  "api.user_update_searching_state_slug_doesnt_exist": "'{slug}' ist kein möglicher Suchstatus!",
+  "api.user_update_searching_state_slug_doesnt_exist": "'{slug}' ist kein möglicher Such-Status!",
   "api.user_update_searching_state_state_successfully_changed": "State aktualisiert!",
   "api.user_unmatch_self_success": "Match aufgehoben!",
   "register.email_blank_err": "Bitte geben Sie Ihre E-Mail-Adresse ein",
