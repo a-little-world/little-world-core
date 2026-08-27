@@ -180,11 +180,20 @@ class MatchModelAdmin(admin.ModelAdmin):
 
 @admin.register(models.state.State)
 class StateAdmin(HijackUserAdminMixin, admin.ModelAdmin):
-    list_display = ("user", "created_at", "user_form_state", "searching_state", "user_category", "tags")
+    list_display = (
+        "user",
+        "created_at",
+        "user_form_state",
+        "searching_state",
+        "searching_state_last_updated",
+        "user_category",
+        "tags",
+    )
     list_editable = (
         "user_category",
         "tags",
     )
+    readonly_fields = ("searching_state_last_updated",)
     search_fields = ("user", "created_at", "user_form_state")
     ordering = ("user", "created_at")
 
@@ -194,6 +203,7 @@ class StateAdmin(HijackUserAdminMixin, admin.ModelAdmin):
 
 class StateAdminInline(admin.StackedInline):
     model = models.state.State
+    readonly_fields = ("searching_state_last_updated",)
 
 
 @admin.action(description="Match selected")
