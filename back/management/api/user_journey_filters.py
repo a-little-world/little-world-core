@@ -1006,10 +1006,17 @@ def EXTRA__random_call_email_blast_2026_08_27(qs=User.objects.all()):
     # encode each id as JSON on the way in.
     random_call_match_ids = list(Match.objects.filter(match_type=MatchType.RANDOM_CALL).values_list("id", flat=True))
 
+    # Emulated sends are logged but never leave the building — fm021/fm022 were emulated
+    # throughout the episode, so anyone whose only e-mail that day was one of those received
+    # nothing and must not be in an apology audience.
+    #
+    # Keyed on the key *existing*: `send_template_email` writes `emulated_send` only when it
+    # skips the send. `exclude(data__emulated_send=True)` would also drop every row where the
+    # key is absent, because a missing key compares as NULL — which is the whole audience.
     sent_that_day = EmailLog.objects.filter(
         time__date=RANDOM_CALL_BLAST_DATE,
         receiver__isnull=False,
-    )
+    ).exclude(data__has_key="emulated_send")
 
     about_a_random_call_match = sent_that_day.filter(
         template__in=RANDOM_CALL_BLAST_TEMPLATES,
