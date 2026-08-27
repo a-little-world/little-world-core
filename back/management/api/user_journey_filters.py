@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.db.models import Count, Max, Q
 from django.utils import timezone
@@ -22,7 +22,7 @@ from management.api.match_journey_filters import (
 from management.models.matches import Match
 from management.models.profile import Profile
 from management.models.state import State
-from management.models.unconfirmed_matches import ProposedMatch
+from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from management.models.user import User
 from management.self_onboarding_progress import self_onboarding_in_progress_q
 
@@ -950,3 +950,79 @@ def users_with_duplicate_automatic_emails_29_01_2026(qs=User.objects.all()):
     )
 
     return qs.filter(pk__in=users_with_duplicates).distinct().order_by("-date_joined")
+
+
+# Remediation lists
+#
+# One-off lists tied to a specific incident. They are derived from `EmailLog` rather than a
+# frozen list of ids so the definition stays readable and re-derivable — if the log is ever
+# pruned the list shrinks visibly instead of quietly resolving to the wrong people.
+
+#: The day the Random Call backfill episode put journey e-mails into people's inboxes.
+RANDOM_CALL_BLAST_DATE = date(2026, 8, 27)
+
+#: Templates that went out as part of it: the no-interaction reminders, the no-video-call
+#: ladder, and the ghosting pair.
+RANDOM_CALL_BLAST_TEMPLATES = (
+    "automatic-emails-m012",
+    "automatic-emails-m013",
+    "automatic-emails-m014",
+    "automatic-emails-m031",
+    "automatic-emails-m032",
+    "automatic-emails-m033",
+    "automatic-emails-m042",
+    "automatic-emails-fm021",
+    "automatic-emails-fm022",
+)
+
+#: The three no-interaction stages. Receiving more than one of these for the *same* match on
+#: the same day is the signature of the stage collapse, which is not limited to Random Call.
+INTERACTION_REMINDER_TEMPLATES = (
+    "automatic-emails-m012",
+    "automatic-emails-m013",
+    "automatic-emails-m014",
+)
+
+
+def EXTRA__random_call_email_blast_2026_08_27(qs=User.objects.all()):
+    """Received the 2026-08-27 Random Call backfill e-mail blast (apology audience)
+
+    Two groups, unioned:
+
+    * anyone sent one of the journey templates **about a Random Call match** that day — the
+      backfill filled ``first_interaction_at`` from months-old lobby history, dropping those
+      matches straight into the ladder;
+    * anyone who received more than one no-interaction stage for the *same* match that day —
+      the stage collapse, which caught one Standard match too, so scoping this list to
+      Random Call alone would have missed that person.
+
+    39 users at the time of writing, 38 of them still active. Inactive accounts are excluded:
+    they cannot be e-mailed, and including them would overstate the audience.
+    """
+    from emails.models import EmailLog
+
+    # Materialised, not a subquery: `data__match_id` is a JSONB value, and Postgres has no
+    # operator comparing it to the bigints a subquery yields. A Python list lets Django
+    # encode each id as JSON on the way in.
+    random_call_match_ids = list(Match.objects.filter(match_type=MatchType.RANDOM_CALL).values_list("id", flat=True))
+
+    sent_that_day = EmailLog.objects.filter(
+        time__date=RANDOM_CALL_BLAST_DATE,
+        receiver__isnull=False,
+    )
+
+    about_a_random_call_match = sent_that_day.filter(
+        template__in=RANDOM_CALL_BLAST_TEMPLATES,
+        data__match_id__in=random_call_match_ids,
+    ).values_list("receiver_id", flat=True)
+
+    collapsed_reminder_ladder = (
+        sent_that_day.filter(template__in=INTERACTION_REMINDER_TEMPLATES)
+        .values("receiver_id", "data__match_id")
+        .annotate(stages=Count("template", distinct=True))
+        .filter(stages__gt=1)
+        .values_list("receiver_id", flat=True)
+    )
+
+    affected = set(about_a_random_call_match) | set(collapsed_reminder_ladder)
+    return qs.filter(id__in=affected, is_active=True)

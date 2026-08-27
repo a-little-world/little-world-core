@@ -32,6 +32,7 @@ from management.api.user_advanced_filter import (
     users_with_open_tasks,
 )
 from management.api.user_journey_filters import (
+    EXTRA__random_call_email_blast_2026_08_27,
     active_match,
     all_volunteers_min_one_no_ongoing_match,
     booked_onboarding_call,
@@ -418,6 +419,11 @@ USER_JOURNEY_FILTER_LISTS = [
         users_with_duplicate_automatic_emails_29_01_2026,
     ),
     FilterListEntry("EXTRA__lingoda_users", "Lingoda users", EXTRA__lingoda_users),
+    FilterListEntry(
+        "EXTRA__random_call_email_blast_2026_08_27",
+        "Random Call e-mail blast 27 Aug 2026 (apology audience)",
+        EXTRA__random_call_email_blast_2026_08_27,
+    ),
     FilterListEntry("EXTRA__lingoda_learners_scoring", "Lingoda learners for scoring", EXTRA__lingoda_learners_scoring),
     FilterListEntry("EXTRA__fh_aachen_users", "FH Aachen users", EXTRA__fh_aachen_users),
     FilterListEntry(

@@ -781,70 +781,106 @@ def _matches_with_mutual_messages(qs):
     return qs.filter(Exists(sent("user1", "user2")), Exists(sent("user2", "user1")))
 
 
+#: Days without interaction → the reminder template → the flag that records it was sent.
+#: Ordered oldest-first so the stage a match has actually reached is the first one that fits.
+INTERACTION_REMINDERS = (
+    (14, "automatic-emails-m014", "interaction_reminder_14_days_send"),
+    (7, "automatic-emails-m013", "interaction_reminder_7_days_send"),
+    (2, "automatic-emails-m012", "interaction_reminder_2_days_send"),
+)
+
+M012_M013_M014_LINK = "https://drive.google.com/file/d/1XcY6_OMZES5QJoMkc6jbEzwYNdCWrnaU/view"
+
+#: Result keys the callers and tests read, kept beside the templates they report on.
+RESULT_KEY_BY_TEMPLATE = {
+    "automatic-emails-m012": "matches_m012",
+    "automatic-emails-m013": "matches_m013",
+    "automatic-emails-m014": "matches_m014",
+}
+
+
+def _reminder_stage_for(match, now):
+    """The one reminder a match is due, or ``None``.
+
+    Chosen by how long the match has been silent, not by walking the flags upwards. The
+    flags say what has already been sent; the age says where the match actually is. Reading
+    the age first is what stops a match that is *already* past every threshold from
+    collecting all three e-mails in one run — see the docstring on the task.
+    """
+    for days, template, send_field in INTERACTION_REMINDERS:
+        if getattr(match, send_field):
+            return None  # Already had this stage or a later one; nothing further is due.
+        if match.latest_interaction_at is not None and match.latest_interaction_at <= now - timedelta(days=days):
+            return days, template, send_field
+    return None
+
+
 @shared_task
 def automatic_emails_m012_m013_m014():
     """
     Active match between users but no interaction yet (no messages or video calls).
     Includes matches not yet confirmed by both users (e.g. after proposal accept).
     Applies to Standard and Random Call matches.
+
+    At most one reminder per match per run. The three stages used to be looped in order,
+    each selecting on the flag the previous one had just written, so a match already older
+    than 14 days matched all three in a single pass: m012 set ``2_days_send``, which let
+    m013 select it, which set ``7_days_send``, which let m014 select it. That is invisible
+    while matches age through the stages one run at a time, and it fired on 2026-08-27 when
+    a batch of months-old Random Call matches entered the query at once — 15 of 17 people
+    received all three inside seven seconds.
+
+    Windowing the stages does not fix it: an old match would then match no stage at all,
+    because m013 and m014 still require the earlier flags. So the stage is picked by age and
+    every earlier flag is marked with it — one e-mail, the one that fits, chain left
+    consistent for anything that follows.
     """
     from django.conf import settings
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M012_M013_M014)
 
-    reminder = {
-        "automatic-emails-m012": [2, False, False, False],
-        "automatic-emails-m013": [7, True, False, False],
-        "automatic-emails-m014": [14, True, True, False],
-    }
+    now = dj_timezone.now()
+    candidates = _match_journey_matches().filter(
+        active=True,
+        total_messages_counter=0,
+        total_mutal_video_calls_counter=0,
+        latest_interaction_at__isnull=False,
+        latest_interaction_at__lte=now - timedelta(days=INTERACTION_REMINDERS[-1][0]),
+        support_matching=False,
+        # The last stage is terminal, so anything carrying it can never be due again. Pruned
+        # in the query rather than in `_reminder_stage_for`, which would otherwise walk every
+        # match that has ever been quiet for two days.
+        interaction_reminder_14_days_send=False,
+    )
 
-    matches_found = []
+    sent = {"matches_m012": [], "matches_m013": [], "matches_m014": []}
 
-    for template, (days, two_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
-        matches = _match_journey_matches().filter(
-            active=True,
-            total_messages_counter=0,
-            total_mutal_video_calls_counter=0,
-            latest_interaction_at__lte=dj_timezone.now() - timedelta(days=days),
-            interaction_reminder_2_days_send=two_days_reminder,
-            interaction_reminder_7_days_send=seven_days_reminder,
-            interaction_reminder_14_days_send=fourteen_days_reminder,
-            support_matching=False,
-        )
+    for match in candidates:
+        stage = _reminder_stage_for(match, now)
+        if stage is None:
+            continue
+        days, template, send_field = stage
 
-        for match in matches:
+        for user in (match.user1, match.user2):
             send_email_background.delay(
                 template,
-                user_id=match.user1.id,
+                user_id=user.id,
                 match_id=match.pk,
                 emulated_send=emulated_send,
-                context={"link_url": "https://drive.google.com/file/d/1XcY6_OMZES5QJoMkc6jbEzwYNdCWrnaU/view"},
-            )
-            send_email_background.delay(
-                template,
-                user_id=match.user2.id,
-                match_id=match.pk,
-                emulated_send=emulated_send,
-                context={"link_url": "https://drive.google.com/file/d/1XcY6_OMZES5QJoMkc6jbEzwYNdCWrnaU/view"},
+                context={"link_url": M012_M013_M014_LINK},
             )
 
-            match days:
-                case 2:
-                    match.interaction_reminder_2_days_send = True
-                case 7:
-                    match.interaction_reminder_7_days_send = True
-                case 14:
-                    match.interaction_reminder_14_days_send = True
+        # Everything at or below the stage that fired, so a match that arrives late does not
+        # walk back down the ladder on later runs.
+        changed = [field for threshold, _t, field in INTERACTION_REMINDERS if threshold <= days]
+        for field in changed:
+            setattr(match, field, True)
+        match.save(update_fields=[*changed, "updated_at"])
 
-            match.save()
-        matches_found.append(matches)
+        # Match objects, not uuids: callers and tests read `.user1` / `.pk` off these.
+        sent[RESULT_KEY_BY_TEMPLATE[template]].append(match)
 
-    return {
-        "status": "sent",
-        "matches_m012": matches_found[0],
-        "matches_m013": matches_found[1],
-        "matches_m014": matches_found[2],
-    }
+    return {"status": "sent", **sent}
 
 
 @shared_task
@@ -2025,7 +2061,7 @@ def automatic_emails_fm021_fm022__ghosted_matches():
 
     time_15days_ago = timezone.now() - timedelta(days=15)
     time_3weeks_ago = timezone.now() - timedelta(weeks=3)
-    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.ENABLE_AUTO_EMAILS__FM021_FM022)
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__FM021_FM022)
 
     report = {
         "matches_single_party_contact": 0,
@@ -2069,18 +2105,15 @@ def automatic_emails_fm021_fm022__ghosted_matches():
             Q(sender=match.user1, recipient=match.user2) | Q(sender=match.user2, recipient=match.user1)
         ).order_by("-created")
         last_message, unreplied_since = _get_unreplied_message_streak(messages)
-        newest_video_call = (
-            LivekitSession.objects.filter(
-                Q(u1=match.user1, u2=match.user2) | Q(u1=match.user2, u2=match.user1),
-                both_have_been_active=True,
-            )
-            .order_by("-created_at")
-            .first()
-        )
+        had_mutual_video_call = LivekitSession.objects.filter(
+            Q(u1=match.user1, u2=match.user2) | Q(u1=match.user2, u2=match.user1),
+            both_have_been_active=True,
+        ).exists()
         if (
             last_message
+            and unreplied_since is not None
             and unreplied_since < time_15days_ago
-            and (newest_video_call and newest_video_call.created_at < time_15days_ago)
+            and not had_mutual_video_call
         ):
             match.is_ghosted_match = True
             ghosted_user = last_message.sender
