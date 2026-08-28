@@ -9,6 +9,7 @@ from management.models.object_history import ObjectHistory, ObjectHistorySeriali
 
 _TRACKED_TASK_FIELDS = ("title", "description", "status", "priority")
 _TRACKED_ACTION_FIELDS = ("status", "parameters")
+_TRACKED_NOTE_FIELDS = ("text", "completed")
 _FIELD_VALUE_MODELS: dict[str, str] = {
     "assignees": "management.User",
 }
@@ -30,6 +31,30 @@ def _history_diffs(obj, tracked_fields, update_fields=None):
             _, new_val = _resolve_field(f, new_raw)
             diffs.append((display_field, old_val, new_val))
     return diffs
+
+
+def _log_save_history(obj, is_new: bool, diffs, changed_by) -> None:
+    ct = ContentType.objects.get_for_model(obj)
+    if is_new:
+        ObjectHistory.objects.create(
+            content_type=ct, object_id=obj.pk, changed_by=changed_by, type=ObjectHistory.Type.CREATE
+        )
+    elif diffs:
+        ObjectHistory.objects.bulk_create(
+            [
+                ObjectHistory(
+                    content_type=ct,
+                    object_id=obj.pk,
+                    changed_by=changed_by,
+                    type=ObjectHistory.Type.UPDATE,
+                    field=f,
+                    old_value=old,
+                    new_value=new,
+                    value_model=_FIELD_VALUE_MODELS.get(f),
+                )
+                for f, old, new in diffs
+            ]
+        )
 
 
 class SupportTask(models.Model):
@@ -78,27 +103,7 @@ class SupportTask(models.Model):
         is_new = not self.pk
         diffs = [] if is_new else _history_diffs(self, _TRACKED_TASK_FIELDS, kwargs.get("update_fields"))
         super().save(*args, **kwargs)
-        ct = ContentType.objects.get_for_model(self)
-        if is_new:
-            ObjectHistory.objects.create(
-                content_type=ct, object_id=self.pk, changed_by=changed_by, type=ObjectHistory.Type.CREATE
-            )
-        elif diffs:
-            ObjectHistory.objects.bulk_create(
-                [
-                    ObjectHistory(
-                        content_type=ct,
-                        object_id=self.pk,
-                        changed_by=changed_by,
-                        type=ObjectHistory.Type.UPDATE,
-                        field=f,
-                        old_value=old,
-                        new_value=new,
-                        value_model=_FIELD_VALUE_MODELS.get(f),
-                    )
-                    for f, old, new in diffs
-                ]
-            )
+        _log_save_history(self, is_new, diffs, changed_by)
 
     @classmethod
     def create_of_type(
@@ -222,27 +227,7 @@ class SupportTaskAction(models.Model):
         super().save(*args, **kwargs)
         if self.task_id:
             SupportTask.objects.filter(pk=self.task_id).update(updated_at=timezone.now())
-        ct = ContentType.objects.get_for_model(self)
-        if is_new:
-            ObjectHistory.objects.create(
-                content_type=ct, object_id=self.pk, changed_by=changed_by, type=ObjectHistory.Type.CREATE
-            )
-        elif diffs:
-            ObjectHistory.objects.bulk_create(
-                [
-                    ObjectHistory(
-                        content_type=ct,
-                        object_id=self.pk,
-                        changed_by=changed_by,
-                        type=ObjectHistory.Type.UPDATE,
-                        field=f,
-                        old_value=old,
-                        new_value=new,
-                        value_model=_FIELD_VALUE_MODELS.get(f),
-                    )
-                    for f, old, new in diffs
-                ]
-            )
+        _log_save_history(self, is_new, diffs, changed_by)
 
     def resolve(self, new_status: "SupportTaskAction.Status", reviewed_by) -> None:
         if self.status != self.Status.OPEN:
@@ -257,6 +242,35 @@ class SupportTaskAction(models.Model):
 
     def __str__(self):
         return f"SupportTaskAction({self.pk}): {self.action_type} [{self.status}]"
+
+
+class SupportTaskNote(models.Model):
+    task = models.ForeignKey(SupportTask, on_delete=models.CASCADE, related_name="notes")
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    completed_by = models.ForeignKey(
+        "management.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+
+    history = GenericRelation(ObjectHistory)
+
+    def save(self, *args, changed_by=None, **kwargs) -> None:
+        is_new = not self.pk
+        diffs = [] if is_new else _history_diffs(self, _TRACKED_NOTE_FIELDS, kwargs.get("update_fields"))
+        super().save(*args, **kwargs)
+        _log_save_history(self, is_new, diffs, changed_by)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"SupportTaskNote({self.pk}) on task {self.task_id}"
 
 
 class SupportTaskActionSerializer(serializers.ModelSerializer):
@@ -319,8 +333,29 @@ def _serialize_related_user_profile(user) -> dict | None:
         return base
 
 
+class SupportTaskNoteSerializer(serializers.ModelSerializer):
+    history = ObjectHistorySerializer(many=True, read_only=True)
+    completed_by_profile = serializers.SerializerMethodField()
+
+    def get_completed_by_profile(self, obj):
+        return _serialize_user_profile(obj.completed_by)
+
+    class Meta:
+        model = SupportTaskNote
+        fields = [
+            "id",
+            "text",
+            "completed",
+            "completed_at",
+            "created_at",
+            "completed_by_profile",
+            "history",
+        ]
+
+
 class SupportTaskSerializer(serializers.ModelSerializer):
     action = SupportTaskActionSerializer(read_only=True)
+    notes = SupportTaskNoteSerializer(many=True, read_only=True)
     history = ObjectHistorySerializer(many=True, read_only=True)
     related_user_profile = serializers.SerializerMethodField()
     assignee_profiles = serializers.SerializerMethodField()
@@ -373,6 +408,7 @@ class SupportTaskSerializer(serializers.ModelSerializer):
             "updated_at",
             "action",
             "history",
+            "notes",
         ]
         read_only_fields = [
             "created_at",

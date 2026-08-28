@@ -1,5 +1,6 @@
 from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.urls import path
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.authentication import SessionAuthentication
@@ -19,6 +20,8 @@ from management.models.support_task import (
     SupportTask,
     SupportTaskAction,
     SupportTaskActionSerializer,
+    SupportTaskNote,
+    SupportTaskNoteSerializer,
     SupportTaskSerializer,
 )
 from management.models.user import User
@@ -139,7 +142,11 @@ class SupportTaskListQuerySerializer(serializers.Serializer):
 def support_task_list(request):
     tasks = (
         SupportTask.objects.select_related("action", "related_user__profile", "created_by__profile")
-        .prefetch_related("assignees__profile")
+        .prefetch_related(
+            "assignees__profile",
+            "notes__completed_by__profile",
+            "notes__history__changed_by__profile",
+        )
         .all()
     )
 
@@ -226,7 +233,11 @@ def support_task_detail(request, pk):
     try:
         task = (
             SupportTask.objects.select_related("action", "related_user__profile", "created_by__profile")
-            .prefetch_related("assignees__profile")
+            .prefetch_related(
+                "assignees__profile",
+                "notes__completed_by__profile",
+                "notes__history__changed_by__profile",
+            )
             .get(pk=pk)
         )
     except SupportTask.DoesNotExist:
@@ -417,6 +428,52 @@ def user_search(request):
     return Response(results)
 
 
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAdminOrMatchingUser])
+def support_task_note_create(request, task_pk):
+    try:
+        task = SupportTask.objects.get(pk=task_pk)
+    except SupportTask.DoesNotExist:
+        return Response({"error": "Support task not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    text = (request.data.get("text") or "").strip()
+    if not text:
+        return Response({"error": "Note text is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    note = SupportTaskNote(task=task, text=text)
+    note.save(changed_by=request.user)
+    return Response(SupportTaskNoteSerializer(note).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["PATCH"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAdminOrMatchingUser])
+def support_task_note_detail(request, note_pk):
+    """Edit a note's text and/or completion. Returns the updated note."""
+    try:
+        note = SupportTaskNote.objects.get(pk=note_pk)
+    except SupportTaskNote.DoesNotExist:
+        return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    update_fields = []
+    if "text" in request.data:
+        text = (request.data.get("text") or "").strip()
+        if not text:
+            return Response({"error": "Note text is required"}, status=status.HTTP_400_BAD_REQUEST)
+        note.text = text
+        update_fields.append("text")
+    if "completed" in request.data:
+        note.completed = bool(request.data["completed"])
+        note.completed_at = timezone.now() if note.completed else None
+        note.completed_by = request.user if note.completed else None
+        update_fields += ["completed", "completed_at", "completed_by"]
+
+    if update_fields:
+        note.save(update_fields=update_fields, changed_by=request.user)
+    return Response(SupportTaskNoteSerializer(note).data)
+
+
 api_urls = [
     path("api/support_task/", support_task_list),
     path("api/support_task/bulk/", support_task_bulk),
@@ -430,4 +487,6 @@ api_urls = [
     path("api/support_task/<int:task_pk>/action/", support_task_action_update),
     path("api/support_task/<int:task_pk>/action/execute/", support_task_action_execute),
     path("api/support_task/<int:task_pk>/action/cancel/", support_task_action_cancel),
+    path("api/support_task/<int:task_pk>/notes/", support_task_note_create),
+    path("api/support_task/notes/<int:note_pk>/", support_task_note_detail),
 ]
