@@ -117,7 +117,6 @@ class SupportTask(models.Model):
     ) -> "SupportTask":
         """Atomically create a task of a registered type with the corresponding action."""
         from management.actions.registry import get_action_definition, get_task_definition, registered_task_types
-        from management.permissions import ManagementPermission, users_with_effective_permission
 
         if task_type not in registered_task_types():
             raise ValueError(f"Unknown task type: '{task_type}'")
@@ -150,8 +149,6 @@ class SupportTask(models.Model):
                 parameters=parameters,
             )
             action.save()
-            if task_type == "support_reply":
-                assignees = users_with_effective_permission(ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES)
             if assignees is not None:
                 task.assignees.set(assignees)
         return task
