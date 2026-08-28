@@ -67,7 +67,18 @@ def update_match_for_message(sender, recipient, chat) -> None:
     match.latest_interaction_at = timezone.now()
     if match.first_interaction_at is None:
         match.first_interaction_at = timezone.now()
-    match.save()
+    # Narrowed on purpose: a bare save() writes all 45 columns, 16 of which are send-once
+    # e-mail flags. On the message hot path that races every journey task — whichever loaded
+    # the match first writes its stale flags back, and the "already sent" guard silently
+    # reopens.
+    match.save(
+        update_fields=[
+            "total_messages_counter",
+            "latest_interaction_at",
+            "first_interaction_at",
+            "updated_at",
+        ]
+    )
 
 
 def resolve_recipient_email_notification(recipient) -> bool:

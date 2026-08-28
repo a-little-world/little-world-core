@@ -1060,7 +1060,7 @@ def automatic_emails_m031_m032_m033_m042():
         )
 
         match.auto_email_m031_send = True
-        match.save()
+        match.save(update_fields=["auto_email_m031_send", "updated_at"])
 
     redirect_slugs = {
         "redirect_slug_no": "info-screen",
@@ -1095,7 +1095,7 @@ def automatic_emails_m031_m032_m033_m042():
         )
 
         match.auto_email_m032_send = True
-        match.save()
+        match.save(update_fields=["auto_email_m032_send", "updated_at"])
 
     # 3 - automatic-emails-m033
     matches_m033 = _matches_with_mutual_messages(_match_journey_matches()).filter(
@@ -1125,7 +1125,7 @@ def automatic_emails_m031_m032_m033_m042():
         )
 
         match.auto_email_m033_send = True
-        match.save()
+        match.save(update_fields=["auto_email_m033_send", "updated_at"])
 
     # 4 - automatic-emails-m042
     matches_m042 = _matches_with_mutual_messages(_match_journey_matches()).filter(
@@ -1154,7 +1154,7 @@ def automatic_emails_m031_m032_m033_m042():
         )
 
         match.auto_email_m042_send = True
-        match.save()
+        match.save(update_fields=["auto_email_m042_send", "updated_at"])
 
     return {
         "status": "sent",
@@ -1212,7 +1212,7 @@ def automatic_emails_m053_m054_m055():
             )
 
         match.auto_email_m053_send = True
-        match.save()
+        match.save(update_fields=["auto_email_m053_send", "updated_at"])
 
     # 2 - automatic-emails-m054
     matches_m054 = _match_journey_matches().filter(
@@ -1238,7 +1238,7 @@ def automatic_emails_m053_m054_m055():
             )
 
         match.auto_email_m054_send = True
-        match.save()
+        match.save(update_fields=["auto_email_m054_send", "updated_at"])
 
     # 3 - automatic-emails-m055
     matches_m055 = _match_journey_matches().filter(
@@ -1263,7 +1263,7 @@ def automatic_emails_m053_m054_m055():
             )
 
         match.auto_email_m055_send = True
-        match.save()
+        match.save(update_fields=["auto_email_m055_send", "updated_at"])
 
     return {
         "status": "sent",
@@ -1777,7 +1777,15 @@ def automatic_emails_m043_m044_m045():
         match.auto_email_m044_send = True
         match.auto_email_m045_send = True
         match.completed_10_video_calls = True
-        match.save()
+        match.save(
+            update_fields=[
+                "auto_email_m043_send",
+                "auto_email_m044_send",
+                "auto_email_m045_send",
+                "completed_10_video_calls",
+                "updated_at",
+            ]
+        )
 
     # === 8 x Video Calls ===
     sync__matches_video_call_m044 = _match_journey_matches().filter(
@@ -1819,7 +1827,15 @@ def automatic_emails_m043_m044_m045():
         match.auto_email_m044_send = True
         match.completed_5_video_calls = True
         match.completed_8_video_calls = True
-        match.save()
+        match.save(
+            update_fields=[
+                "auto_email_m043_send",
+                "auto_email_m044_send",
+                "completed_5_video_calls",
+                "completed_8_video_calls",
+                "updated_at",
+            ]
+        )
 
     # === 5 x Video Calls ===
     # Only check matches where latest_counter_sync <= latest_interaction_at
@@ -1859,7 +1875,7 @@ def automatic_emails_m043_m044_m045():
             report["m043_send_to"].append([str(match.uuid), user.id])
         match.auto_email_m043_send = True
         match.completed_5_video_calls = True
-        match.save()
+        match.save(update_fields=["auto_email_m043_send", "completed_5_video_calls", "updated_at"])
 
     return report
 
@@ -2120,7 +2136,7 @@ def automatic_emails_fm021_fm022__ghosted_matches():
             ghosted_by_user = last_message.recipient
             match.ghosted_by = ghosted_by_user
             match.marked_as_ghosted_at = timezone.now()
-            match.save()
+            match.save(update_fields=["is_ghosted_match", "ghosted_by", "marked_as_ghosted_at", "updated_at"])
             report["matches_ghosted"].append(match.uuid)
             send_email_background.delay(
                 "automatic-emails-fm021", user_id=ghosted_user.id, match_id=match.pk, emulated_send=emulated_send
@@ -2132,7 +2148,7 @@ def automatic_emails_fm021_fm022__ghosted_matches():
             report["fm022_send_to"].append([str(match.uuid), ghosted_by_user.id])
             match.auto_email_fm021_send = True
             match.auto_email_fm022_send = True
-            match.save()
+            match.save(update_fields=["auto_email_fm021_send", "auto_email_fm022_send", "updated_at"])
             # We actually remove the matching and mark it as 'ghosted'
             process_report_unmatch(
                 match.user1, match, "ghosted", "Single party contact for 15 days", send_message=False

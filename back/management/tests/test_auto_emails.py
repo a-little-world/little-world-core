@@ -272,6 +272,64 @@ class TestInteractionReminderStaging(TestCase):
         self.assertEqual([m.pk for m in automatic_emails_m012_m013_m014()["matches_m014"]], [match.pk])
 
 
+class TestSendOnceFlagsSurviveConcurrentWrites(TestCase):
+    """A task holding a stale Match must not reopen another task's send-once flag.
+
+    `Match` has 45 columns, 16 of them send-once e-mail flags, so a bare `save()` writes
+    every flag from whatever was in memory when the row was loaded. Beat runs these tasks in
+    the same window: on 2026-08-27 one user received the full m012/m013/m014 ladder, and then
+    received it again the next morning because a task that had loaded the match *before* the
+    flags were set wrote its stale copy back.
+    """
+
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+        self.user1 = create_test_user(42001, None, "Test123!", "concurrent-a@test.de")
+        self.user2 = create_test_user(42002, None, "Test123!", "concurrent-b@test.de")
+        self.match = Match.objects.create(
+            user1=self.user1,
+            user2=self.user2,
+            confirmed=True,
+            active=True,
+            total_messages_counter=0,
+            total_mutal_video_calls_counter=0,
+        )
+        Match.objects.filter(pk=self.match.pk).update(latest_interaction_at=dj_timezone.now() - timedelta(days=40))
+
+    def test_a_stale_writer_cannot_clear_a_flag_set_after_it_loaded(self):
+        # Task A loads the match while every reminder flag is still False.
+        stale = Match.objects.get(pk=self.match.pk)
+        assert stale.interaction_reminder_2_days_send is False
+
+        # Task B sends the reminder and records it.
+        automatic_emails_m012_m013_m014()
+        self.match.refresh_from_db()
+        assert self.match.interaction_reminder_14_days_send is True
+
+        # Task A now writes its own unrelated flag from its stale copy.
+        stale.auto_email_m031_send = True
+        stale.save(update_fields=["auto_email_m031_send", "updated_at"])
+
+        self.match.refresh_from_db()
+        assert self.match.auto_email_m031_send is True
+        assert self.match.interaction_reminder_14_days_send is True, (
+            "a stale writer reopened the reminder ladder — the send-once guard is not a guard"
+        )
+
+    def test_the_reminder_does_not_repeat_on_the_next_run(self):
+        """The whole point: yesterday's send must not come round again today."""
+        # Loaded first, exactly as a concurrent task's queryset would be.
+        stale = Match.objects.get(pk=self.match.pk)
+
+        automatic_emails_m012_m013_m014()
+
+        stale.auto_email_m042_send = True
+        stale.save(update_fields=["auto_email_m042_send", "updated_at"])
+
+        second = automatic_emails_m012_m013_m014()
+        assert second["matches_m012"] + second["matches_m013"] + second["matches_m014"] == []
+
+
 class TestAutomaticEmails_m023(TestCase):
     def setUp(self):
         settings.DJANGO_TESTING = True
