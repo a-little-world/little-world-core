@@ -90,8 +90,8 @@ MANAGEMENT_USER_PASSWORD = os.environ.get("DJ_MANAGEMENT_USER_PASSWORD", None)
 if MANAGEMENT_USER_PASSWORD is None:
     raise ValueError("DJ_MANAGEMENT_USER_PASSWORD is not set")
 
-MATCHING_USER_FIRST_NAME = os.environ.get("DJ_MATCHING_USER_FIRST_NAME", "Tim")
-MATCHING_USER_SECOND_NAME = os.environ.get("DJ_MATCHING_USER_SECOND_NAME", "Schupp")
+MATCHING_USER_FIRST_NAME = os.environ.get("DJ_MATCHING_USER_FIRST_NAME", "Support Team")
+MATCHING_USER_SECOND_NAME = os.environ.get("DJ_MATCHING_USER_SECOND_NAME", "")
 ADMIN_OPEN_KEYPHRASE = os.environ.get(
     "DJ_ADMIN_OPEN_KEYPHRASE",
     str(uuid.uuid4()) if IS_PROD else "opensesame",  # random string if nothing is set in production
