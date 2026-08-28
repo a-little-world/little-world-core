@@ -170,6 +170,11 @@ class SupportTask(models.Model):
         )
         SupportTask.objects.filter(pk=self.pk).update(updated_at=timezone.now())
 
+    def claim_if_unassigned(self, user) -> None:
+        if user is None or self.assignees.exists():
+            return
+        self.set_assignees([user], changed_by=user)
+
     def can_complete(self) -> bool:
         return self.action.status != SupportTaskAction.Status.OPEN
 
@@ -236,8 +241,7 @@ class SupportTaskAction(models.Model):
         self.reviewed_at = timezone.now()
         self.save(update_fields=["status", "reviewed_by", "reviewed_at"], changed_by=reviewed_by)
         self.task.complete(changed_by=reviewed_by)
-        if reviewed_by is not None:
-            self.task.set_assignees([reviewed_by], changed_by=reviewed_by)
+        self.task.claim_if_unassigned(reviewed_by)
 
     def __str__(self):
         return f"SupportTaskAction({self.pk}): {self.action_type} [{self.status}]"

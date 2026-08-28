@@ -256,6 +256,7 @@ def support_task_update(request, pk):
     serializer = SupportTaskSerializer(task, data=request.data, partial=True)
     serializer.is_valid(raise_exception=True)
     serializer.save(changed_by=request.user)
+    task.claim_if_unassigned(request.user)
     return Response(SupportTaskSerializer(task).data)
 
 
@@ -290,6 +291,7 @@ def support_task_action_update(request, task_pk):
     if new_params is not None:
         action.parameters = new_params
         action.save(update_fields=["parameters"], changed_by=request.user)
+        task.claim_if_unassigned(request.user)
 
     return Response(SupportTaskActionSerializer(action).data)
 
