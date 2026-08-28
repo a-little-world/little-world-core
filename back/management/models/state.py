@@ -136,7 +136,9 @@ class State(models.Model):
         default=SearchingStateChoices.IDLE,
         max_length=255,
     )
-    searching_state_last_updated = models.DateTimeField(auto_now=timezone.now)
+    # Not auto_now: that field would bump on every State.save() (notes, email flags, …)
+    # and Django hides auto_now fields from admin forms.
+    searching_state_last_updated = models.DateTimeField(default=timezone.now, editable=False)
     prematch_booking_code = models.CharField(max_length=255, default=uuid.uuid4)
 
     # This is used to ensure no user can manipulate the responses of the still in contact form
@@ -258,11 +260,17 @@ class State(models.Model):
         permissions = MANAGEMENT_PERMISSION_DEFINITIONS
 
     def save(self, *args, **kwargs):
-        # Check if searching_state has changed
-        if self.pk:  # Only for existing instances
-            original = State.objects.get(pk=self.pk)
-            if original.searching_state != self.searching_state:
+        update_fields = kwargs.get("update_fields")
+        searching_in_update = update_fields is None or "searching_state" in update_fields
+
+        if searching_in_update and self.pk:
+            original_searching_state = (
+                State.objects.filter(pk=self.pk).values_list("searching_state", flat=True).first()
+            )
+            if original_searching_state is not None and original_searching_state != self.searching_state:
                 self.searching_state_last_updated = timezone.now()
+                if update_fields is not None:
+                    kwargs["update_fields"] = {*update_fields, "searching_state_last_updated"}
 
         super().save(*args, **kwargs)
 
