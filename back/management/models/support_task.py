@@ -239,6 +239,8 @@ class SupportTaskAction(models.Model):
         self.reviewed_at = timezone.now()
         self.save(update_fields=["status", "reviewed_by", "reviewed_at"], changed_by=reviewed_by)
         self.task.complete(changed_by=reviewed_by)
+        if reviewed_by is not None:
+            self.task.set_assignees([reviewed_by], changed_by=reviewed_by)
 
     def __str__(self):
         return f"SupportTaskAction({self.pk}): {self.action_type} [{self.status}]"
