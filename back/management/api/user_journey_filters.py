@@ -767,47 +767,33 @@ def subscribed_to_newsletter(qs=User.objects.all()):
     return qs.filter(profile__newsletter_subscribed=True).order_by("-date_joined")
 
 
-def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
+def community_calls(qs=User.objects.all()):
     """
-    Community Calls filter
-    """
-    selected_fields = ["id"]
+    Onboarded learners & volunteers — signed up last 6 months or active last 3 months
 
-    onboarded_unmatched_users = qs.filter(state__is_onboarded=True, state__has_received_first_match=False).values(
-        *selected_fields
-    )
-    learners_with_completed_form_outside_germany = (
-        user_form_completed(qs)
+    All onboarded learners and volunteers who signed up in the last 6 months or were
+    active in the last 3 months (login, messages, or video calls), regardless of
+    current match status.
+    """
+    activity_cutoff = days_ago(28 * 3)
+    return (
+        qs.filter(
+            is_active=True,
+            state__is_onboarded=True,
+            profile__user_type__in=[
+                Profile.TypeChoices.LEARNER,
+                Profile.TypeChoices.VOLUNTEER,
+            ],
+        )
         .filter(
-            profile__user_type=Profile.TypeChoices.LEARNER,
-            profile__country_of_residence__isnull=False,
-            state__force_match_eligible=False,
+            Q(date_joined__gte=days_ago(28 * 6))
+            | Q(last_login__gte=activity_cutoff)
+            | Q(u1_livekit_session__created_at__gte=activity_cutoff)
+            | Q(u2_livekit_session__created_at__gte=activity_cutoff)
+            | Q(message_sender__created__gte=activity_cutoff)
         )
-        .exclude(profile__country_of_residence="DE")
-        .values(*selected_fields)
+        .distinct()
     )
-
-    users_without_match = User.objects.filter(
-        id__in=onboarded_unmatched_users.union(learners_with_completed_form_outside_germany)
-    ).values(*selected_fields)
-    users_without_match = User.objects.filter(id__in=users_without_match).distinct()
-    users_without_match = users_without_match.filter(date_joined__gte=days_ago(last_x_days))
-
-    prematching_users = (
-        pre_matching(qs)
-        .values(*selected_fields)
-        .union(
-            match_takeoff(qs).values(*selected_fields),
-            active_match(qs, last_interaction_days=35).values(*selected_fields),
-        )
-    )
-
-    prematching_users = User.objects.filter(id__in=prematching_users).distinct()
-
-    all_users = users_without_match.values(*selected_fields).union(prematching_users.values(*selected_fields))
-    all_distinct_users = User.objects.filter(id__in=all_users).distinct()
-
-    return all_distinct_users
 
 
 def community__active_volunteers(qs=User.objects.all()):

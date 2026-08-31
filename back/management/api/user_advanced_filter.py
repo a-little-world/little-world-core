@@ -500,6 +500,27 @@ def EXTRA__onboarded_volunteers_with_activity_in_last3weeks(qs=User.objects.all(
     )
 
 
+def EXTRA__priority_learners_and_searching_volunteers(qs=User.objects.all()):
+    """
+    Onboarded priority learners and searching volunteers
+    """
+    return (
+        qs.filter(is_active=True)
+        .filter(
+            Q(
+                profile__user_type=Profile.TypeChoices.LEARNER,
+                state__is_onboarded=True,
+                state__has_match_priority=True,
+            )
+            | Q(
+                profile__user_type=Profile.TypeChoices.VOLUNTEER,
+                state__searching_state=State.SearchingStateChoices.SEARCHING,
+            )
+        )
+        .distinct()
+    )
+
+
 def EXTRA__suggestion_match_completed_on_plattform(qs=User.objects.all()):
     """
     Users with a non-support match that reached the active match-token success target.
