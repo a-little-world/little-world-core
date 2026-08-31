@@ -1,7 +1,9 @@
 from datetime import date, timedelta
 
-from django.db.models import Count, Max, Q
+from chat.models import Message
+from django.db.models import Count, Exists, Max, OuterRef, Q
 from django.utils import timezone
+from video.models import LivekitSession
 
 from management.api.match_journey_filters import (
     completed_match,
@@ -776,23 +778,29 @@ def community_calls(qs=User.objects.all()):
     current match status.
     """
     activity_cutoff = days_ago(28 * 3)
-    return (
-        qs.filter(
-            is_active=True,
-            state__is_onboarded=True,
-            profile__user_type__in=[
-                Profile.TypeChoices.LEARNER,
-                Profile.TypeChoices.VOLUNTEER,
-            ],
-        )
-        .filter(
-            Q(date_joined__gte=days_ago(28 * 6))
-            | Q(last_login__gte=activity_cutoff)
-            | Q(u1_livekit_session__created_at__gte=activity_cutoff)
-            | Q(u2_livekit_session__created_at__gte=activity_cutoff)
-            | Q(message_sender__created__gte=activity_cutoff)
-        )
-        .distinct()
+
+    # Correlated EXISTS rather than ORed reverse-relation lookups: the join form
+    # multiplies sessions x sessions x messages per user before DISTINCT
+    # (3.5bn intermediate rows on 16k users, count() never returned; this form
+    # answers in ~2s). See dev/docs/analytics_conventions.md section 6.
+    recent_call = LivekitSession.objects.filter(
+        Q(u1=OuterRef("pk")) | Q(u2=OuterRef("pk")),
+        created_at__gte=activity_cutoff,
+    )
+    recent_message = Message.objects.filter(sender=OuterRef("pk"), created__gte=activity_cutoff)
+
+    return qs.filter(
+        is_active=True,
+        state__is_onboarded=True,
+        profile__user_type__in=[
+            Profile.TypeChoices.LEARNER,
+            Profile.TypeChoices.VOLUNTEER,
+        ],
+    ).filter(
+        Q(date_joined__gte=days_ago(28 * 6))
+        | Q(last_login__gte=activity_cutoff)
+        | Q(Exists(recent_call))
+        | Q(Exists(recent_message))
     )
 
 

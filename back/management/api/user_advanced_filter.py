@@ -504,20 +504,18 @@ def EXTRA__priority_learners_and_searching_volunteers(qs=User.objects.all()):
     """
     Onboarded priority learners and searching volunteers
     """
-    return (
-        qs.filter(is_active=True)
-        .filter(
-            Q(
-                profile__user_type=Profile.TypeChoices.LEARNER,
-                state__is_onboarded=True,
-                state__has_match_priority=True,
-            )
-            | Q(
-                profile__user_type=Profile.TypeChoices.VOLUNTEER,
-                state__searching_state=State.SearchingStateChoices.SEARCHING,
-            )
+    # profile and state are OneToOne, so there is no fan-out and no distinct() needed.
+    return qs.filter(is_active=True).filter(
+        Q(
+            profile__user_type=Profile.TypeChoices.LEARNER,
+            state__is_onboarded=True,
+            state__has_match_priority=True,
         )
-        .distinct()
+        | Q(
+            profile__user_type=Profile.TypeChoices.VOLUNTEER,
+            state__is_onboarded=True,
+            state__searching_state=State.SearchingStateChoices.SEARCHING,
+        )
     )
 
 
