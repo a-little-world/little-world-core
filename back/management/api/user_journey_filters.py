@@ -779,10 +779,6 @@ def community_calls(qs=User.objects.all()):
     """
     activity_cutoff = days_ago(28 * 3)
 
-    # Correlated EXISTS rather than ORed reverse-relation lookups: the join form
-    # multiplies sessions x sessions x messages per user before DISTINCT
-    # (3.5bn intermediate rows on 16k users, count() never returned; this form
-    # answers in ~2s). See dev/docs/analytics_conventions.md section 6.
     recent_call = LivekitSession.objects.filter(
         Q(u1=OuterRef("pk")) | Q(u2=OuterRef("pk")),
         created_at__gte=activity_cutoff,
