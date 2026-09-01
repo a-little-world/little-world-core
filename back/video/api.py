@@ -4,7 +4,6 @@ import uuid
 from chat.consumers.messages import NewActiveCallRoom, OutgoingCallRejected
 from chat.models import Chat, ChatSerializer
 from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.db.models import Exists, OuterRef, Q
 from django.urls import path
 from drf_spectacular.utils import extend_schema
@@ -126,16 +125,13 @@ def post_call_review(request):
         # An unresolvable session is not an error — the user still gets to leave feedback.
         live_session = LivekitSession.objects.filter(uuid=validated_data["live_session_id"]).first()
 
-    try:
-        response = surveys.submit_post_call_review(
-            request.user,
-            live_session=live_session,
-            rating=validated_data["rating"],
-            review=validated_data.get("review", ""),
-            response_id=validated_data.get("review_id", None),
-        )
-    except ValidationError as e:
-        return Response({"status": "error", "message": " ".join(e.messages)}, status=400)
+    response = surveys.submit_post_call_review(
+        request.user,
+        live_session=live_session,
+        rating=validated_data["rating"],
+        review=validated_data.get("review", ""),
+        response_id=validated_data.get("review_id", None),
+    )
 
     return Response({"status": "ok", "review_id": response.pk})
 
