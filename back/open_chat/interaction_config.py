@@ -1,11 +1,9 @@
-"""Safe Open Chat interaction overrides for Little World bots.
+"""Per-interaction Open Chat configuration for Little World automations.
 
-Open Chat ``context`` is the number of prior *interaction chat messages* to load,
-not a token budget. The default bots use ``qwen3-8b-instruct_vllm`` (8192 tokens).
-Keep message history and tool payloads small so multi-round tool use stays in window.
+These values are sent with every interaction so the automations do not depend
+on mutable or missing defaults on pre-provisioned Open Chat bots.
 """
 
-# Aligned with backend/little_world_default_bots/*.json in open-chat-go.
 DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT = 20
 DEFAULT_OPEN_CHAT_MAX_TOKENS = 2048
 DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS = 1024

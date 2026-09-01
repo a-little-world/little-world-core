@@ -1,8 +1,9 @@
 import json
+import logging
 from datetime import timedelta
 
 from chat.consumers.messages import InBlockIncomingCall, NewActiveCallRoom
-from django.db.models import Q
+from django.db.models import F, Q
 from django.http import JsonResponse
 from django.urls import path
 from django.utils import timezone
@@ -18,7 +19,28 @@ from video.models import (
     SerializeLivekitSession,
 )
 
-# TODO: add auto update to 'total_mutal_video_calls_counter'
+logger = logging.getLogger(__name__)
+
+
+def _mark_session_participant_active(session, room, user):
+    if user == room.u1:
+        session.u1_active = True
+        session.u1_was_active = True
+        session.both_have_been_active = session.both_have_been_active or session.u2_active
+    elif user == room.u2:
+        session.u2_active = True
+        session.u2_was_active = True
+        session.both_have_been_active = session.both_have_been_active or session.u1_active
+
+
+def _bump_match_mutual_video_call_counter(room):
+    """Count a mutual video call as soon as both participants have joined."""
+    match = Match.get_match(room.u1, room.u2).first()
+    if match is None:
+        return
+    match.total_mutal_video_calls_counter += 1
+    match.latest_interaction_at = timezone.now()
+    match.save(update_fields=["total_mutal_video_calls_counter", "latest_interaction_at", "updated_at"])
 
 
 def process_webhook_random_call__participant_joined(data, event, participant_id, user, room_id, room):
@@ -27,14 +49,7 @@ def process_webhook_random_call__participant_joined(data, event, participant_id,
     session = None
     if active_session.exists():
         session = active_session.first()
-        if user == room.u1:
-            session.u1_active = True
-            session.u1_was_active = True
-            session.both_have_been_active = session.both_have_been_active or session.u2_active
-        elif user == room.u2:
-            session.u2_active = True
-            session.u2_was_active = True
-            session.both_have_been_active = session.both_have_been_active or session.u1_active
+        _mark_session_participant_active(session, room, user)
     else:
         # TODO: Here we additionally want to create a 'RandomCallSession' DB Object!
         session = LivekitSession.objects.create(
@@ -61,16 +76,11 @@ def process_webhook_classic_call__participant_joined(data, event, participant_id
     # 4 - we determine if a session is already active for that room
     active_session = LivekitSession.objects.filter(room=room, is_active=True)
     session = None
+    already_mutual = False
     if active_session.exists():
         session = active_session.first()
-        if user == room.u1:
-            session.u1_active = True
-            session.u1_was_active = True
-            session.both_have_been_active = session.both_have_been_active or session.u2_active
-        elif user == room.u2:
-            session.u2_active = True
-            session.u2_was_active = True
-            session.both_have_been_active = session.both_have_been_active or session.u1_active
+        already_mutual = session.both_have_been_active
+        _mark_session_participant_active(session, room, user)
     else:
         session = LivekitSession.objects.create(
             room=room,
@@ -87,6 +97,8 @@ def process_webhook_classic_call__participant_joined(data, event, participant_id
     if session is not None:
         session.webhook_events.add(event)
         session.save()
+        if session.both_have_been_active and not already_mutual:
+            _bump_match_mutual_video_call_counter(room)
         # 5 - send 'NewActiveCall' event to the partner of the user that joined
         partner = room.u1 if user == room.u2 else room.u2
         NewActiveCallRoom(call_room=SerializeLivekitSession(session, context={"user": partner}).data).send(
@@ -121,12 +133,7 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
             if session.both_have_been_active:
                 # 1 - send 'CallEnded' event to the partner of the user that left
                 # TOOD: do we want a minimum time threshold for a call to be considered 'ended/successful'?
-                partner = room.u1 if user == room.u2 else room.u2
-                # update the 'counters' on the Match object
-                match = Match.get_match(room.u1, room.u2).first()
-                match.total_mutal_video_calls_counter += 1
-                match.latest_interaction_at = timezone.now()
-                match.save()
+                # Mutual video call counter is bumped when both become active (on join), not on leave.
                 call_duration = session.end_time - session.created_at
 
                 try:
@@ -154,7 +161,6 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
                     )
                 except Exception:
                     print("Cound't send call widged to first_active_user")
-                    pass
 
             else:
                 # 2 - send 'MissedCall' event to the partner of the user that left
@@ -175,7 +181,6 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
                     )
                 except Exception:
                     print("Cound't send call widged to first_active_user")
-                    pass
 
         # check if the call review pop-up should be triggered
         call_duration = end_time - session.created_at
@@ -187,7 +192,6 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
                 PostCallSurvey(post_call_survey={"live_session_id": str(session.uuid)}).send(str(user.uuid))
             except Exception:
                 print("Cound't tigger the post call survey")
-                pass
 
     if session is not None:
         session.webhook_events.add(event)
@@ -200,6 +204,20 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
     # 4 - send 'BlockIncomingCall' event to the partner of the user that left
     partner = room.u1 if user == room.u2 else room.u2
     InBlockIncomingCall(sender_id=participant_id).send(str(partner.uuid))
+
+
+def _matching_for_completed_random_call(user, partner, *, session_created_at):
+    """Resolve the single accepted, in-progress matching for this call."""
+    matching_qs = RandomCallMatching.objects.filter(
+        Q(u1=user, u2=partner) | Q(u1=partner, u2=user),
+        accepted=True,
+        completed=False,
+    )
+    if session_created_at is not None:
+        matching_qs = matching_qs.filter(lobby__start_time__lte=session_created_at).filter(
+            Q(lobby__end_time__gte=session_created_at) | Q(lobby__end_time__isnull=True)
+        )
+    return matching_qs.order_by(F("accepted_at").desc(nulls_last=True), "-pk").first()
 
 
 def process_webhook_random_call__participant_left(data, event, participant_id, user, room_id, room):
@@ -223,15 +241,28 @@ def process_webhook_random_call__participant_left(data, event, participant_id, u
             # Both these evenents should have a 'time_threshold' to determine if the call was missed or ended
 
             if session.both_have_been_active:
-                # 1 - send 'CallEnded' event to the partner of the user that left
-                # TOOD: do we want a minimum time threshold for a call to be considered 'ended/successful'?
                 partner = room.u1 if user == room.u2 else room.u2
-                # update the 'counters' on the Match object
-                # call_duration = session.end_time - session.created_at
-                # Both active call
-                RandomCallMatching.objects.filter(
-                    Q(u1=user, u2=partner) | Q(u1=partner, u2=user), completed=False
-                ).update(completed=True, in_session=False, completed_at=end_time, ended_by=user)
+                matching = _matching_for_completed_random_call(
+                    user,
+                    partner,
+                    session_created_at=session.created_at,
+                )
+                if matching is not None:
+                    RandomCallMatching.objects.filter(pk=matching.pk).update(
+                        completed=True,
+                        in_session=False,
+                        completed_at=end_time,
+                        ended_by=user,
+                    )
+                else:
+                    logger.warning(
+                        "Random call LiveKit session ended but no accepted matching found "
+                        "(room=%s user=%s partner=%s session_created_at=%s)",
+                        room.uuid,
+                        user.uuid,
+                        partner.uuid,
+                        session.created_at,
+                    )
 
             else:
                 # 2 - send 'MissedCall' event to the partner of the user that left

@@ -5,9 +5,9 @@ from django.db import connection
 from django.db.models import Case, Count, F, OuterRef, Q, Subquery, When
 from django.db.models.functions import Extract
 from django.utils import timezone
-from video.models import LivekitSession
 
 from management import controller
+from management.match_success import successful_match_ids
 from management.models.management_tasks import MangementTask
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment
@@ -16,40 +16,9 @@ from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User
 
-MATCH_SUCCESS_UNITS_TARGET = 8
-
 
 def three_weeks_ago():
     return timezone.now() - timedelta(weeks=3)
-
-
-def _video_call_success_units(call_duration):
-    call_duration_seconds = call_duration.total_seconds()
-
-    if call_duration_seconds < 25 * 60:
-        return 0
-
-    if call_duration_seconds < 55 * 60:
-        return 1
-
-    return 2 + int((call_duration_seconds - 55 * 60) // (25 * 60))
-
-
-def _match_success_units(match):
-    sessions = LivekitSession.objects.filter(
-        Q(u1=match.user1, u2=match.user2) | Q(u1=match.user2, u2=match.user1),
-        both_have_been_active=True,
-        created_at__gte=match.created_at,
-        end_time__isnull=False,
-    )
-
-    success_units = 0
-    for session in sessions:
-        if session.end_time is None:
-            continue
-        success_units += _video_call_success_units(session.end_time - session.created_at)
-
-    return success_units
 
 
 def all_users(qs=User.objects.all()):
@@ -488,18 +457,6 @@ def EXTRA__refugee_learners_scoring(qs=User.objects.all()):
     return refugee_learners.order_by().union(needs_matching_users.order_by()).order_by("-date_joined")
 
 
-def EXTRA__learners_no_match_scoring(qs=User.objects.all()):
-    """
-    (Maddy) EXTRA Scoring list for learners that have no match yet
-    """
-    learners = needs_matching(qs).filter(profile__user_type=Profile.TypeChoices.LEARNER)
-    learners_with_active_match = get_active_match_query_set(learners).values("pk")
-    learners = learners.exclude(pk__in=learners_with_active_match)
-    needs_matching_users = needs_matching(qs).filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
-
-    return learners.order_by().union(needs_matching_users.order_by()).order_by("-date_joined")
-
-
 def EXTRA__learners_with_activity_in_last3weeks(qs=User.objects.all(), days_ago=21):
     """
     (Maddy) Learners with activity in the last 3 weeks
@@ -543,24 +500,40 @@ def EXTRA__onboarded_volunteers_with_activity_in_last3weeks(qs=User.objects.all(
     )
 
 
-def EXTRA__suggestion_match_completed_on_plattform(qs=User.objects.all()):
+def EXTRA__priority_learners_and_searching_volunteers(qs=User.objects.all()):
     """
-    Users with a non-support match that reached 8 on-platform video-call units.
+    Onboarded priority learners and searching volunteers
     """
-    candidate_matches = (
-        Match.objects.filter(
-            Q(user1__in=qs) | Q(user2__in=qs),
-            support_matching=False,
-            completed_off_plattform=False,
+    # profile and state are OneToOne, so there is no fan-out and no distinct() needed.
+    return qs.filter(is_active=True).filter(
+        Q(
+            profile__user_type=Profile.TypeChoices.LEARNER,
+            state__is_onboarded=True,
+            state__has_match_priority=True,
         )
-        .select_related("user1", "user2")
-        .distinct()
+        | Q(
+            profile__user_type=Profile.TypeChoices.VOLUNTEER,
+            state__is_onboarded=True,
+            state__searching_state=State.SearchingStateChoices.SEARCHING,
+        )
     )
 
+
+def EXTRA__suggestion_match_completed_on_plattform(qs=User.objects.all()):
+    """
+    Users with a non-support match that reached the active match-token success target.
+    """
+    candidate_matches = Match.objects.filter(
+        Q(user1__in=qs) | Q(user2__in=qs),
+        support_matching=False,
+        completed_off_plattform=False,
+    ).distinct()
+
+    # Resolved in bulk rather than one query per candidate match.
+    successful = successful_match_ids(candidate_matches)
     completed_user_ids = set()
-    for match in candidate_matches.iterator(chunk_size=500):
-        if _match_success_units(match) >= MATCH_SUCCESS_UNITS_TARGET:
-            completed_user_ids.update([match.user1.pk, match.user2.pk])
+    for user1_id, user2_id in Match.objects.filter(id__in=successful).values_list("user1_id", "user2_id"):
+        completed_user_ids.update((user1_id, user2_id))
 
     return qs.filter(id__in=completed_user_ids).order_by("-date_joined")
 

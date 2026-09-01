@@ -13,12 +13,14 @@ from django.db.models import (
 from django.db.models.functions import ExtractDay, Greatest
 from django.utils import timezone
 
-from management.api.user_advanced_filter import (
-    MATCH_SUCCESS_UNITS_TARGET,
-    _match_success_units,
-)
+from management.match_success import successful_match_ids
 from management.models.matches import Match
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
+
+
+def _journey(qs=None):
+    """Non-support Standard and Random Call matches — not lobby TEMPORARY rows."""
+    return Match.journey(Match.objects.all() if qs is None else qs)
 
 
 def days_ago(days):
@@ -36,49 +38,61 @@ def only_non_support_matching(qs=Match.objects.all()):
     """
     [Match-Journey] (Pre-Matching) Matches that are not support matching.
     """
-    return qs.filter(support_matching=False)
+    return _journey(qs)
+
+
+def organic_match(qs=Match.objects.all()):
+    """
+    [Match-Journey] Random call matches.
+    """
+    return _journey(qs).filter(match_type=MatchType.RANDOM_CALL)
 
 
 def match_unviewed(qs=Match.objects.all(), mutal_ghosted_days=DAYS_UNTILL_GHOSTED):
     """
     [Match-Journey] (Pre-Matching) Matches that are active and not yet confirmed by both users.
     """
-    return qs.filter(
-        active=True,
-        support_matching=False,
-        confirmed=False,
-        confirmed_by__isnull=True,  # No one ever confirmed this match yet
-        created_at__gt=days_ago(mutal_ghosted_days),
-    ).distinct()
+    return (
+        _journey(qs)
+        .filter(
+            active=True,
+            confirmed=False,
+            confirmed_by__isnull=True,  # No one ever confirmed this match yet
+            created_at__gt=days_ago(mutal_ghosted_days),
+        )
+        .distinct()
+    )
 
 
 def match_one_user_viewed(qs=Match.objects.all(), ghosted_days=NEVER_CONFIRMED_DAYS):
     """
     [Match-Journey] (Pre-Matching) Matches that are active, not yet confirmed by both users, but confirmed by at least one user.
     """
-    return qs.filter(
-        active=True,
-        support_matching=False,
-        confirmed=False,
-        confirmed_by__isnull=False,
-        created_at__gt=days_ago(ghosted_days),
-    ).distinct()
+    return (
+        _journey(qs)
+        .filter(
+            active=True,
+            confirmed=False,
+            confirmed_by__isnull=False,
+            created_at__gt=days_ago(ghosted_days),
+        )
+        .distinct()
+    )
 
 
 def all_matches(qs=Match.objects.all()):
     """
     [Match-Journey] (All-Matching) All matches.
     """
-    return qs.filter(support_matching=False)
+    return _journey(qs)
 
 
 def match_confirmed_no_contact(qs=Match.objects.all(), mutal_ghosted_days=DAYS_UNTILL_GHOSTED):
     """
     [Match-Journey] (Pre-Matching) Matches that are active, confirmed by both users, no unmatch reports, and neither user has sent messages or participated in video calls at all.
     """
-    return qs.filter(
+    return _journey(qs).filter(
         active=True,
-        support_matching=False,
         confirmed=True,
         created_at__gt=days_ago(mutal_ghosted_days),
         total_messages_counter=0,
@@ -93,11 +107,13 @@ def match_confirmed_single_party_contact(qs=Match.objects.all(), mutal_ghosted_d
     user1_to_user2_message_exists = Message.objects.filter(sender=OuterRef("user1"), recipient=OuterRef("user2"))
     user2_to_user1_message_exists = Message.objects.filter(sender=OuterRef("user2"), recipient=OuterRef("user1"))
 
-    return qs.filter(
-        active=True, support_matching=False, confirmed=True, created_at__gt=days_ago(mutal_ghosted_days)
-    ).filter(
-        Q(Exists(user1_to_user2_message_exists) & ~Exists(user2_to_user1_message_exists))
-        | Q(~Exists(user1_to_user2_message_exists) & Exists(user2_to_user1_message_exists))
+    return (
+        _journey(qs)
+        .filter(active=True, confirmed=True, created_at__gt=days_ago(mutal_ghosted_days))
+        .filter(
+            Q(Exists(user1_to_user2_message_exists) & ~Exists(user2_to_user1_message_exists))
+            | Q(~Exists(user1_to_user2_message_exists) & Exists(user2_to_user1_message_exists))
+        )
     )
 
 
@@ -108,14 +124,17 @@ def match_first_contact(qs=Match.objects.all()):
     user1_to_user2_message_exists = Message.objects.filter(sender=OuterRef("user1"), recipient=OuterRef("user2"))
     user2_to_user1_message_exists = Message.objects.filter(sender=OuterRef("user2"), recipient=OuterRef("user1"))
 
-    return qs.filter(
-        active=True,
-        total_messages_counter__gte=2,
-        total_mutal_video_calls_counter=0,
-        support_matching=False,
-        confirmed=True,
-        latest_interaction_at__gte=days_ago(DAYS_UNTILL_GHOSTED),
-    ).filter(Q(Exists(user1_to_user2_message_exists) & Exists(user2_to_user1_message_exists)))
+    return (
+        _journey(qs)
+        .filter(
+            active=True,
+            total_messages_counter__gte=2,
+            total_mutal_video_calls_counter=0,
+            confirmed=True,
+            latest_interaction_at__gte=days_ago(DAYS_UNTILL_GHOSTED),
+        )
+        .filter(Q(Exists(user1_to_user2_message_exists) & Exists(user2_to_user1_message_exists)))
+    )
 
 
 def match_ongoing(
@@ -130,8 +149,7 @@ def match_ongoing(
     """
     [Match-Journey] (Ongoing-Matching) Matches where users have exchanged multiple messages or video calls, their last message or video call is less than 14 days ago, and the match isn't older than the desired match duration.
     """
-    qs = qs.filter(
-        support_matching=False,
+    qs = _journey(qs).filter(
         active=True,
         latest_interaction_at__gte=days_ago(last_interaction_days),
         total_messages_counter__gte=min_total_mutual_messages,
@@ -174,10 +192,10 @@ def completed_match(
 
     now = timezone.now()
     completed_by_criteria = (
-        qs.filter(
+        _journey(qs)
+        .filter(
             Q(Exists(user1_to_user2_message_exists) & Exists(user2_to_user1_message_exists)),
             active=True,
-            support_matching=False,
             total_messages_counter__gte=min_total_mutual_messages,
             total_mutal_video_calls_counter__gte=min_total_mutual_video_calls,
         )
@@ -212,18 +230,18 @@ def never_confirmed(qs=Match.objects.all()):
     """
     [Match-Journey] (Failed-Matching) Matches older than a specified number of days but still unconfirmed.
     """
-    return qs.filter(
-        active=True, support_matching=False, confirmed=False, created_at__lt=days_ago(NEVER_CONFIRMED_DAYS)
-    )
+    return _journey(qs).filter(active=True, confirmed=False, created_at__lt=days_ago(NEVER_CONFIRMED_DAYS))
 
 
 def no_contact(qs=Match.objects.all()):
     """
     [Match-Journey] (Failed-Matching) Matches that are confirmed but without contact and older than a specified number of days.
     """
-    return qs.filter(
-        active=True, support_matching=False, confirmed=True, created_at__lt=days_ago(LAST_INTERACTION_DAYS)
-    ).filter(total_messages_counter=0, total_mutal_video_calls_counter=0)
+    return (
+        _journey(qs)
+        .filter(active=True, confirmed=True, created_at__lt=days_ago(LAST_INTERACTION_DAYS))
+        .filter(total_messages_counter=0, total_mutal_video_calls_counter=0)
+    )
 
 
 def user_ghosted(qs=Match.objects.all()):
@@ -233,11 +251,13 @@ def user_ghosted(qs=Match.objects.all()):
     user1_to_user2_message_exists = Message.objects.filter(sender=OuterRef("user1"), recipient=OuterRef("user2"))
     user2_to_user1_message_exists = Message.objects.filter(sender=OuterRef("user2"), recipient=OuterRef("user1"))
 
-    return qs.filter(
-        active=True, support_matching=False, confirmed=True, created_at__lt=days_ago(DAYS_UNTILL_GHOSTED)
-    ).filter(
-        Q(Exists(user1_to_user2_message_exists) & ~Exists(user2_to_user1_message_exists))
-        | Q(~Exists(user1_to_user2_message_exists) & Exists(user2_to_user1_message_exists))
+    return (
+        _journey(qs)
+        .filter(active=True, confirmed=True, created_at__lt=days_ago(DAYS_UNTILL_GHOSTED))
+        .filter(
+            Q(Exists(user1_to_user2_message_exists) & ~Exists(user2_to_user1_message_exists))
+            | Q(~Exists(user1_to_user2_message_exists) & Exists(user2_to_user1_message_exists))
+        )
     )
 
 
@@ -277,8 +297,7 @@ def reported_or_removed_match(qs=Match.objects.all()):
     """
     [Match-Journey] (Failed-Matching) Reported or removed matches.
     """
-    return qs.filter(
-        support_matching=False,
+    return _journey(qs).filter(
         active=False,
     )
 
@@ -327,23 +346,17 @@ def support_matching(qs=Match.objects.all()):
 
 def EXTRA__suggestion_match_completed_on_plattform(qs=Match.objects.all()):
     """
-    Non-support matches that reached 8 on-platform video-call success units.
+    Non-support matches that reached the active match-token success target.
     """
-    candidate_matches = qs.filter(
-        support_matching=False,
+    candidate_matches = _journey(qs).filter(
         completed_off_plattform=False,
-    ).select_related("user1", "user2")
-
-    completed_match_ids = []
-    for match in candidate_matches.iterator(chunk_size=500):
-        if _match_success_units(match) >= MATCH_SUCCESS_UNITS_TARGET:
-            completed_match_ids.append(match.pk)
-
-    return qs.filter(id__in=completed_match_ids)
+    )
+    # Resolved in bulk rather than one query per candidate match.
+    return qs.filter(id__in=successful_match_ids(candidate_matches))
 
 
 def EXTRA__suggestion_match_completed_off_plattform(qs=Match.objects.all()):
     """
     Non-support matches marked as completed off platform.
     """
-    return qs.filter(support_matching=False, completed_off_plattform=True)
+    return _journey(qs).filter(completed_off_plattform=True)

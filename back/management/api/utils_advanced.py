@@ -138,6 +138,9 @@ class SavedListEntrySerializer(serializers.Serializer):
     slug = serializers.CharField(required=False)
     name = serializers.CharField()
     description = serializers.CharField(required=False, allow_blank=True)
+    display_name = serializers.CharField(required=False, allow_blank=True)
+    category = serializers.CharField(required=False, allow_blank=True)
+    label = serializers.CharField(required=False, allow_blank=True)
 
 
 class FilterSchemaResponseSerializer(serializers.Serializer):
@@ -155,9 +158,7 @@ def filterset_schema_dict(filterset, include_lookup_expr=False, view_key="/api/m
         }
 
         choices = getattr(filter_instance, "extra", {}).get("choices", [])
-        if filter_instance.field_name == "userfilter_list":
-            choices = choices()
-        elif callable(choices):
+        if filter_instance.field_name == "userfilter_list" or callable(choices):
             choices = choices()
 
         if len(choices):

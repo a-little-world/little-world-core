@@ -1,4 +1,5 @@
 import csv
+import logging
 from datetime import date, datetime, time, timedelta
 from io import StringIO
 
@@ -7,7 +8,7 @@ from chat.models import Message
 from django.conf import settings
 from django.contrib.sessions.models import Session
 from django.db import connection
-from django.db.models import Avg, Count, F, Q, Sum
+from django.db.models import Avg, Count, F, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import TruncDay, TruncMonth, TruncWeek
 from django.urls import path
 from django.utils import timezone
@@ -19,9 +20,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from video.models import LivekitSession
 
-from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS, get_match_list_by_name
+from management.analytics.registry import ALL_CATALOG
+from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
 from management.api.user_advanced import get_match_waiting_time
-from management.api.user_advanced_filter_lists import FILTER_LISTS, USER_JOURNEY_FILTER_LISTS, get_list_by_name
+from management.api.user_advanced_filter_lists import FILTER_LISTS, get_list_by_name
 from management.api.user_report_utils import (
     build_user_report_entry,
     group_user_journey_by_date,
@@ -29,6 +31,7 @@ from management.api.user_report_utils import (
 )
 from management.helpers import IsAdminOrMatchingUser
 from management.helpers.query_logger import QueryLogger
+from management.models.courses import Course, UserCourseProgress
 from management.models.matches import Match
 from management.models.profile import Profile
 from management.models.short_links import ShortLinkClick
@@ -36,6 +39,8 @@ from management.models.state import State
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from management.models.user import User
 from management.permissions import ManagementPermission
+
+logger = logging.getLogger(__name__)
 
 
 def _get_accessible_users(caller):
@@ -56,7 +61,15 @@ def _parse_date_input(value, default):
 
 
 def _inclusive_datetime_range(start_date, end_date):
-    return datetime.combine(start_date, time.min), datetime.combine(end_date, time.max)
+    """Closed date range in the analytics display timezone.
+
+    Delegates to ``analytics.core.display_time`` so every endpoint in this module agrees
+    on what a same-day range means (conventions §10). Previously built naive bounds, which
+    were interpreted in the project default timezone under ``USE_TZ``.
+    """
+    from management.analytics.core.display_time import inclusive_range
+
+    return inclusive_range(start_date, end_date)
 
 
 def _count_non_support_messages(message_queryset):
@@ -383,8 +396,7 @@ def livekit_session_statistics(request):
 
     min_start_date = date(2024, 4, 4)
     start_date = request.data.get("start_date", f"{min_start_date}")
-    if start_date < f"{min_start_date}":
-        start_date = f"{min_start_date}"
+    start_date = max(start_date, f"{min_start_date}")
 
     end_date = request.data.get("end_date", today)
 
@@ -537,6 +549,92 @@ def statistics_highlights(request):
     )
 
 
+# Baseline for the match journey buckets. Not yet in the analytics registry — the match
+# domain package is the next slice; until then this is the one place the ID is named.
+MATCH_JOURNEY_BASELINE_LIST_ID = "match_journey_v2__all"
+
+# Partitions served by the V5 statistics views. Resolved through the registry so a
+# second journey needs a route, not a second copy of the view.
+USER_JOURNEY_V5_ID = "user-journey-v5"
+MATCH_JOURNEY_V5_ID = "match-journey-v5"
+
+
+def _compute_bucket_statistics(pre_filtered_qs, selected_entries, baseline_list_id, exclude_intersection_check):
+    """Count each selected list over ``pre_filtered_qs`` and cross-check the partition.
+
+    Shared by the user and match bucket endpoints. ``baseline_list_id`` is the canonical
+    catalog ID of the funnel's denominator (``registry.baseline_list_id``); legacy aliases
+    for it are recognised, so a caller may send either form. Nothing here hardcodes a
+    list name — that is what let the two endpoints drift into near-duplicates.
+
+    ``missing_ids`` is baseline members that appear in no other selected bucket, and is
+    empty when the baseline was not requested.
+
+    Args:
+        pre_filtered_qs: cohort-filtered queryset the buckets are counted over
+        selected_entries: FilterListEntry objects, in the order the response should list them
+        baseline_list_id: canonical list ID of the baseline bucket
+        exclude_intersection_check: list names to skip in the pairwise overlap report
+
+    Returns:
+        dict: buckets, missing_ids, intersecting_ids_lists
+    """
+    from management.analytics.registry import is_baseline
+
+    buckets = []
+    list_ids = {}
+    baseline_names = set()
+    non_baseline_ids = set()
+
+    query_logger = QueryLogger()
+    last_query_log_index = 0
+
+    with connection.execute_wrapper(query_logger):
+        for i, entry in enumerate(selected_entries):
+            queryset = entry.queryset(qs=pre_filtered_qs)
+            count = queryset.count()
+            duration = sum(query["duration"] for query in query_logger.queries[last_query_log_index:])
+            last_query_log_index = len(query_logger.queries)
+
+            buckets.append(
+                {
+                    "name": entry.name,
+                    "description": entry.resolved_description(),
+                    "count": count,
+                    "id": i,
+                    "query_duration": duration,
+                }
+            )
+
+            ids = set(queryset.values_list("id", flat=True))
+            list_ids[entry.name] = ids
+
+            if is_baseline(entry.name, baseline_list_id):
+                baseline_names.add(entry.name)
+            else:
+                non_baseline_ids.update(ids)
+
+    intersecting_ids_lists = {}
+    intersection_check_lists = [
+        entry.name
+        for entry in selected_entries
+        if entry.name not in exclude_intersection_check and entry.name not in baseline_names
+    ]
+    for position, list_name in enumerate(intersection_check_lists):
+        for other_list_name in intersection_check_lists[position + 1 :]:
+            intersecting_ids = list_ids[list_name] & list_ids[other_list_name]
+            if intersecting_ids:
+                intersecting_ids_lists[f"{list_name}---{other_list_name}"] = sorted(intersecting_ids)
+
+    baseline_ids = set().union(*(list_ids[name] for name in baseline_names)) if baseline_names else set()
+
+    return {
+        "buckets": buckets,
+        "missing_ids": sorted(baseline_ids - non_baseline_ids),
+        "intersecting_ids_lists": intersecting_ids_lists,
+    }
+
+
 def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_lists=FILTER_LISTS):
     """
     Calculate bucket statistics for a given set of users and filters.
@@ -549,92 +647,43 @@ def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_list
     Returns:
         dict: Contains buckets, missing_ids, and intersecting_ids_lists
     """
+    from management.analytics.registry import SIGNUP_FUNNEL, baseline_list_id
+
     if selected_filters is None:
         selected_filters = [entry.name for entry in filter_lists]
 
-    user_buckets = []
-    selected_filters_list = []
-    pre_filtered_uj_lists = {entry.name: entry for entry in filter_lists if entry.name in selected_filters}
+    # Caller order is preserved: bucket "id" is the index and the chart reads it as the
+    # funnel step order.
+    entries_by_name = {entry.name: entry for entry in filter_lists}
+    selected_entries = [entries_by_name[name] for name in selected_filters]
 
-    for filter_name in selected_filters:
-        filter_list_entry = pre_filtered_uj_lists[filter_name]
-        selected_filters_list.append(filter_list_entry)
-
-    query_logger = QueryLogger()
-    last_query_log_index = 0
-    user_list_ids = {}
-    all_ids_set = set()
-
-    with connection.execute_wrapper(query_logger):
-        for i, filter_list in enumerate(selected_filters_list):
-            queryset = filter_list.queryset(qs=pre_filtered_users)
-            count = queryset.count()
-            duration = sum([query["duration"] for query in query_logger.queries[last_query_log_index:]])
-            last_query_log_index = len(query_logger.queries) - 1
-
-            user_buckets.append(
-                {
-                    "name": filter_list.name,
-                    "description": filter_list.description,
-                    "count": count,
-                    "id": i,
-                    "query_duration": duration,
-                }
-            )
-
-            user_list_ids[filter_list.name] = {
-                "ids": queryset.values_list("id", flat=True),
-            }
-
-            if filter_list.name != "all":
-                all_ids_set.update(user_list_ids[filter_list.name]["ids"])
-
-    # Calculate intersecting IDs
-    exclude_intersection_check = [
-        "all",
-        "needs_matching",
-        "match_journey_v2__proposed_matches",
-        "match_journey_v2__expired_proposals",
-    ]
-
-    intersecting_ids_lists = {}
-    intersection_check_lists = [
-        list_name for list_name in selected_filters if list_name not in exclude_intersection_check
-    ]
-    intersection_check_lists_not_processed = intersection_check_lists.copy()
-
-    for list_name in intersection_check_lists:
-        intersection_check_lists_not_processed.remove(list_name)
-        for other_list_name in intersection_check_lists_not_processed:
-            if list_name != other_list_name:
-                intersecting_ids = set(user_list_ids[list_name]["ids"]).intersection(
-                    user_list_ids[other_list_name]["ids"]
-                )
-                if len(intersecting_ids) > 0:
-                    intersecting_ids_lists[f"{list_name}---{other_list_name}"] = intersecting_ids
-
-    all_ids = set(user_list_ids["all"]["ids"])
-    missing_ids = all_ids.difference(all_ids_set)
-
-    return {
-        "buckets": user_buckets,
-        "missing_ids": list(missing_ids),
-        "intersecting_ids_lists": intersecting_ids_lists,
-    }
+    return _compute_bucket_statistics(
+        pre_filtered_qs=pre_filtered_users,
+        selected_entries=selected_entries,
+        baseline_list_id=baseline_list_id(SIGNUP_FUNNEL),
+        exclude_intersection_check=[
+            "needs_matching",
+            "match_journey_v2__proposed_matches",
+            "match_journey_v2__expired_proposals",
+        ],
+    )
 
 
 @extend_schema(
     request=inline_serializer(
         name="BucketStatisticsCountOverTimeRequest",
         fields={
+            # Choices come from FILTER_LISTS, which is what the view can actually serve —
+            # USER_JOURNEY_FILTER_LISTS omitted the baseline, so the schema rejected the
+            # one value every funnel request must send.
             "selected_filters": serializers.ListField(
                 child=serializers.ChoiceField(
-                    choices=[entry.name for entry in USER_JOURNEY_FILTER_LISTS],
+                    choices=[entry.name for entry in FILTER_LISTS],
                 ),
                 required=True,
             ),
-            "start_date": serializers.DateField(default=date(2021, 1, 1), required=False),
-            "end_date": serializers.DateField(default=date.today(), required=False),
+            "start_date": serializers.DateField(default=date(2022, 1, 1), required=False),
+            "end_date": serializers.DateField(required=False),
             "volunteers_only": serializers.BooleanField(default=False, required=False),
             "include_too_low_german_level": serializers.BooleanField(default=True, required=False),
         },
@@ -643,47 +692,225 @@ def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_list
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 def bucket_statistics(request):
-    today = date.today()
-    start_date = request.data.get("start_date", "2022-01-01")
-    end_date = request.data.get("end_date", today)
+    from management.analytics.core import display_time
+    from management.analytics.user_journey.cohorts import SignupCohort, apply_cohort
 
-    if isinstance(end_date, str):
-        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
-    else:
-        end_date_obj = end_date
-    end_date_inclusive = datetime.combine(end_date_obj, datetime.max.time())
-    end_date = end_date_inclusive
+    # The view owns parsing and validation; the cohort owns query semantics (conventions §11).
+    try:
+        start_date = _parse_date_input(request.data.get("start_date"), date(2022, 1, 1))
+        end_date = _parse_date_input(request.data.get("end_date"), display_time.today())
+    except (TypeError, ValueError):
+        return Response({"detail": "start_date and end_date must be YYYY-MM-DD."}, status=400)
 
-    # Get pre-filtered users based on permissions and date range
-    pre_filtered_users = User.objects.all()
-    if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(
-            id__in=request.user.managed_users_queryset(active_only=False).values("id")
-        )
-    pre_filtered_users = pre_filtered_users.filter(date_joined__range=[start_date, end_date])
+    if start_date > end_date:
+        return Response({"detail": "start_date must not be after end_date."}, status=400)
 
-    volunteers_only = request.data.get("volunteers_only", False)
-    if volunteers_only:
-        pre_filtered_users = pre_filtered_users.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
-
-    include_too_low_german_level = request.data.get("include_too_low_german_level", True)
-    if not include_too_low_german_level:
-        pre_filtered_users = pre_filtered_users.exclude(
-            profile__user_type=Profile.TypeChoices.LEARNER,
-            profile__lang_skill__contains=[
-                {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
-            ],
-        )
-
-    # Get selected filters from request
     selected_filters = request.data.get("selected_filters", None)
+    if selected_filters is not None:
+        servable = {entry.name for entry in FILTER_LISTS}
+        unknown = sorted(set(selected_filters) - servable)
+        if unknown:
+            return Response({"detail": f"Unknown selected_filters: {unknown}"}, status=400)
 
-    # Get bucket statistics using the extracted function
+    # Get pre-filtered users based on permissions, then apply signup cohort gates once.
+    pre_filtered_users = _get_accessible_users(request.user)
+    pre_filtered_users = apply_cohort(
+        pre_filtered_users,
+        SignupCohort(
+            start_date=start_date,
+            end_date=end_date,
+            volunteers_only=request.data.get("volunteers_only", False),
+            include_too_low_german_level=request.data.get("include_too_low_german_level", True),
+        ),
+    )
+
     stats = get_bucket_statistics(
         pre_filtered_users=pre_filtered_users, selected_filters=selected_filters, filter_lists=FILTER_LISTS
     )
 
     return Response(stats)
+
+
+@extend_schema(
+    request=inline_serializer(
+        name="UserJourneyV5Request",
+        fields={
+            "start_date": serializers.DateField(default=date(2022, 1, 1), required=False),
+            "end_date": serializers.DateField(default=date.today(), required=False),
+            "volunteers_only": serializers.BooleanField(default=False, required=False),
+        },
+    ),
+    responses=inline_serializer(
+        name="UserJourneyV5Response",
+        fields={
+            "definition": serializers.DictField(
+                help_text="Phases, bucket order, labels and descriptions, owned by the server."
+            ),
+            "counts": serializers.DictField(child=serializers.IntegerField()),
+            "rollup_counts": serializers.DictField(
+                child=serializers.IntegerField(),
+                help_text="Subtotals for COMPOSITE catalog entries whose members are all cells.",
+            ),
+            "baseline_count": serializers.IntegerField(),
+            "summed_count": serializers.IntegerField(),
+            "balanced": serializers.BooleanField(
+                help_text="False when buckets overlap or leave baseline users unclaimed."
+            ),
+            "uncovered_count": serializers.IntegerField(),
+            "overlap_counts": serializers.DictField(child=serializers.IntegerField()),
+        },
+    ),
+)
+@extend_schema(
+    responses=inline_serializer(
+        name="UserJourneyV5DefinitionResponse",
+        fields={"definition": serializers.DictField()},
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def user_journey_v5_definition(request):
+    """The journey shape — phases, bucket order, labels, descriptions. No database access.
+
+    Split out from the counts so the admin panel can paint the whole journey immediately
+    and fill each number in as it arrives, instead of holding a spinner for the length of
+    the slowest bucket. V4 felt faster only because it rendered from a client-side copy of
+    this; serving it as its own cheap call gets the same responsiveness while the server
+    keeps sole ownership of the definition (conventions §17).
+    """
+    from management.analytics.registry import ALL_CATALOG, get_partition
+
+    partition = get_partition(USER_JOURNEY_V5_ID)
+    if partition is None:
+        return Response({"detail": f"Unknown partition {USER_JOURNEY_V5_ID!r}."}, status=500)
+
+    return Response({"definition": partition.as_payload(ALL_CATALOG)})
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def user_journey_v5_statistics(request):
+    """Current-state partition of a signup cohort, with the display metadata to render it.
+
+    The response carries the journey definition, so the admin panel holds no bucket
+    titles, descriptions or ordering of its own — that duplication is what let V4's
+    ``buckets.ts`` drift from the queries (conventions §4).
+
+    Partition failures are reported, not raised: ``balanced`` is false and the offending
+    IDs are logged and sampled in the payload, but the counts still render (§8).
+    """
+    from management.analytics.core import display_time
+    from management.analytics.registry import ALL_CATALOG, compute_partition, get_partition
+    from management.analytics.user_journey.cohorts import PartitionCohort
+
+    partition = get_partition(USER_JOURNEY_V5_ID)
+    if partition is None:
+        return Response({"detail": f"Unknown partition {USER_JOURNEY_V5_ID!r}."}, status=500)
+
+    try:
+        start_date = _parse_date_input(request.data.get("start_date"), date(2022, 1, 1))
+        end_date = _parse_date_input(request.data.get("end_date"), display_time.today())
+    except (TypeError, ValueError):
+        return Response({"detail": "start_date and end_date must be YYYY-MM-DD."}, status=400)
+
+    if start_date > end_date:
+        return Response({"detail": "start_date must not be after end_date."}, status=400)
+
+    cohort = PartitionCohort(
+        start_date=start_date,
+        end_date=end_date,
+        volunteers_only=request.data.get("volunteers_only", False),
+    )
+    # One instant for every bucket, so a booking expiring mid-request cannot show up as a
+    # partition overlap (conventions §10).
+    result = compute_partition(
+        partition,
+        cohort.apply(_get_accessible_users(request.user)),
+        as_of=display_time.now(),
+    )
+
+    return Response(
+        {
+            "definition": partition.as_payload(ALL_CATALOG),
+            "start_date": start_date,
+            "end_date": end_date,
+            **result,
+        }
+    )
+
+
+def _get_accessible_matches(caller):
+    users = _get_accessible_users(caller)
+    return Match.objects.filter(Q(user1__in=users) | Q(user2__in=users))
+
+
+@extend_schema(
+    responses=inline_serializer(
+        name="MatchJourneyV5DefinitionResponse",
+        fields={"definition": serializers.DictField()},
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def match_journey_v5_definition(request):
+    """Match-journey shape only — no database counting (conventions §17)."""
+    from management.analytics.registry import ALL_CATALOG, get_partition
+
+    partition = get_partition(MATCH_JOURNEY_V5_ID)
+    if partition is None:
+        return Response({"detail": f"Unknown partition {MATCH_JOURNEY_V5_ID!r}."}, status=500)
+
+    return Response({"definition": partition.as_payload(ALL_CATALOG)})
+
+
+@extend_schema(
+    request=inline_serializer(
+        name="MatchJourneyV5Request",
+        fields={
+            "start_date": serializers.DateField(required=False, allow_null=True),
+            "end_date": serializers.DateField(required=False, allow_null=True),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def match_journey_v5_statistics(request):
+    """Current-state partition of a match cohort (all-time if dates omitted)."""
+    from management.analytics.core import display_time
+    from management.analytics.match_journey.cohorts import MatchPartitionCohort
+    from management.analytics.registry import ALL_CATALOG, compute_partition, get_partition
+
+    partition = get_partition(MATCH_JOURNEY_V5_ID)
+    if partition is None:
+        return Response({"detail": f"Unknown partition {MATCH_JOURNEY_V5_ID!r}."}, status=500)
+
+    raw_start = request.data.get("start_date")
+    raw_end = request.data.get("end_date")
+    start_date = end_date = None
+    if raw_start is not None or raw_end is not None:
+        try:
+            start_date = _parse_date_input(raw_start, date(2018, 1, 1))
+            end_date = _parse_date_input(raw_end, display_time.today())
+        except (TypeError, ValueError):
+            return Response({"detail": "start_date and end_date must be YYYY-MM-DD."}, status=400)
+        if start_date > end_date:
+            return Response({"detail": "start_date must not be after end_date."}, status=400)
+
+    cohort = MatchPartitionCohort(start_date=start_date, end_date=end_date)
+    result = compute_partition(
+        partition,
+        cohort.apply(_get_accessible_matches(request.user)),
+        as_of=display_time.now(),
+    )
+
+    return Response(
+        {
+            "definition": partition.as_payload(ALL_CATALOG),
+            "start_date": start_date,
+            "end_date": end_date,
+            **result,
+        }
+    )
 
 
 def get_match_bucket_statistics(pre_filtered_matches, selected_filters=None, filter_lists=MATCH_JOURNEY_FILTERS):
@@ -701,74 +928,28 @@ def get_match_bucket_statistics(pre_filtered_matches, selected_filters=None, fil
     if selected_filters is None:
         selected_filters = [entry.name for entry in filter_lists]
 
-    if "match_journey_v2__all" not in selected_filters:
-        selected_filters.append("match_journey_v2__all")
+    # missing_ids is only meaningful against the baseline, so request it unconditionally.
+    # Once the match analytics domain lands this becomes registry.baseline_list_id(MATCH_FUNNEL).
+    baseline = MATCH_JOURNEY_BASELINE_LIST_ID
+    selected = list(selected_filters)
+    if baseline not in selected:
+        selected.append(baseline)
 
-    query_logger = QueryLogger()
-    last_query_log_index = 0
-    all_ids_set = set()
-    user_list_ids = {}
+    # Response order follows filter_lists, not the caller — unlike the user endpoint.
+    # Unknown names are dropped rather than raising, which is also pre-existing behaviour.
+    selected_entries = [entry for entry in filter_lists if entry.name in selected]
 
-    with connection.execute_wrapper(query_logger):
-        match_buckets = []
-        selected_filters_list = [entry for entry in filter_lists if entry.name in selected_filters]
-
-        for i, filter_list in enumerate(selected_filters_list):
-            queryset = filter_list.queryset(qs=pre_filtered_matches)
-            count = queryset.count()
-            duration = sum([query["duration"] for query in query_logger.queries[last_query_log_index:]])
-            last_query_log_index = len(query_logger.queries) - 1
-
-            match_buckets.append(
-                {
-                    "name": filter_list.name,
-                    "description": filter_list.description,
-                    "count": count,
-                    "id": i,
-                    "query_duration": duration,
-                }
-            )
-
-            user_list_ids[filter_list.name] = {
-                "ids": queryset.values_list("id", flat=True),
-            }
-
-            if filter_list.name != "match_journey_v2__all":
-                all_ids_set.update(user_list_ids[filter_list.name]["ids"])
-
-    # Calculate intersecting IDs
-    exclude_intersection_check = [
-        "all",
-        "needs_matching",
-        "match_journey_v2__all",
-        "match_journey_v2__proposed_matches",
-        "match_journey_v2__expired_proposals",
-    ]
-
-    intersecting_ids_lists = {}
-    intersection_check_lists = [
-        list_name for list_name in selected_filters if list_name not in exclude_intersection_check
-    ]
-    intersection_check_lists_not_processed = intersection_check_lists.copy()
-
-    for list_name in intersection_check_lists:
-        intersection_check_lists_not_processed.remove(list_name)
-        for other_list_name in intersection_check_lists_not_processed:
-            if list_name != other_list_name:
-                intersecting_ids = set(user_list_ids[list_name]["ids"]).intersection(
-                    user_list_ids[other_list_name]["ids"]
-                )
-                if len(intersecting_ids) > 0:
-                    intersecting_ids_lists[f"{list_name}---{other_list_name}"] = intersecting_ids
-
-    all_ids = set(user_list_ids["match_journey_v2__all"]["ids"])
-    missing_ids = all_ids.difference(all_ids_set)
-
-    return {
-        "buckets": match_buckets,
-        "intersecting_ids_lists": intersecting_ids_lists,
-        "missing_ids": list(missing_ids),
-    }
+    return _compute_bucket_statistics(
+        pre_filtered_qs=pre_filtered_matches,
+        selected_entries=selected_entries,
+        baseline_list_id=baseline,
+        exclude_intersection_check=[
+            "all",
+            "needs_matching",
+            "match_journey_v2__proposed_matches",
+            "match_journey_v2__expired_proposals",
+        ],
+    )
 
 
 @extend_schema(
@@ -1111,70 +1292,157 @@ def user_signup_loss_statistic_v2(start_date="2022-01-01", end_date=date.today()
     }
 
 
+def _ratio_pct(numerator: int, denominator: int) -> float:
+    if denominator == 0:
+        return 0.0
+    return round(numerator / denominator * 100.0, 2)
+
+
+def _active_match_success_meta():
+    """Live match-success version — never restate token thresholds here."""
+    from management.match_success import get_version
+
+    version = get_version()
+    return {
+        "success_version_id": version.id,
+        "success_version_title": version.title,
+        "success_version_description": version.description,
+        "success_token_threshold": version.success_token_threshold,
+    }
+
+
+def _journey_success_counts(matches_qs):
+    """Success rate under the active match-success version.
+
+    Universe is ``Match.journey`` (non-support Standard / Random Call). Success is
+    ``successful_matches`` — not the legacy completed_match / free-play cluster.
+    """
+    from management.match_success import successful_matches
+
+    universe = Match.journey(matches_qs)
+    total = universe.count()
+    successful = successful_matches(universe).count()
+    return {
+        "total_matches": total,
+        "successful_matches": successful,
+        "successful_matches_percentage": _ratio_pct(successful, total),
+    }
+
+
+def _v5_phase(partition, phase_id: str):
+    """The named phase. Missing means the partition was renamed under us — say which.
+
+    ``next()`` without a default raises a bare ``StopIteration`` here, which reaches the
+    client as a 500 naming neither the partition nor the phase.
+    """
+    phase = next((item for item in partition.phases if item.id == phase_id), None)
+    if phase is None:
+        raise ValueError(f"Partition {partition.id!r} has no phase {phase_id!r}.")
+    return phase
+
+
+def _v5_phase_count(partition, phase_id: str, qs, *, as_of) -> int:
+    """Matches in one phase, counting only that phase's own buckets.
+
+    Deliberately not ``compute_partition``: that builds all 45 buckets and every pairwise
+    id-set intersection to prove the partition balances, and the pie reads three phase totals.
+
+    **Must be called inside ``classification_run``.** The cells share their derived maps —
+    the token map above all — through that run cache, so calling them outside it recomputes
+    the shared passes once per bucket. Measured over 3,653 matches: 94 queries / 6.2s for
+    ``compute_partition``, 105 / 8.3s for these three phases *without* the run (worse than
+    what it replaced), 63 / 4.3s *with* it.
+
+    The trade is that the balance check is gone, so the caller checks the one thing that
+    would have shown up here: whether the slices still add up to the universe.
+    """
+    return sum(
+        ALL_CATALOG[bucket.list_id].build(qs, as_of=as_of).count() for bucket in _v5_phase(partition, phase_id).buckets
+    )
+
+
+def _match_quality_distribution(matches_qs, *, as_of=None):
+    """Outcome slices for the Match Quality pie, keyed by match success.
+
+    Successful is ``successful_matches`` (includes closed matches that already
+    reached success). Kickoff / in-flight titles come from the V5 partition so
+    the pie does not hardcode token bands. Everything else that did not succeed
+    is one remainder slice.
+    """
+    from management.analytics.core import display_time
+    from management.analytics.match_journey.queries.state import classification_run
+    from management.analytics.registry import get_partition
+    from management.match_success import successful_matches
+
+    partition = get_partition(MATCH_JOURNEY_V5_ID)
+    if partition is None:
+        raise ValueError(f"Unknown partition {MATCH_JOURNEY_V5_ID!r}.")
+
+    as_of = as_of or display_time.now()
+    universe = Match.journey(matches_qs)
+    total = universe.count()
+    successful = successful_matches(universe).count()
+
+    # Scoped to `universe`, which is exactly what these cells classify: `classification_run`
+    # takes the token map's scope from the run, so seeding it from anything narrower makes
+    # later cells under-count silently.
+    with classification_run(universe):
+        kickoff = _v5_phase_count(partition, "kickoff", universe, as_of=as_of)
+        in_flight = _v5_phase_count(partition, "in_flight", universe, as_of=as_of)
+        other = _v5_phase_count(partition, "other", universe, as_of=as_of)
+
+    # The remainder is only ever negative if a match is counted both as successful and in a
+    # pre-success phase. The kickoff and in-flight buckets are built on `_not_successful`, so
+    # today it cannot happen — but clamping a negative to zero would leave the pie quietly
+    # adding up to less than the universe, which is the failure mode worth naming out loud.
+    remainder = total - successful - kickoff - in_flight - other
+    did_not_succeed = max(remainder, 0)
+    balanced = remainder >= 0
+    if not balanced:
+        logger.warning(
+            "Match quality slices do not balance: total=%d successful=%d kickoff=%d in_flight=%d other=%d leaves %d",
+            total,
+            successful,
+            kickoff,
+            in_flight,
+            other,
+            remainder,
+        )
+
+    phase_title = {phase.id: phase.title for phase in partition.phases}
+    distribution = [
+        {"id": "successful", "title": "Successful", "count": successful},
+        {"id": "in_flight", "title": phase_title["in_flight"], "count": in_flight},
+        {"id": "kickoff", "title": phase_title["kickoff"], "count": kickoff},
+        {"id": "did_not_succeed", "title": "Did not succeed", "count": did_not_succeed},
+    ]
+    if other:
+        distribution.append({"id": "other", "title": phase_title["other"], "count": other})
+
+    return {
+        **_active_match_success_meta(),
+        "total_matches": total,
+        "successful_matches": successful,
+        "successful_matches_percentage": _ratio_pct(successful, total),
+        "distribution": distribution,
+        # False means the slices no longer sum to total_matches; see the warning logged above.
+        "distribution_balanced": balanced,
+    }
+
+
 def match_quality_statistic(start_date="2022-01-01", end_date=date.today(), caller=None):
     if caller is None:
         raise ValueError("caller is required")
 
-    match_lists_required = [
-        "match_journey_v2__proposed_matches",
-        "match_journey_v2__unviewed",
-        "match_journey_v2__one_user_viewed",
-        "match_journey_v2__confirmed_no_contact",
-        "match_journey_v2__confirmed_single_party_contact",
-        "match_journey_v2__first_contact",
-        "match_journey_v2__match_ongoing",
-        "match_journey_v2__match_free_play",
-        "match_journey_v2__completed_match",
-        "match_journey_v2__never_confirmed",
-        "match_journey_v2__no_contact",
-        "match_journey_v2__user_ghosted",
-        "match_journey_v2__expired_proposals",
-    ]
+    from management.analytics.match_journey.cohorts import MatchPartitionCohort
 
-    exclude_intersection_check = ["all"]
-    intersection_check_lists = [
-        list_name for list_name in match_lists_required if list_name not in exclude_intersection_check
-    ]
-
-    pre_filtered_users = User.objects.all()
-    if not caller.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(
-            id__in=caller.managed_users_queryset(active_only=False).values("id")
-        )
-
-    pre_filtered_matches = Match.objects.filter(
-        Q(user1__in=pre_filtered_users) | Q(user2__in=pre_filtered_users), created_at__range=[start_date, end_date]
-    )
-
-    match_list_ids = {}
-
-    # retrieve all the id's we need
-    for list_name in match_lists_required:
-        match_list = get_match_list_by_name(list_name)
-        if match_list is None:
-            continue
-        filtered_list_matches = match_list.queryset(qs=pre_filtered_matches)
-
-        match_list_ids[list_name] = {
-            "ids": filtered_list_matches.values_list("id", flat=True),
-            "count": filtered_list_matches.count(),
-        }
-
-    # check for id's that are in multiple lists
-    for list_name in intersection_check_lists:
-        for other_list_name in intersection_check_lists:
-            if list_name != other_list_name:
-                intersecting_ids = set(match_list_ids[list_name]["ids"]).intersection(
-                    match_list_ids[other_list_name]["ids"]
-                )
-                if len(intersecting_ids) > 0:
-                    match_list_ids[f"{list_name}---{other_list_name}"] = intersecting_ids
-
+    start_date = _parse_date_input(start_date, date(2022, 1, 1))
+    end_date = _parse_date_input(end_date, date.today())
+    matches = MatchPartitionCohort(start_date=start_date, end_date=end_date).apply(_get_accessible_matches(caller))
     return {
-        "match_list_ids": match_list_ids,
-        "exclude_intersection_check": exclude_intersection_check,
         "start_date": start_date,
         "end_date": end_date,
+        **_match_quality_distribution(matches),
     }
 
 
@@ -1252,19 +1520,19 @@ def user_match_waiting_time_statistics(request):
 def _volunteer_onboarding_primary_path(row: dict) -> str:
     """
     Single bucket per user: self-onboarding vs prematch call by whichever completion
-    happened first. Matches get_match_waiting_time: self_onboarding_completed_at is
-    interpreted as start of that calendar day in the default timezone.
+    happened first. Course progress completed_at is preferred; State.self_onboarding_completed_at
+    is interpreted as start of that calendar day in the default timezone (legacy fallback).
     Returns 'self', 'prematch', or 'unclassified'.
     """
-    self_completed = row["state__self_onboarding_completed"]
-    self_at = row["state__self_onboarding_completed_at"]
+    self_at = row["self_onboarding_completed_at_dt"]
+    if self_at is None and row["state__self_onboarding_completed"] and row["state__self_onboarding_completed_at"]:
+        self_at = timezone.make_aware(datetime.combine(row["state__self_onboarding_completed_at"], time.min))
+    self_completed = self_at is not None or row["state__self_onboarding_completed"]
+
     had_prematch = row["state__had_prematching_call"]
     prematch_at = row["state__onboarding_call_completed_at"]
 
-    self_dt = None
-    if self_completed and self_at:
-        self_dt = timezone.make_aware(datetime.combine(self_at, time.min))
-
+    self_dt = self_at if self_completed else None
     prematch_dt = prematch_at if had_prematch and prematch_at else None
 
     has_self_time = self_dt is not None
@@ -1322,11 +1590,20 @@ def kpi_dashboard_statistics_signups(request):
         state__user_form_completed_at__isnull=False,
         state__user_form_completed_at__date__gt=volunteer_onboarding_path_cohort_cutoff,
     )
+    self_completed_at_sq = UserCourseProgress.objects.filter(
+        user_id=OuterRef("pk"),
+        course__slug=Course.SELF_ONBOARDING_SLUG,
+        completed=True,
+    ).values("completed_at")[:1]
+    volunteer_onboarded_cohort = volunteer_onboarded_cohort.annotate(
+        self_onboarding_completed_at_dt=Subquery(self_completed_at_sq)
+    )
     volunteer_onboarded_cohort_total = volunteer_onboarded_cohort.count()
     volunteer_cohort_self = 0
     volunteer_cohort_prematch = 0
     volunteer_cohort_unclassified = 0
     for row in volunteer_onboarded_cohort.values(
+        "self_onboarding_completed_at_dt",
         "state__self_onboarding_completed",
         "state__self_onboarding_completed_at",
         "state__had_prematching_call",
@@ -1450,7 +1727,8 @@ def kpi_dashboard_statistics_searching_users(request):
 
     from management.api.match_journey_filters import matching_proposals
     from management.api.user_journey_filters import (
-        first_search_v2,
+        first_search_learners,
+        first_search_volunteers,
         get_user_involved,
         user_searching_again,
     )
@@ -1461,13 +1739,10 @@ def kpi_dashboard_statistics_searching_users(request):
             id__in=request.user.managed_users_queryset(active_only=False).values("id")
         )
 
+    first_search_volunteers = first_search_volunteers(pre_filtered_users).count()
+    first_search_learners = first_search_learners(pre_filtered_users).count()
+
     users_with_proposals = get_user_involved(matching_proposals(), pre_filtered_users)
-
-    fs1 = first_search_v2(pre_filtered_users, require_min_lang_level=True).exclude(id__in=users_with_proposals)
-
-    first_search_volunteers = fs1.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER).count()
-    first_search_learners = fs1.filter(profile__user_type=Profile.TypeChoices.LEARNER).count()
-
     searching_again = user_searching_again(pre_filtered_users).exclude(id__in=users_with_proposals)
     searching_again_volunteers = searching_again.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER).count()
     searching_again_learners = searching_again.filter(profile__user_type=Profile.TypeChoices.LEARNER).count()
@@ -1484,14 +1759,14 @@ def kpi_dashboard_statistics_searching_users(request):
 
 def get_match_bucket_statistics_cluster(pre_filtered_matches):
     all_buckets = []
-    for bucket_cluster in match_journey_bucket_clusters.keys():
+    for bucket_cluster in match_journey_bucket_clusters:
         all_buckets.extend(match_journey_bucket_clusters[bucket_cluster])
 
     match_bucket_counts = get_match_bucket_statistics(pre_filtered_matches, selected_filters=all_buckets)
     match_bucket_count_map = {bucket["name"]: bucket for bucket in match_bucket_counts["buckets"]}
 
     cluster_sums = {}
-    for bucket_cluster in match_journey_bucket_clusters.keys():
+    for bucket_cluster in match_journey_bucket_clusters:
         cluster_sums[bucket_cluster] = 0
         for bucket in match_journey_bucket_clusters[bucket_cluster]:
             if bucket not in match_journey_exclude_sum_buckets:
@@ -1502,65 +1777,35 @@ def get_match_bucket_statistics_cluster(pre_filtered_matches):
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def kpi_dashboard_statistics_matching(request):
-    # - % angenommenen Match proposals  (letzte 2-4 Wochen)
-    # - % failed vs ongoing+finished Matches (total)
-    # - Matches gestartet von 6 bis 12 Wochen
+    """Matching quality KPIs driven by the active match-success version."""
+    accessible_users = _get_accessible_users(request.user)
+    accessible_matches = _get_accessible_matches(request.user)
 
     proposals_two_weeks = ProposedMatch.objects.filter(
-        potential_matching_created_at__range=[timezone.now() - timedelta(days=28), timezone.now() - timedelta(days=14)]
+        Q(user1__in=accessible_users) | Q(user2__in=accessible_users),
+        potential_matching_created_at__range=[timezone.now() - timedelta(days=28), timezone.now() - timedelta(days=14)],
     )
-    accepted_proposals_two_weeks = proposals_two_weeks.filter(closed=True, rejected=False)
-    accepted_proposals_two_weeks_percentage = accepted_proposals_two_weeks.count() / proposals_two_weeks.count() * 100.0
+    proposal_count = proposals_two_weeks.count()
+    accepted_proposals_two_weeks = proposals_two_weeks.filter(closed=True, rejected=False).count()
 
-    pre_filtered_users = User.objects.all()
-    if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(
-            id__in=request.user.managed_users_queryset(active_only=False).values("id")
-        )
+    overall = _journey_success_counts(accessible_matches)
 
-    # Get pre-filtered matches based on users and date range
-    pre_filtered_matches = Match.objects.filter(
-        Q(user1__in=pre_filtered_users) | Q(user2__in=pre_filtered_users),
+    now = timezone.now()
+    matches_6_12_weeks_ago = accessible_matches.filter(
+        created_at__range=[now - timedelta(weeks=12), now - timedelta(weeks=6)],
     )
-
-    # Calculating ongoing vs failed/finished is a little tricky
-    # first we sum over all match_journey_bucket clusters
-    cluster_sums = get_match_bucket_statistics_cluster(pre_filtered_matches)
-
-    cluster_sums["ongoing-matching"] + cluster_sums["finished-matching"]
-    amount_total_matches = (
-        cluster_sums["ongoing-matching"] + cluster_sums["finished-matching"] + cluster_sums["failed-matching"]
-    )
-    failed_vs_ongoing_finished_matches_percentage = 100.0 - (
-        cluster_sums["failed-matching"] / amount_total_matches * 100.0
-    )
-
-    # Now total_matches started 6-12 weeks ago
-    matches_6_12_weeks_ago = Match.objects.filter(
-        created_at__range=[timezone.now() - timedelta(days=126), timezone.now() - timedelta(days=63)],
-        support_matching=False,
-    )
-    cluster_sums_6_12_weeks_ago = get_match_bucket_statistics_cluster(matches_6_12_weeks_ago)
-    total_matches_6_12_weeks_ago = (
-        cluster_sums_6_12_weeks_ago["ongoing-matching"]
-        + cluster_sums_6_12_weeks_ago["finished-matching"]
-        + cluster_sums_6_12_weeks_ago["failed-matching"]
-    )
-    matches_6_12_weeks_ago_failed_vs_ongoing_finished_percentage = 100.0 - (
-        cluster_sums_6_12_weeks_ago["failed-matching"] / total_matches_6_12_weeks_ago * 100.0
-    )
+    cohort_6_12 = _journey_success_counts(matches_6_12_weeks_ago)
 
     return Response(
         {
-            "proposals_two_weeks": proposals_two_weeks.count(),
-            "accepted_proposals_two_weeks": accepted_proposals_two_weeks.count(),
-            "accepted_proposals_two_weeks_percentage": round(accepted_proposals_two_weeks_percentage, 2),
-            "cluster_sums": cluster_sums,
-            "failed_vs_ongoing_finished_matches_percentage": round(failed_vs_ongoing_finished_matches_percentage, 2),
-            "matches_started_6_12_weeks_ago": matches_6_12_weeks_ago.count(),
-            "matches_6_12_weeks_ago_failed_vs_ongoing_finished_percentage": round(
-                matches_6_12_weeks_ago_failed_vs_ongoing_finished_percentage, 2
-            ),
+            **_active_match_success_meta(),
+            "proposals_two_weeks": proposal_count,
+            "accepted_proposals_two_weeks": accepted_proposals_two_weeks,
+            "accepted_proposals_two_weeks_percentage": _ratio_pct(accepted_proposals_two_weeks, proposal_count),
+            **overall,
+            "matches_started_6_12_weeks_ago": cohort_6_12["total_matches"],
+            "matches_6_12_weeks_ago_successful": cohort_6_12["successful_matches"],
+            "matches_6_12_weeks_ago_successful_percentage": cohort_6_12["successful_matches_percentage"],
         }
     )
 
@@ -2520,6 +2765,10 @@ api_urls = [
     path("api/matching/users/statistics/highlights/", statistics_highlights),
     path("api/matching/users/statistics/video_call_summary/<int:user_id>/", user_video_call_summary),
     path("api/matching/users/statistics/user_journey_buckets/", bucket_statistics),
+    path("api/matching/users/statistics/user_journey_v5/", user_journey_v5_statistics),
+    path("api/matching/users/statistics/user_journey_v5/definition/", user_journey_v5_definition),
+    path("api/matching/users/statistics/match_journey_v5/", match_journey_v5_statistics),
+    path("api/matching/users/statistics/match_journey_v5/definition/", match_journey_v5_definition),
     path("api/matching/users/statistics/match_journey_buckets/", match_bucket_statistics),
     path("api/matching/users/statistics/user_signup_loss/", user_signup_loss_statistics),
     path("api/matching/users/statistics/match_quality/", match_quality_statistics),

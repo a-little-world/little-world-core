@@ -516,7 +516,7 @@ elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHI
 
     AWS_STATIC_ROOT = "static"
     # STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
-    STATIC_URL = "{}/{}/".format(AWS_S3_CUSTOM_DOMAIN, AWS_STATIC_ROOT)
+    STATIC_URL = f"{AWS_S3_CUSTOM_DOMAIN}/{AWS_STATIC_ROOT}/"
     print("AWS URL", STATIC_URL)
 
     # STATIC_ROOT = os.path.join(BASE_DIR, 'static')
@@ -1102,7 +1102,15 @@ SKIP_EMAIL_VERIFICATION_COMPANIES = [] + EXTRA_SKIP_EMAIL_VERIFICATION_COMPANIES
 
 # Match Priority Settings
 EXTRA_MATCH_PRIORITY_COMPANIES = string_list_env("DJ_EXTRA_MATCH_PRIORITY_COMPANIES", ["odoo-eip-fms"])
-MATCH_PRIORITY_COMPANIES = ["accenture", "generali", "lingoda", "fh-aachen"] + EXTRA_MATCH_PRIORITY_COMPANIES
+MATCH_PRIORITY_COMPANIES = [
+    "accenture",
+    "amazon",
+    "generali",
+    "lingoda",
+    "fh-aachen",
+    "dl-ukr",
+    "clubdialog",
+] + EXTRA_MATCH_PRIORITY_COMPANIES
 
 # Scoring Related Settings
 SCORES_DISABLED_TIME_OVERLAP = ["fh-aachen"]

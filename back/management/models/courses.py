@@ -1,5 +1,5 @@
-from django.db import models
-from django.db.models import Q
+from django.db import models, transaction
+from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -36,11 +36,6 @@ class Course(models.Model):
 
     def __str__(self):
         return self.title
-
-    @property
-    def is_public(self) -> bool:
-        """True for courses served via /api/courses/; self-onboarding uses its own endpoint."""
-        return self.slug != self.SELF_ONBOARDING_SLUG
 
     def is_available_to_user(self, user) -> bool:
         user_type = user.profile.user_type
@@ -133,11 +128,73 @@ class UserCourseProgress(models.Model):
     def __str__(self):
         return f"{self.user} — {self.course.title}"
 
+    @classmethod
+    def exists_for_user(cls, *, slug: str, completed: bool | None = None, **filters):
+        """Exists() subquery against the outer User.pk. Safe to OR into a User filter."""
+        qs = cls.objects.filter(user_id=OuterRef("pk"), course__slug=slug, **filters)
+        if completed is not None:
+            qs = qs.filter(completed=completed)
+        return Exists(qs)
+
+    def progress_fraction(self) -> float:
+        if self.completed:
+            return 1.0
+        chapter_ids = list(self.course.chapters.order_by("order").values_list("chapter_id", flat=True))
+        n = len(chapter_ids)
+        if n == 0 or not self.current_chapter_id:
+            return 0.0
+        try:
+            idx = chapter_ids.index(self.current_chapter_id)
+        except ValueError:
+            return 0.0
+        return max(0.0, min(1.0, idx / float(n)))
+
     def mark_completed(self):
-        if not self.completed:
+        if self.completed:
+            return
+
+        with transaction.atomic():
             self.completed = True
             self.completed_at = timezone.now()
-            self.save()
+            self.save(update_fields=["completed", "completed_at"])
+            if self.course.slug == Course.SELF_ONBOARDING_SLUG:
+                self._apply_self_onboarding_completion()
+
+    def _apply_self_onboarding_completion(self):
+        """Matching-eligibility side effects. Only called for the self-onboarding course.
+
+        The eligibility half runs only for a user who was not onboarded yet. The
+        walkthrough route carries no ``is_onboarded`` guard, so a volunteer onboarded by
+        an onboarding call can reach and finish the course — and turning searching back on
+        under them would drop someone who deliberately paused back into the matching pool
+        with no indication. Recording the walkthrough as done is always safe; declaring
+        them freshly available to match is not.
+        """
+        from management.models.state import State
+        from management.permissions import ManagementPermission
+        from management.tasks import send_email_background
+
+        user = self.user
+        state = user.state
+        was_onboarded = state.is_onboarded
+        already_sent_u071 = state.attended_auto_email_u071_send
+
+        state.self_onboarding_started = True
+        state.self_onboarding_completed = True
+        state.self_onboarding_completed_at = timezone.now()
+        state.is_onboarded = True
+        send_u071 = not was_onboarded and not already_sent_u071
+        if not was_onboarded:
+            state.searching_state = State.SearchingStateChoices.SEARCHING
+        if send_u071:
+            state.attended_auto_email_u071_send = True
+            state.attended_auto_email_u071_send_at = timezone.now()
+        state.save()
+
+        if not was_onboarded:
+            user.grant_permission(ManagementPermission.USE_RANDOM_CALLS)
+        if send_u071:
+            send_email_background.delay("automatic-emails-u071", user_id=user.id)
 
 
 # ---------------------------------------------------------------------------

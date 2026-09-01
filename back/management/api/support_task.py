@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from management.actions.registry import execute
 from management.api.schema import (
     PaginatedSupportTaskResponse,
-    SupportStaffUserEntrySerializer,
+    SupportAssigneeUserEntrySerializer,
     SupportTaskStatsSerializer,
     SupportTaskUserSearchEntrySerializer,
 )
@@ -22,19 +22,30 @@ from management.models.support_task import (
     SupportTaskSerializer,
 )
 from management.models.user import User
+from management.permissions import ManagementPermission, users_with_effective_permission
+
+
+def _users_for_ids(user_ids: list[int]) -> list[User]:
+    unique_ids = list(dict.fromkeys(user_ids))
+    users = list(User.objects.filter(pk__in=unique_ids))
+    if len(users) != len(unique_ids):
+        raise serializers.ValidationError({"assignee_ids": "One or more users do not exist."})
+    users_by_id = {user.id: user for user in users}
+    return [users_by_id[user_id] for user_id in unique_ids]
 
 
 class CreateSupportTaskSerializer(serializers.Serializer):
     task_type = serializers.CharField()
     related_user_id = serializers.IntegerField()
-    assigned_to_id = serializers.IntegerField(required=False, allow_null=True)
+    assignee_ids = serializers.ListField(child=serializers.IntegerField(), required=False, default=list)
     static_parameters = serializers.DictField(default=dict)
     parameters = serializers.DictField(default=dict)
 
     def create(self, validated_data):
         task_type = validated_data.pop("task_type")
         created_by = validated_data.pop("created_by")
-        return SupportTask.create_of_type(task_type, created_by=created_by, **validated_data)
+        assignees = _users_for_ids(validated_data.pop("assignee_ids"))
+        return SupportTask.create_of_type(task_type, created_by=created_by, assignees=assignees, **validated_data)
 
 
 class BulkSupportTaskSerializer(serializers.Serializer):
@@ -126,9 +137,11 @@ class SupportTaskListQuerySerializer(serializers.Serializer):
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAdminOrMatchingUser])
 def support_task_list(request):
-    tasks = SupportTask.objects.select_related(
-        "action", "related_user__profile", "assigned_to__profile", "created_by__profile"
-    ).all()
+    tasks = (
+        SupportTask.objects.select_related("action", "related_user__profile", "created_by__profile")
+        .prefetch_related("assignees__profile")
+        .all()
+    )
 
     serializer = SupportTaskListQuerySerializer(data=request.query_params)
     serializer.is_valid(raise_exception=True)
@@ -148,10 +161,10 @@ def support_task_list(request):
 
     assigned_to_raw = request.query_params.get("assigned_to")
     if assigned_to_raw == "unassigned":
-        tasks = tasks.filter(assigned_to__isnull=True)
+        tasks = tasks.filter(assignees__isnull=True)
     elif assigned_to_raw:
         try:
-            tasks = tasks.filter(assigned_to_id=int(assigned_to_raw))
+            tasks = tasks.filter(assignees__id=int(assigned_to_raw))
         except ValueError:
             pass
 
@@ -188,7 +201,7 @@ def support_task_list(request):
         tasks = tasks.order_by(f"{order_prefix}{sort_by}")
 
     paginator = DetailedPagination()
-    page_data = paginator.paginate_queryset(tasks, request)
+    page_data = paginator.paginate_queryset(tasks.distinct(), request)
     return paginator.get_paginated_response(SupportTaskSerializer(page_data, many=True).data)
 
 
@@ -211,9 +224,11 @@ def support_task_create(request):
 @permission_classes([IsAdminOrMatchingUser])
 def support_task_detail(request, pk):
     try:
-        task = SupportTask.objects.select_related(
-            "action", "related_user__profile", "assigned_to__profile", "created_by__profile"
-        ).get(pk=pk)
+        task = (
+            SupportTask.objects.select_related("action", "related_user__profile", "created_by__profile")
+            .prefetch_related("assignees__profile")
+            .get(pk=pk)
+        )
     except SupportTask.DoesNotExist:
         return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
     return Response(SupportTaskSerializer(task).data)
@@ -327,12 +342,15 @@ def support_task_stats(request):
     )
 
 
-@extend_schema(responses={200: SupportStaffUserEntrySerializer(many=True)})
+@extend_schema(responses={200: SupportAssigneeUserEntrySerializer(many=True)})
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAdminOrMatchingUser])
-def staff_users(request):
-    users = User.objects.filter(is_staff=True).values("id", "email", "first_name", "last_name")
+def assignee_users(request):
+    users = users_with_effective_permission(ManagementPermission.MATCHING_USER).order_by(
+        "first_name", "last_name", "email"
+    )
+    users = users.values("id", "email", "first_name", "last_name")
     return Response(list(users))
 
 
@@ -341,7 +359,7 @@ class CreateManualSupportTaskSerializer(serializers.Serializer):
     description = serializers.CharField(default="", allow_blank=True)
     priority = serializers.ChoiceField(choices=SupportTask.Priority.choices, default=SupportTask.Priority.MEDIUM)
     related_user_id = serializers.IntegerField(required=False, allow_null=True)
-    assigned_to_id = serializers.IntegerField(required=False, allow_null=True)
+    assignee_ids = serializers.ListField(child=serializers.IntegerField(), required=False, default=list)
 
 
 @api_view(["POST"])
@@ -353,7 +371,7 @@ def support_task_create_manual(request):
     d = serializer.validated_data
 
     related_user_id = d.get("related_user_id")
-    assigned_to_id = d.get("assigned_to_id")
+    assignees = _users_for_ids(d["assignee_ids"])
 
     from django.db import transaction
 
@@ -364,9 +382,9 @@ def support_task_create_manual(request):
             priority=d["priority"],
             created_by=request.user,
             related_user_id=related_user_id,
-            assigned_to_id=assigned_to_id,
         )
         task.save(changed_by=request.user)
+        task.assignees.set(assignees)
         action = SupportTaskAction(task=task, action_type="manual")
         action.save()
 
@@ -405,7 +423,7 @@ api_urls = [
     path("api/support_task/create/", support_task_create),
     path("api/support_task/create_manual/", support_task_create_manual),
     path("api/support_task/stats/", support_task_stats),
-    path("api/support_task/staff_users/", staff_users),
+    path("api/support_task/assignee_users/", assignee_users),
     path("api/support_task/user_search/", user_search),
     path("api/support_task/<int:pk>/", support_task_detail),
     path("api/support_task/<int:pk>/update/", support_task_update),

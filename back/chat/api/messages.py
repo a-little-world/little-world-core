@@ -77,7 +77,11 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
-        return Message.objects.filter(chat__in=Chat.get_chats(self.request.user)).order_by("-created")
+        return (
+            Message.objects.filter(chat__in=Chat.get_chats(self.request.user))
+            .select_related("sender", "recipient")
+            .order_by("-created")
+        )
 
     @action(detail=True, methods=["post"])
     def read(self, request, pk=None):
@@ -198,7 +202,6 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                         source_user=request.user,
                         target_user=partner,
                         created_by_user=created_by_user,
-                        assigned_to_user=partner,
                         configuration_user_uuid=str(partner.uuid),
                         enqueue_interaction=True,
                     )

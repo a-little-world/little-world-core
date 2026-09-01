@@ -37,8 +37,8 @@ class RegisterTests(TestCase):
         datas = []
         for i, v in enumerate(passwords):
             _data = valid_register_request_data.copy()
-            _data["password1"] = passwords[i]
-            _data["password2"] = passwords[i]
+            _data["password1"] = v
+            _data["password2"] = v
             datas.append(_data)
         for d in datas:
             response = register_user_api(d)
@@ -113,7 +113,7 @@ class RegisterTests(TestCase):
         They should return 401 unauthorized,
         with a message saying in order to access this API the email has to be verified
         """
-        pass  # TODO
+        # TODO
 
     def test_password_missmatch(self):
         """Register with password missmatch"""
@@ -151,7 +151,7 @@ class RegisterTests(TestCase):
 
     def test_email_verification_enforced(self):
         """Test that user has to verify email before being able to render the app"""
-        pass  # TODO
+        # TODO
 
     def test_base_admin_created_if_no_users(self):
         response = register_user_api(valid_register_request_data)

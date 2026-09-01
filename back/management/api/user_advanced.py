@@ -1,4 +1,4 @@
-from datetime import datetime, time
+import logging
 from typing import Literal, cast
 
 from chat.helpers import MatchSendForbidden, MessageSendValidationError
@@ -56,30 +56,29 @@ from management.permissions import (
 )
 from management.tasks import matching_algo_v2
 
-user_category_buckets = [
-    "journey_v2__user_created",
-    "journey_v2__email_verified",
-    "journey_v2__user_form_completed",
-    "journey_v2__booked_onboarding_call",
-    "journey_v2__self_onboarding_started",
-    "journey_v2__too_low_german_level",
-    "journey_v2__pre_matching",
-    "journey_v2__match_takeoff",
-    "journey_v2__ongoing_non_completed_match",
-    "journey_v2__first_search_v2",
-    "journey_v2__happy_inactive",
-    "journey_v2__happy_active",
-    "journey_v2__no_show",
-    "journey_v2__failed_matching",
-    "journey_v2__gave_up_searching",
-    "journey_v2__user_deleted",
-    "journey_v2__marked_unresponsive",
-]
+logger = logging.getLogger(__name__)
+
+
+def user_bucket_map(user_ids) -> dict[int, str]:
+    """User ID → its primary V5 bucket, for a whole page in one pass.
+
+    The partition cells are mutually exclusive, so each user resolves to exactly one.
+    """
+    from management.analytics.registry import USER_JOURNEY_V5, classify_partition
+
+    return classify_partition(USER_JOURNEY_V5, User.objects.filter(id__in=list(user_ids)))
 
 
 def get_user_bucket_label(bucket_name: str | None) -> str:
     if not bucket_name or bucket_name == "unknown":
         return "Unknown"
+
+    from management.analytics.registry import get_catalog_entry
+
+    entry = get_catalog_entry(bucket_name)
+    if entry is not None:
+        return entry.display_name
+
     slug = bucket_name.split("__")[-1]
     return slug.replace("_", " ").strip().title()
 
@@ -97,13 +96,13 @@ def determine_user_buckets(user_pk, all_lists: bool = False) -> list[str]:
     if connection.vendor != "postgresql":
         return []
 
+    if not all_lists:
+        bucket = user_bucket_map([user_pk]).get(user_pk)
+        return [bucket] if bucket else []
+
     buckets = []
     base_qs = User.objects.filter(pk=user_pk)
-    if all_lists:
-        names_to_check = [entry.name for entry in FILTER_LISTS + get_dynamic_userlists()]
-    else:
-        names_to_check = user_category_buckets
-
+    names_to_check = [entry.name for entry in FILTER_LISTS + get_dynamic_userlists()]
     bucket_map = {entry.name: entry for entry in FILTER_LISTS + get_dynamic_userlists()}
     for name in names_to_check:
         entry = bucket_map.get(name)
@@ -113,6 +112,10 @@ def determine_user_buckets(user_pk, all_lists: bool = False) -> list[str]:
             if entry.queryset(base_qs).exists():
                 buckets.append(entry.name)
         except Exception:
+            # Logged rather than swallowed: a list whose query breaks is otherwise
+            # indistinguishable from the user genuinely not being in it, and the row just
+            # shows no bucket (conventions §9).
+            logger.exception("User bucket list %r failed for user %s; treating as no match", name, user_pk)
             continue
     return buckets
 
@@ -124,8 +127,8 @@ def get_match_waiting_time(user):
     if user.state.searching_state != State.SearchingStateChoices.SEARCHING:
         return {"number_of_days": None, "waiting_time_string": "Not actively searching", "first_search": None}
 
-    # Check if the user has already been matched
-    already_matched = Match.objects.filter(Q(user1=user) | Q(user2=user), support_matching=False).exists()
+    # Check if the user has already been matched (Standard or Random Call; not TEMPORARY)
+    already_matched = Match.objects.filter(Q(user1=user) | Q(user2=user)).filter(Match.journey_q()).exists()
 
     # Determine waiting_since based on match status
     if already_matched:
@@ -139,11 +142,11 @@ def get_match_waiting_time(user):
             candidates = []
             if user_state.onboarding_call_completed_at is not None:
                 candidates.append(user_state.onboarding_call_completed_at)
-            if user_state.self_onboarding_completed_at is not None:
-                d = user_state.self_onboarding_completed_at
-                candidates.append(
-                    timezone.make_aware(datetime.combine(d, time.min)),
-                )
+            from management.self_onboarding_progress import self_onboarding_completed_at_for_user
+
+            self_completed_at = self_onboarding_completed_at_for_user(user)
+            if self_completed_at is not None:
+                candidates.append(self_completed_at)
             if not candidates:
                 return {
                     "number_of_days": None,
@@ -296,7 +299,14 @@ class UserTableSerializer(serializers.ModelSerializer):
         determine_bucket = context.get("determine_bucket", False)
         all_buckets = context.get("all_buckets", False)
         if determine_bucket or all_buckets:
-            category_buckets = determine_user_buckets(instance.pk, all_lists=False)
+            # Page-wide map built once in the view; the per-row fallback costs ~30 queries
+            # and 3.6s per user, so a list view must never reach it.
+            bucket_map = context.get("bucket_map")
+            if bucket_map is not None and not all_buckets:
+                bucket = bucket_map.get(instance.pk)
+                category_buckets = [bucket] if bucket else []
+            else:
+                category_buckets = determine_user_buckets(instance.pk, all_lists=False)
             all_bucket_names = determine_user_buckets(instance.pk, all_lists=True) if all_buckets else None
             apply_journey_bucket_fields(
                 representation,
@@ -333,11 +343,29 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
 
         items_per_page = 50
         user = instance
+
+        confirmed_page = get_paginated_format_v2(Match.get_confirmed_matches(user), items_per_page, 1)
+        unconfirmed_page = get_paginated_format_v2(Match.get_unconfirmed_matches(user), items_per_page, 1)
+        support_page = get_paginated_format_v2(Match.get_support_matches(user), items_per_page, 1)
+        inactive_page = get_paginated_format_v2(Match.get_inactive_matches(user), items_per_page, 1)
+
         match_bucket_context = {
             "determine_bucket": determine_bucket,
             "all_buckets": all_buckets,
         }
-        confirmed_matches = get_paginated_format_v2(Match.get_confirmed_matches(user), items_per_page, 1)
+        if determine_bucket and not all_buckets:
+            from management.api.match_journey_filter_list import match_bucket_map
+            from management.match_success import annotate_match_tokens
+
+            match_objs = [
+                m for page in (confirmed_page, unconfirmed_page, support_page, inactive_page) for m in page["results"]
+            ]
+            match_ids = [m.pk for m in match_objs]
+            # Annotate once here and seed classify — otherwise match_bucket_map re-SUMs.
+            annotated = list(annotate_match_tokens(Match.objects.filter(id__in=match_ids))) if match_ids else []
+            match_bucket_context["bucket_map"] = match_bucket_map(match_ids, matches=annotated)
+
+        confirmed_matches = confirmed_page
         confirmed_matches["results"] = AdvancedUserMatchSerializer(
             confirmed_matches["results"],
             many=True,
@@ -348,7 +376,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             },
         ).data
 
-        unconfirmed_matches = get_paginated_format_v2(Match.get_unconfirmed_matches(user), items_per_page, 1)
+        unconfirmed_matches = unconfirmed_page
         unconfirmed_matches["results"] = AdvancedUserMatchSerializer(
             unconfirmed_matches["results"],
             many=True,
@@ -359,7 +387,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             },
         ).data
 
-        support_matches = get_paginated_format_v2(Match.get_support_matches(user), items_per_page, 1)
+        support_matches = support_page
         support_matches["results"] = AdvancedUserMatchSerializer(
             support_matches["results"],
             many=True,
@@ -379,7 +407,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         )
         old_proposed_matches["results"] = serialize_proposed_matches(old_proposed_matches["results"], user)
 
-        inactive_matches = get_paginated_format_v2(Match.get_inactive_matches(user), items_per_page, 1)
+        inactive_matches = inactive_page
         inactive_matches["results"] = AdvancedUserMatchSerializer(
             inactive_matches["results"],
             many=True,
@@ -404,8 +432,19 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         representation["state"] = StateSerializer(instance.state).data
         representation["state"]["random_call_access"] = instance.has_perm(ManagementPermission.USE_RANDOM_CALLS)
 
+        from video.models import RandomCallLobbyUser
+
+        representation["random_call_lobby_count"] = (
+            RandomCallLobbyUser.objects.filter(user=instance).values("lobby_id").distinct().count()
+        )
+
         if determine_bucket or all_buckets:
-            category_buckets = determine_user_buckets(instance.pk, all_lists=False)
+            bucket_map = self.context.get("bucket_map")
+            if bucket_map is not None and not all_buckets:
+                bucket = bucket_map.get(instance.pk)
+                category_buckets = [bucket] if bucket else []
+            else:
+                category_buckets = determine_user_buckets(instance.pk, all_lists=False)
             all_bucket_names = determine_user_buckets(instance.pk, all_lists=True) if all_buckets else None
             apply_journey_bucket_fields(
                 representation,
@@ -500,13 +539,13 @@ class UserFilter(filters.FilterSet):
 
     profile__target_group = filters.ChoiceFilter(
         field_name="profile__target_group",
-        choices=Profile.TargetGroupChoices2.choices,
+        choices=Profile.TARGET_GROUP_VOLUNTEER_CHOICES,
         help_text="Filter for target group",
     )
 
     profile__target_groups = filters.MultipleChoiceFilter(
         field_name="profile__target_groups",
-        choices=Profile.TargetGroupChoices2.choices,
+        choices=Profile.TARGET_GROUP_LEARNER_CHOICES,
         help_text="Filter for users based on target groups",
         method="filter_target_groups",
     )
@@ -706,8 +745,31 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             determine_bucket = True
 
         if self.action in {"list", "retrieve"} and (determine_bucket or all_buckets):
-            return {"determine_bucket": determine_bucket, "all_buckets": all_buckets}
+            context = {"determine_bucket": determine_bucket, "all_buckets": all_buckets}
+            bucket_map = getattr(self, "_bucket_map", None)
+            if bucket_map is not None:
+                context["bucket_map"] = bucket_map
+            return context
         return {}
+
+    def paginate_queryset(self, queryset):
+        """Classify the page's buckets in one pass, once the page rows are known."""
+        page = super().paginate_queryset(queryset)
+        if page is not None and self.get_serializer_context().get("determine_bucket"):
+            self._bucket_map = user_bucket_map([u.pk for u in page])
+        return page
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        # Retrieve skips paginate_queryset; classify this user once for the serializer.
+        if self.get_serializer_context().get("determine_bucket"):
+            self._bucket_map = user_bucket_map([instance.pk])
+        serializer = self.get_serializer(instance)
+        data = dict(serializer.data)
+        from management.analytics.user_journey.detail import user_journey_retrieve_extra
+
+        data.update(user_journey_retrieve_extra(instance, bucket=data.get("bucket")))
+        return Response(data)
 
     def get_serializer_class(self):
         if self.action == "list":

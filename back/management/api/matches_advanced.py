@@ -1,26 +1,26 @@
-from datetime import timedelta
-
 from chat.models import Message
 from django.db.models import Max, Q
 from django.shortcuts import get_object_or_404
 from django.urls import path
-from django.utils import timezone
-from django.utils.dateparse import parse_datetime
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.request import Request
 from rest_framework.response import Response
-from video.models import LivekitSession
 
+from management.analytics.match_journey.detail import (
+    match_stats_retrieve_extra,
+    match_weekly_activity_details,
+    match_weekly_activity_retrieve_extra,
+)
 from management.api.export_utils import build_paginated_export_response, ensure_export_fields
 from management.api.match_journey_filter_list import (
     MATCH_JOURNEY_FILTERS,
     determine_match_buckets,
     get_match_bucket_label,
+    match_bucket_map,
 )
-from management.api.user_advanced_filter import _match_success_units
 from management.api.utils_advanced import (
     FilterSchemaResponseSerializer,
     apply_journey_bucket_fields,
@@ -30,6 +30,7 @@ from management.api.utils_advanced import (
 )
 from management.controller import unmatch_users
 from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
+from management.match_success import ACTIVE_VERSION_ID, annotate_match_tokens, match_tokens
 from management.models.matches import Match
 from management.models.profile import MinimalProfileSerializer, Profile
 from management.models.unconfirmed_matches import MatchType
@@ -43,7 +44,14 @@ def _apply_match_bucket_representation(representation: dict, match_pk: int, cont
     if not determine_bucket and not all_buckets:
         return
 
-    category_buckets = determine_match_buckets(match_pk, all_lists=False)
+    # Prefer a request-scoped map (list page or retrieve). Fallback is still one classify
+    # pass per match via ``determine_match_buckets`` — never the old per-cell ``.exists()`` loop.
+    bucket_map = context.get("bucket_map")
+    if bucket_map is not None and not all_buckets:
+        bucket = bucket_map.get(match_pk)
+        category_buckets = [bucket] if bucket else []
+    else:
+        category_buckets = determine_match_buckets(match_pk, all_lists=False)
     all_bucket_names = determine_match_buckets(match_pk, all_lists=True) if all_buckets else None
     apply_journey_bucket_fields(
         representation,
@@ -227,222 +235,10 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
             representation["status"] = "proposed"
 
         _apply_match_bucket_representation(representation, instance.pk, getattr(self, "context", {}))
-        representation["video_call_success_units"] = _match_success_units(instance)
+        representation["match_tokens"] = match_tokens(instance)
+        representation["match_token_version"] = ACTIVE_VERSION_ID
 
         return representation
-
-
-def _match_stats_retrieve_extra(match: Match) -> dict:
-    """
-    Read-only match stats for single-match GET (retrieve) only.
-    Not stored on Match; omitted from list/export serializers.
-    """
-    u1 = match.user1
-    u2 = match.user2
-    dt_field = serializers.DateTimeField()
-
-    def _format_datetime_for_json(dt):
-        """Serialize a datetime for the JSON body (DRF/ISO-8601); None if there is no timestamp."""
-        return None if dt is None else dt_field.to_representation(dt)
-
-    # Same directed pair logic as sync_match_counters — do not use Chat.get_chat() alone:
-    # it returns only the newest chat row, which can be an empty temporary chat while real messages sit on an older chat.
-    last_msg_u1_at = Message.objects.filter(sender=u1, recipient=u2).aggregate(ts=Max("created"))["ts"]
-    last_msg_u2_at = Message.objects.filter(sender=u2, recipient=u1).aggregate(ts=Max("created"))["ts"]
-
-    pair_q = Q(u1=u1, u2=u2) | Q(u1=u2, u2=u1)
-    last_video_at = (
-        LivekitSession.objects.filter(pair_q, both_have_been_active=True)
-        .order_by("-created_at")
-        .values_list("created_at", flat=True)
-        .first()
-    )
-
-    return {
-        "last_video_call_at": _format_datetime_for_json(last_video_at),
-        "user1_last_message_at": _format_datetime_for_json(last_msg_u1_at),
-        "user2_last_message_at": _format_datetime_for_json(last_msg_u2_at),
-    }
-
-
-def _match_journey_stages(match: Match, current_week: int, desired_duration_weeks: int) -> dict:
-    """
-    Ordered lifecycle timeline for a single match (retrieve only).
-
-    The "happy path" is: matched -> first contact -> ongoing -> completed -> free play.
-    A reported/unmatched match terminates in a final "closed" step, and any later
-    happy-path steps that were never reached are dropped so the progress bar shortens.
-    """
-    dt_field = serializers.DateTimeField()
-    created_at = match.created_at
-
-    def _fmt(value):
-        return None if value is None else dt_field.to_representation(value)
-
-    has_interaction = bool(
-        match.first_interaction_at or match.total_messages_counter or match.total_mutal_video_calls_counter
-    )
-    is_completed = bool(match.completed or match.completed_off_plattform)
-    is_free_play = current_week > desired_duration_weeks and match.active
-
-    report_entries = match.report_unmatch if isinstance(match.report_unmatch, list) else []
-    closing_entry = report_entries[-1] if report_entries else None
-    # A naturally completed match is a success, not a "closed" failure, even if inactive.
-    is_closed = (not match.active) and closing_entry is not None and not is_completed
-
-    completed_at = match.completed_off_plattform_auto_marked_at
-    if is_completed and completed_at is None:
-        completed_at = created_at + timedelta(weeks=desired_duration_weeks)
-
-    free_play_at = created_at + timedelta(weeks=desired_duration_weeks) if is_free_play else None
-
-    happy_path = [
-        {
-            "id": "matched",
-            "label": "Matched",
-            "description": "Match created.",
-            "achieved": True,
-            "achieved_at": _fmt(created_at),
-        },
-        {
-            "id": "first_contact",
-            "label": "First contact",
-            "description": "Both people started interacting.",
-            "achieved": has_interaction,
-            "achieved_at": _fmt(match.first_interaction_at),
-        },
-        {
-            "id": "ongoing",
-            "label": "Ongoing",
-            "description": f"Active within the planned {desired_duration_weeks} week journey.",
-            "achieved": has_interaction,
-            "achieved_at": None,
-        },
-        {
-            "id": "completed",
-            "label": "Completed",
-            "description": "Completed on or off platform.",
-            "achieved": is_completed,
-            "achieved_at": _fmt(completed_at),
-        },
-        {
-            "id": "free_play",
-            "label": "Free play",
-            "description": f"Active beyond week {desired_duration_weeks}.",
-            "achieved": is_free_play,
-            "achieved_at": _fmt(free_play_at),
-        },
-    ]
-
-    achieved_indexes = [index for index, stage in enumerate(happy_path) if stage["achieved"]]
-    furthest_index = achieved_indexes[-1] if achieved_indexes else 0
-
-    closed_kind = None
-    closed_at = None
-    if is_closed and closing_entry is not None:
-        closed_kind = closing_entry.get("kind")
-        parsed_closed_time = parse_datetime(closing_entry.get("time") or "")
-        closed_at = _fmt(parsed_closed_time or match.updated_at)
-
-        closed_label = {
-            "report": "Reported",
-            "unmatch": "Unmatched",
-            "user_deleted": "User deleted",
-        }.get(closed_kind, "Closed")
-
-        stages = happy_path[: furthest_index + 1]
-        stages.append(
-            {
-                "id": "closed",
-                "label": closed_label,
-                "description": closing_entry.get("reason") or "Match was reported or unmatched.",
-                "achieved": True,
-                "achieved_at": closed_at,
-            }
-        )
-        active_stage_index = len(stages) - 1
-    else:
-        stages = happy_path
-        active_stage_index = furthest_index
-
-    return {
-        "stages": stages,
-        "active_stage_index": active_stage_index,
-        "is_closed": is_closed,
-        "closed_kind": closed_kind,
-        "closed_at": closed_at,
-    }
-
-
-def _match_weekly_activity_retrieve_extra(match: Match) -> dict:
-    """
-    Read-only activity breakdown for single-match GET (retrieve) only.
-    Weeks are counted from the match creation timestamp.
-    """
-    dt_field = serializers.DateTimeField()
-    match_start = match.created_at
-    now = timezone.now()
-    desired_duration_weeks = 10
-    current_week = max(((now - match_start).days // 7) + 1, 1)
-    weeks_to_show = max(current_week, desired_duration_weeks)
-
-    def _empty_week(week: int) -> dict:
-        return {
-            "week": week,
-            "start_at": dt_field.to_representation(match_start + timedelta(weeks=week - 1)),
-            "end_at": dt_field.to_representation(match_start + timedelta(weeks=week)),
-            "messages": 0,
-            "messages_user1": 0,
-            "messages_user2": 0,
-            "video_calls": 0,
-        }
-
-    activity_by_week = {week: _empty_week(week) for week in range(1, weeks_to_show + 1)}
-
-    def _week_for_timestamp(timestamp):
-        return max(((timestamp - match_start).days // 7) + 1, 1)
-
-    user1_id = match.user1_id
-    user2_id = match.user2_id
-    message_rows = Message.objects.filter(
-        Q(sender=match.user1, recipient=match.user2) | Q(sender=match.user2, recipient=match.user1)
-    ).values_list("created", "sender_id")
-    for timestamp, sender_id in message_rows:
-        week = _week_for_timestamp(timestamp)
-        activity = activity_by_week.setdefault(week, _empty_week(week))
-        activity["messages"] += 1
-        if sender_id == user1_id:
-            activity["messages_user1"] += 1
-        elif sender_id == user2_id:
-            activity["messages_user2"] += 1
-
-    video_timestamps = LivekitSession.objects.filter(
-        Q(u1=match.user1, u2=match.user2) | Q(u1=match.user2, u2=match.user1),
-        both_have_been_active=True,
-    ).values_list("created_at", flat=True)
-    for timestamp in video_timestamps:
-        week = _week_for_timestamp(timestamp)
-        activity = activity_by_week.setdefault(week, _empty_week(week))
-        activity["video_calls"] += 1
-
-    weekly_activity = [
-        {
-            **activity,
-            "is_current_week": activity["week"] == current_week,
-            "is_free_play_week": activity["week"] > desired_duration_weeks,
-        }
-        for activity in sorted(activity_by_week.values(), key=lambda item: item["week"])
-    ]
-
-    journey = {
-        "current_week": current_week,
-        "desired_duration_weeks": desired_duration_weeks,
-        "is_free_play": current_week > desired_duration_weeks,
-        "weekly_activity": weekly_activity,
-    }
-    journey.update(_match_journey_stages(match, current_week, desired_duration_weeks))
-
-    return {"journey": journey}
 
 
 class ExportMatchSerializer(serializers.ModelSerializer):
@@ -512,7 +308,8 @@ class ExportMatchSerializer(serializers.ModelSerializer):
             _apply_match_bucket_representation(representation, instance.pk, self.context)
             _apply_match_message_export_fields(representation, instance)
             _apply_match_unmatch_export_fields(representation, instance)
-            representation["video_call_success_units"] = _match_success_units(instance)
+            representation["match_tokens"] = match_tokens(instance)
+            representation["match_token_version"] = ACTIVE_VERSION_ID
             return representation
 
         requested_set = set(requested_fields)
@@ -553,8 +350,9 @@ class ExportMatchSerializer(serializers.ModelSerializer):
         _apply_match_message_export_fields(filtered, instance, requested_set)
         _apply_match_unmatch_export_fields(filtered, instance, requested_set)
 
-        if "video_call_success_units" in requested_set:
-            filtered["video_call_success_units"] = _match_success_units(instance)
+        if "match_tokens" in requested_set:
+            filtered["match_tokens"] = match_tokens(instance)
+            filtered["match_token_version"] = ACTIVE_VERSION_ID
 
         for user_prefix, user in (("user1", instance.user1), ("user2", instance.user2)):
             full_user = self._serialize_export_user(user)
@@ -598,7 +396,7 @@ MATCH_EXPORT_COLUMN_NAMES = (
     "unmatching_type",
     "unmatch_reason",
     "is_manual_unmatch",
-    "video_call_success_units",
+    "match_tokens",
     "user1.id",
     "user1.uuid",
     "user1.email",
@@ -702,11 +500,31 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         determine_bucket = (
             parse_bool_query_param(determine_bucket_param) if determine_bucket_param is not None else True
         )
-        return {"determine_bucket": determine_bucket, "all_buckets": all_buckets}
+        context = {"determine_bucket": determine_bucket, "all_buckets": all_buckets}
+        bucket_map = getattr(self, "_bucket_map", None)
+        if bucket_map is not None:
+            context["bucket_map"] = bucket_map
+        return context
+
+    def paginate_queryset(self, queryset):
+        """Classify the page's buckets in one pass, once the page rows are known.
+
+        Here rather than in ``get_queryset`` because only the paginated slice needs
+        classifying — the full queryset is thousands of matches. DRF calls this before
+        building the serializer, so ``get_serializer_context`` picks the map up.
+        """
+        page = super().paginate_queryset(queryset)
+        if page is not None and self.get_serializer_context().get("determine_bucket"):
+            self._bucket_map = match_bucket_map([m.pk for m in page], matches=page)
+        return page
 
     def get_queryset(self):
         user = self.request.user
-        base = Match.objects.all().exclude(match_type=MatchType.TEMPORARY).order_by("-created_at")
+        # Annotated here so the serializer's per-row token lookup is free: without it a
+        # 25-row page cost 75 queries (one session aggregate plus two FK fetches each).
+        base = (
+            annotate_match_tokens(Match.objects.all()).exclude(match_type=MatchType.TEMPORARY).order_by("-created_at")
+        )
         if user.is_staff:
             return base
         if isinstance(user, User) and user.has_perm(ManagementPermission.MATCHING_USER):
@@ -785,11 +603,33 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
+        # Retrieve skips paginate_queryset, so build the map here — same classify pass as list.
+        # Pass the annotated instance so classify reuses its call-time SUM (no second annotate).
+        if self.get_serializer_context().get("determine_bucket"):
+            self._bucket_map = match_bucket_map([instance.pk], matches=[instance])
         serializer = self.get_serializer(instance)
         data = dict(serializer.data)
-        data.update(_match_stats_retrieve_extra(instance))
-        data.update(_match_weekly_activity_retrieve_extra(instance))
+        data.update(match_stats_retrieve_extra(instance))
+        data.update(match_weekly_activity_retrieve_extra(instance))
         return Response(data)
+
+    @extend_schema(summary="Retrieve weekly activity details for a match")
+    @action(detail=True, methods=["get"])
+    def weekly_activity_details(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        week_raw = request.query_params.get("week")
+        if week_raw is None:
+            return Response({"msg": "week query parameter is required"}, status=400)
+        try:
+            week = int(week_raw)
+        except (TypeError, ValueError):
+            return Response({"msg": "week must be an integer"}, status=400)
+        if week < 1:
+            return Response({"msg": "week must be >= 1"}, status=400)
+
+        return Response(match_weekly_activity_details(obj, week))
 
     @action(detail=True, methods=["post"])
     def set_completed_off_plattform(self, request, pk=None):
@@ -861,6 +701,10 @@ api_urls = [
     path("api/matching/matches_export/", matches_export),
     path("api/matching/matches/filters/", AdvancedMatchViewset.as_view({"get": "get_filter_schema"})),
     path("api/matching/matches/<pk>/", AdvancedMatchViewset.as_view({"get": "retrieve"})),
+    path(
+        "api/matching/matches/<pk>/weekly_activity_details/",
+        AdvancedMatchViewset.as_view({"get": "weekly_activity_details"}),
+    ),
     path("api/matching/matches/<pk>/resolve/", AdvancedMatchViewset.as_view({"post": "resolve_match"})),
     path(
         "api/matching/matches/<pk>/completed_off_plattform/",

@@ -18,10 +18,12 @@ from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.profile import Profile
 from management.models.state import State
+from management.models.unconfirmed_matches import MatchType
 from management.models.user import User
 from management.permissions import ManagementPermission
 from management.random_test_users import create_test_user
 from management.tasks import (
+    automatic_emails_fm021_fm022__ghosted_matches,
     automatic_emails_m012_m013_m014,
     automatic_emails_m023,
     automatic_emails_m024_m025,
@@ -33,6 +35,13 @@ from management.tasks import (
     automatic_emails_u072_u073_u074,
     automatic_emails_u082_u083_u084,
 )
+
+
+def add_mutual_messages(user1, user2):
+    chat = Chat.objects.create(u1=user1, u2=user2)
+    Message.objects.create(chat=chat, sender=user1, recipient=user2, text="Hello")
+    Message.objects.create(chat=chat, sender=user2, recipient=user1, text="Hi")
+    return chat
 
 
 class TestAutomaticEmails_023_024_025(TestCase):
@@ -156,8 +165,11 @@ class TestAutomaticEmails_m12_m13_m14(TestCase):
         with freeze_time(dj_timezone.now() - timedelta(days=15)):
             self.valid_user_m14 = create_test_user(20002, None, "Test123!", "email-test-valid-025@test.de")
 
-        with freeze_time(dj_timezone.now() - timedelta(days=4)):
+        # Too recent for m012 (< 2 days)
+        with freeze_time(dj_timezone.now() - timedelta(days=1)):
             self.invalid_user_m12 = create_test_user(20003, None, "Test123!", "email-test-invalid-023@test.de")
+
+        with freeze_time(dj_timezone.now() - timedelta(days=4)):
             self.invalid_user_m13 = create_test_user(20004, None, "Test123!", "email-test-invalid-024@test.de")
             self.invalid_user_m14 = create_test_user(20005, None, "Test123!", "email-test-invalid-025@test.de")
 
@@ -177,6 +189,7 @@ class TestAutomaticEmails_m12_m13_m14(TestCase):
         confirm_all_matches_and_set_reminder_status(self.valid_user_m13, True, True, False, False)
         confirm_all_matches_and_set_reminder_status(self.valid_user_m14, True, True, True, False)
 
+        # Unconfirmed matches are eligible; this one is only invalid because it's too recent
         confirm_all_matches_and_set_reminder_status(self.invalid_user_m12, False, False, False, False)
         confirm_all_matches_and_set_reminder_status(self.invalid_user_m13, True, True, False, False)
         confirm_all_matches_and_set_reminder_status(self.invalid_user_m14, True, False, False, True)
@@ -201,6 +214,120 @@ class TestAutomaticEmails_m12_m13_m14(TestCase):
         assert len(result["matches_m012"]) == 0
         assert len(result["matches_m013"]) == 0
         assert len(result["matches_m014"]) == 0
+
+
+class TestInteractionReminderStaging(TestCase):
+    """A match already past every threshold must get one reminder, not all three.
+
+    The stages used to chain off each other's flags inside a single run, so a match that
+    entered the query already older than 14 days collected m012, m013 and m014 seconds
+    apart. Impossible while matches age through the stages one run at a time; it fired on
+    2026-08-27 when months-old Random Call matches entered the query at once.
+    """
+
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+        self.user1 = create_test_user(41001, None, "Test123!", "stage-a@test.de")
+        self.user2 = create_test_user(41002, None, "Test123!", "stage-b@test.de")
+
+    def _silent_match(self, *, days: int) -> Match:
+        match = Match.objects.create(
+            user1=self.user1,
+            user2=self.user2,
+            confirmed=True,
+            active=True,
+            total_messages_counter=0,
+            total_mutal_video_calls_counter=0,
+        )
+        Match.objects.filter(pk=match.pk).update(latest_interaction_at=dj_timezone.now() - timedelta(days=days))
+        match.refresh_from_db()
+        return match
+
+    def test_a_long_silent_match_gets_only_the_stage_it_reached(self):
+        match = self._silent_match(days=40)
+
+        result = automatic_emails_m012_m013_m014()
+
+        self.assertEqual([m.pk for m in result["matches_m014"]], [match.pk])
+        self.assertEqual(result["matches_m012"], [])
+        self.assertEqual(result["matches_m013"], [])
+
+        # Earlier stages are marked with it, so later runs do not walk back down the ladder.
+        match.refresh_from_db()
+        self.assertTrue(match.interaction_reminder_2_days_send)
+        self.assertTrue(match.interaction_reminder_7_days_send)
+        self.assertTrue(match.interaction_reminder_14_days_send)
+
+        second = automatic_emails_m012_m013_m014()
+        self.assertEqual(second["matches_m012"] + second["matches_m013"] + second["matches_m014"], [])
+
+    def test_the_ladder_still_advances_one_stage_at_a_time(self):
+        match = self._silent_match(days=3)
+        self.assertEqual([m.pk for m in automatic_emails_m012_m013_m014()["matches_m012"]], [match.pk])
+
+        Match.objects.filter(pk=match.pk).update(latest_interaction_at=dj_timezone.now() - timedelta(days=8))
+        self.assertEqual([m.pk for m in automatic_emails_m012_m013_m014()["matches_m013"]], [match.pk])
+
+        Match.objects.filter(pk=match.pk).update(latest_interaction_at=dj_timezone.now() - timedelta(days=15))
+        self.assertEqual([m.pk for m in automatic_emails_m012_m013_m014()["matches_m014"]], [match.pk])
+
+
+class TestSendOnceFlagsSurviveConcurrentWrites(TestCase):
+    """A task holding a stale Match must not reopen another task's send-once flag.
+
+    `Match` has 45 columns, 16 of them send-once e-mail flags, so a bare `save()` writes
+    every flag from whatever was in memory when the row was loaded. Beat runs these tasks in
+    the same window: on 2026-08-27 one user received the full m012/m013/m014 ladder, and then
+    received it again the next morning because a task that had loaded the match *before* the
+    flags were set wrote its stale copy back.
+    """
+
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+        self.user1 = create_test_user(42001, None, "Test123!", "concurrent-a@test.de")
+        self.user2 = create_test_user(42002, None, "Test123!", "concurrent-b@test.de")
+        self.match = Match.objects.create(
+            user1=self.user1,
+            user2=self.user2,
+            confirmed=True,
+            active=True,
+            total_messages_counter=0,
+            total_mutal_video_calls_counter=0,
+        )
+        Match.objects.filter(pk=self.match.pk).update(latest_interaction_at=dj_timezone.now() - timedelta(days=40))
+
+    def test_a_stale_writer_cannot_clear_a_flag_set_after_it_loaded(self):
+        # Task A loads the match while every reminder flag is still False.
+        stale = Match.objects.get(pk=self.match.pk)
+        assert stale.interaction_reminder_2_days_send is False
+
+        # Task B sends the reminder and records it.
+        automatic_emails_m012_m013_m014()
+        self.match.refresh_from_db()
+        assert self.match.interaction_reminder_14_days_send is True
+
+        # Task A now writes its own unrelated flag from its stale copy.
+        stale.auto_email_m031_send = True
+        stale.save(update_fields=["auto_email_m031_send", "updated_at"])
+
+        self.match.refresh_from_db()
+        assert self.match.auto_email_m031_send is True
+        assert self.match.interaction_reminder_14_days_send is True, (
+            "a stale writer reopened the reminder ladder — the send-once guard is not a guard"
+        )
+
+    def test_the_reminder_does_not_repeat_on_the_next_run(self):
+        """The whole point: yesterday's send must not come round again today."""
+        # Loaded first, exactly as a concurrent task's queryset would be.
+        stale = Match.objects.get(pk=self.match.pk)
+
+        automatic_emails_m012_m013_m014()
+
+        stale.auto_email_m042_send = True
+        stale.save(update_fields=["auto_email_m042_send", "updated_at"])
+
+        second = automatic_emails_m012_m013_m014()
+        assert second["matches_m012"] + second["matches_m013"] + second["matches_m014"] == []
 
 
 class TestAutomaticEmails_m023(TestCase):
@@ -299,6 +426,27 @@ class TestAutomaticEmails_m023(TestCase):
 
         self.invalid_chat_no_messages = Chat.objects.create(u1=self.no_msg_user_1, u2=self.no_msg_user_2)
 
+        # Both users exchanged messages but have been inactive 3+ days — should be excluded
+        with freeze_time(dj_timezone.now() - timedelta(days=10)):
+            self.replied_user_1 = create_user("m023-replied-user1@test.de", "RepliedOne")
+            self.replied_user_2 = create_user("m023-replied-user2@test.de", "RepliedTwo")
+
+        self.invalid_chat_both_replied = Chat.objects.create(u1=self.replied_user_1, u2=self.replied_user_2)
+        with freeze_time(dj_timezone.now() - timedelta(days=5)):
+            Message.objects.create(
+                chat=self.invalid_chat_both_replied,
+                sender=self.replied_user_1,
+                recipient=self.replied_user_2,
+                text="First message",
+            )
+        with freeze_time(dj_timezone.now() - timedelta(days=4)):
+            Message.objects.create(
+                chat=self.invalid_chat_both_replied,
+                sender=self.replied_user_2,
+                recipient=self.replied_user_1,
+                text="Reply",
+            )
+
     def test_m023_identifies_inactive_chats(self):
         result = automatic_emails_m023()
 
@@ -316,6 +464,9 @@ class TestAutomaticEmails_m023(TestCase):
         self.invalid_chat_recent.refresh_from_db()
         assert self.invalid_chat_recent.three_days_inactive_email_send is False
 
+        self.invalid_chat_both_replied.refresh_from_db()
+        assert self.invalid_chat_both_replied.three_days_inactive_email_send is False
+
     def test_m023_excludes_staff_and_matching_users(self):
         result = automatic_emails_m023()
 
@@ -324,6 +475,13 @@ class TestAutomaticEmails_m023(TestCase):
         # Staff and matching user chats should not be in results
         assert self.invalid_chat_staff not in inactive_chats
         assert self.invalid_chat_matching not in inactive_chats
+
+    def test_m023_excludes_two_way_conversations(self):
+        result = automatic_emails_m023()
+
+        assert self.invalid_chat_both_replied not in result["inactive_chats"]
+        self.invalid_chat_both_replied.refresh_from_db()
+        assert self.invalid_chat_both_replied.three_days_inactive_email_send is False
 
     def test_m023_does_not_resend(self):
         # First run
@@ -530,6 +688,10 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
             self.invalid_user_m042_recent_1 = create_test_user(32014, None, "Test123!", "m042-invalid-recent1@test.de")
             self.invalid_user_m042_recent_2 = create_test_user(32015, None, "Test123!", "m042-invalid-recent2@test.de")
 
+            # Invalid match - only one partner has written (single-party contact)
+            self.invalid_user_one_sided_1 = create_test_user(32016, None, "Test123!", "m031-invalid-onesided1@test.de")
+            self.invalid_user_one_sided_2 = create_test_user(32017, None, "Test123!", "m031-invalid-onesided2@test.de")
+
         # Create valid match for m031 (first_interaction_at 8 days ago)
         self.valid_match_m031 = Match.objects.create(
             user1=self.valid_user_m031_1,
@@ -539,6 +701,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
             total_mutal_video_calls_counter=0,
             auto_email_m031_send=False,
         )
+        add_mutual_messages(self.valid_user_m031_1, self.valid_user_m031_2)
 
         # Create valid match for m032 (first_interaction_at 15 days ago, m031 already sent)
         self.valid_match_m032 = Match.objects.create(
@@ -550,6 +713,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
             auto_email_m031_send=True,  # m031 already sent
             auto_email_m032_send=False,
         )
+        add_mutual_messages(self.valid_user_m032_1, self.valid_user_m032_2)
 
         # Create valid match for m033 (first_interaction_at 22 days ago, m031 and m032 already sent)
         self.valid_match_m033 = Match.objects.create(
@@ -562,6 +726,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
             auto_email_m032_send=True,  # m032 already sent
             auto_email_m033_send=False,
         )
+        add_mutual_messages(self.valid_user_m033_1, self.valid_user_m033_2)
 
         # Create invalid match - too recent (5 days)
         self.invalid_match_recent = Match.objects.create(
@@ -591,6 +756,24 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
             first_interaction_at=dj_timezone.now() - timedelta(days=35),
             total_mutal_video_calls_counter=0,
             auto_email_m042_send=False,
+        )
+        add_mutual_messages(self.valid_user_m042_1, self.valid_user_m042_2)
+
+        # Create invalid match - only one partner has written (Oliver-style single-party contact)
+        self.invalid_match_one_sided = Match.objects.create(
+            user1=self.invalid_user_one_sided_1,
+            user2=self.invalid_user_one_sided_2,
+            confirmed=True,
+            first_interaction_at=dj_timezone.now() - timedelta(days=8),
+            total_mutal_video_calls_counter=0,
+            auto_email_m031_send=False,
+        )
+        one_sided_chat = Chat.objects.create(u1=self.invalid_user_one_sided_1, u2=self.invalid_user_one_sided_2)
+        Message.objects.create(
+            chat=one_sided_chat,
+            sender=self.invalid_user_one_sided_1,
+            recipient=self.invalid_user_one_sided_2,
+            text="Hello, still waiting for a reply",
         )
 
         # Create invalid match for m042 - recent interaction (only 20 days ago)
@@ -632,6 +815,9 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         )
         assert str(self.invalid_match_video.uuid) not in matches_m031, (
             f"Invalid match video: {self.invalid_match_video.uuid}, matches_m031: {matches_m031}"
+        )
+        assert str(self.invalid_match_one_sided.uuid) not in matches_m031, (
+            f"Invalid match one-sided: {self.invalid_match_one_sided.uuid}, matches_m031: {matches_m031}"
         )
         assert str(self.invalid_match_m042_recent.uuid) not in matches_m042, (
             f"Invalid match m042 recent: {self.invalid_match_m042_recent.uuid}, matches_m042: {matches_m042}"
@@ -678,6 +864,35 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         assert str(self.invalid_match_video.uuid) not in matches_m031, (
             f"Invalid match video: {self.invalid_match_video.uuid}"
         )
+
+    def test_excludes_one_sided_chats(self):
+        """m031 is for First Contact: both partners must have written at least once."""
+        result = automatic_emails_m031_m032_m033_m042()
+
+        assert str(self.invalid_match_one_sided.uuid) not in result["matches_m031"]
+        assert str(self.valid_match_m031.uuid) in result["matches_m031"]
+
+    def test_ignores_messages_from_before_this_match(self):
+        """A pair can be matched twice, and their chat outlives the first match.
+
+        Messages from the earlier conversation must not make the new match look like it has
+        reached First Contact, or the ladder starts on a match where nobody has written.
+        """
+        match = self.invalid_match_one_sided
+        chat = Chat.objects.filter(u1__in=[match.user1, match.user2], u2__in=[match.user1, match.user2]).first()
+        # A full two-way conversation, but all of it predates this match's first message.
+        Message.objects.create(chat=chat, sender=match.user2, recipient=match.user1, text="Older reply")
+        Message.objects.filter(chat=chat).update(created=match.first_interaction_at - timedelta(days=1))
+
+        result = automatic_emails_m031_m032_m033_m042()
+        assert str(match.uuid) not in result["matches_m031"]
+
+        # The same pair writing inside the match does qualify it.
+        Message.objects.create(chat=chat, sender=match.user1, recipient=match.user2, text="Hello again")
+        Message.objects.create(chat=chat, sender=match.user2, recipient=match.user1, text="Hi again")
+
+        result = automatic_emails_m031_m032_m033_m042()
+        assert str(match.uuid) in result["matches_m031"]
 
 
 class TestAutomaticEmails_m053_m054_m055(TestCase):
@@ -1318,7 +1533,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         email_html = email_log.data.get("html", "")
 
         # Check that the URL contains the correct match UUID
-        expected_url_part = f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+        expected_url_part = f"/api/still_in_contact/{self.match.uuid!s}/yes/"
         assert expected_url_part in email_html, (
             f"Email should contain still_in_contact URL with match UUID. Expected: {expected_url_part}"
         )
@@ -1362,7 +1577,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         email_html = email_log.data.get("html", "")
 
         # Check that the URL contains the correct match UUID
-        expected_url_part = f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+        expected_url_part = f"/api/still_in_contact/{self.match.uuid!s}/yes/"
         assert expected_url_part in email_html, "Email should contain still_in_contact URL with match UUID"
 
         # Check that the URL contains the user hash and token
@@ -1397,7 +1612,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         email_html = email_log.data.get("html", "")
 
         # Check that the URL contains the correct match UUID
-        expected_url_part = f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+        expected_url_part = f"/api/still_in_contact/{self.match.uuid!s}/yes/"
         assert expected_url_part in email_html, "Email should contain still_in_contact URL with match UUID"
 
         # Check that the URL contains the user hash and token
@@ -1412,7 +1627,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
 
         # Build the URL with proper parameters
         url = (
-            f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+            f"/api/still_in_contact/{self.match.uuid!s}/yes/"
             f"?user_uuid={self.user1.uuid}"
             f"&user_token={self.user1.state.still_in_contact_form_access_token_user}"
             f"&redirect_slug=match-form1"
@@ -1434,7 +1649,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         assert f"entry.1868418501={self.user1.uuid}" in redirect_url, (
             "Redirect URL should contain user hash as form parameter"
         )
-        assert f"entry.1064841735={str(self.match.uuid)}" in redirect_url, (
+        assert f"entry.1064841735={self.match.uuid!s}" in redirect_url, (
             "Redirect URL should contain match UUID as form parameter"
         )
 
@@ -1450,7 +1665,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
 
         # Build the URL with info-screen redirect
         url = (
-            f"/api/still_in_contact/{str(self.match.uuid)}/no/"
+            f"/api/still_in_contact/{self.match.uuid!s}/no/"
             f"?user_uuid={self.user1.uuid}"
             f"&user_token={self.user1.state.still_in_contact_form_access_token_user}"
             f"&redirect_slug=info-screen"
@@ -1474,7 +1689,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
 
         # Build the URL with an invalid token
         url = (
-            f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+            f"/api/still_in_contact/{self.match.uuid!s}/yes/"
             f"?user_uuid={self.user1.uuid}"
             f"&user_token=invalid-token-12345"
             f"&redirect_slug=match-form1"
@@ -1519,8 +1734,8 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         assert f"user_uuid={self.user2.uuid}" in email_html_user2
 
         # Both emails should reference the same match UUID
-        assert f"/api/still_in_contact/{str(self.match.uuid)}/yes/" in email_html_user1
-        assert f"/api/still_in_contact/{str(self.match.uuid)}/yes/" in email_html_user2
+        assert f"/api/still_in_contact/{self.match.uuid!s}/yes/" in email_html_user1
+        assert f"/api/still_in_contact/{self.match.uuid!s}/yes/" in email_html_user2
 
 
 class TestPrematchingCheckoffEmailQueue(TestCase):
@@ -1781,3 +1996,309 @@ class TestAutomaticEmailsM043M044M045Performance(TestCase):
         assert len(calls) == 2
         assert calls[0][0][0] == "automatic-emails-m043"
         assert calls[1][0][0] == "automatic-emails-m043"
+
+
+class TestAutomaticEmailsIncludeRandomCallMatches(TestCase):
+    """Random Call matches share the Standard post-confirm email journey; Temporary matches do not."""
+
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+
+    def _create_pair(self, seed: str, match_type: str, **match_kwargs):
+        user1 = User.objects.create_user(
+            email=f"rc-journey-{seed}-1@test.de",
+            password="Test123!",
+            first_name="Learner",
+            last_name="Test",
+        )
+        user2 = User.objects.create_user(
+            email=f"rc-journey-{seed}-2@test.de",
+            password="Test123!",
+            first_name="Volunteer",
+            last_name="Test",
+        )
+        user1.profile.user_type = Profile.TypeChoices.LEARNER
+        user2.profile.user_type = Profile.TypeChoices.VOLUNTEER
+        user1.profile.save()
+        user2.profile.save()
+        match = Match.objects.create(
+            user1=user1,
+            user2=user2,
+            match_type=match_type,
+            active=True,
+            **match_kwargs,
+        )
+        return user1, user2, match
+
+    def test_m012_includes_random_call_and_excludes_temporary(self):
+        _u1, _u2, rc_match = self._create_pair(
+            "m012-rc",
+            MatchType.RANDOM_CALL,
+            support_matching=False,
+            total_messages_counter=0,
+            total_mutal_video_calls_counter=0,
+            latest_interaction_at=dj_timezone.now() - timedelta(days=3),
+        )
+        _t1, _t2, temp_match = self._create_pair(
+            "m012-temp",
+            MatchType.TEMPORARY,
+            support_matching=False,
+            total_messages_counter=0,
+            total_mutal_video_calls_counter=0,
+            latest_interaction_at=dj_timezone.now() - timedelta(days=3),
+        )
+
+        result = automatic_emails_m012_m013_m014()
+        m012_ids = {match.pk for match in result["matches_m012"]}
+
+        assert rc_match.pk in m012_ids
+        assert temp_match.pk not in m012_ids
+
+    def test_m023_sends_for_random_call_match(self):
+        user1, user2, match = self._create_pair("m023-rc", MatchType.RANDOM_CALL, confirmed=True)
+        chat = Chat.objects.create(u1=user1, u2=user2)
+        with freeze_time(dj_timezone.now() - timedelta(days=4)):
+            Message.objects.create(chat=chat, sender=user1, recipient=user2, text="Hello")
+
+        with patch("management.tasks.send_email_background") as mock_send_email:
+            automatic_emails_m023()
+
+        mock_send_email.delay.assert_called_once_with(
+            "automatic-emails-m023",
+            user_id=user2.id,
+            match_id=match.pk,
+            emulated_send=True,
+        )
+
+    def test_m031_includes_random_call_and_excludes_temporary(self):
+        u1, u2, rc_match = self._create_pair(
+            "m031-rc",
+            MatchType.RANDOM_CALL,
+            confirmed=True,
+            support_matching=False,
+            first_interaction_at=dj_timezone.now() - timedelta(days=8),
+            total_mutal_video_calls_counter=0,
+            auto_email_m031_send=False,
+        )
+        add_mutual_messages(u1, u2)
+        _t1, _t2, temp_match = self._create_pair(
+            "m031-temp",
+            MatchType.TEMPORARY,
+            confirmed=True,
+            support_matching=False,
+            first_interaction_at=dj_timezone.now() - timedelta(days=8),
+            total_mutal_video_calls_counter=0,
+            auto_email_m031_send=False,
+        )
+
+        result = automatic_emails_m031_m032_m033_m042()
+        m031_uuids = set(result["matches_m031"])
+
+        assert str(rc_match.uuid) in m031_uuids
+        assert str(temp_match.uuid) not in m031_uuids
+
+    def test_m053_includes_random_call_and_excludes_temporary(self):
+        _u1, _u2, rc_match = self._create_pair(
+            "m053-rc",
+            MatchType.RANDOM_CALL,
+            confirmed=True,
+            support_matching=False,
+            auto_email_m053_send=False,
+        )
+        _t1, _t2, temp_match = self._create_pair(
+            "m053-temp",
+            MatchType.TEMPORARY,
+            confirmed=True,
+            support_matching=False,
+            auto_email_m053_send=False,
+        )
+        six_weeks_ago = dj_timezone.now() - timedelta(weeks=6)
+        Match.objects.filter(pk__in=[rc_match.pk, temp_match.pk]).update(created_at=six_weeks_ago)
+
+        result = automatic_emails_m053_m054_m055()
+        m053_uuids = set(result["matches_m053"])
+
+        assert str(rc_match.uuid) in m053_uuids
+        assert str(temp_match.uuid) not in m053_uuids
+
+    @patch("management.tasks.send_email_background")
+    def test_m043_sends_for_random_call_match(self, mock_send_email):
+        user1, user2, match = self._create_pair(
+            "m043-rc",
+            MatchType.RANDOM_CALL,
+            confirmed=True,
+            auto_email_m043_send=False,
+            auto_email_m044_send=False,
+            auto_email_m045_send=False,
+            latest_counter_sync=dj_timezone.now() - timedelta(days=2),
+            latest_interaction_at=dj_timezone.now() - timedelta(days=1),
+        )
+        for _ in range(5):
+            LivekitSession.objects.create(
+                u1=user1,
+                u2=user2,
+                both_have_been_active=True,
+                is_active=False,
+            )
+
+        report = automatic_emails_m043_m044_m045()
+        match.refresh_from_db()
+
+        assert report["counters_synced_m043"] == 1
+        assert match.auto_email_m043_send is True
+        assert mock_send_email.delay.call_count == 2
+        sent_user_ids = {call.kwargs["user_id"] for call in mock_send_email.delay.call_args_list}
+        assert sent_user_ids == {user1.id, user2.id}
+
+    @patch("management.tasks.send_email_background")
+    def test_m043_sends_to_both_users_when_same_type(self, mock_send_email):
+        user1, user2, match = self._create_pair(
+            "m043-same-type",
+            MatchType.RANDOM_CALL,
+            confirmed=True,
+            auto_email_m043_send=False,
+            auto_email_m044_send=False,
+            auto_email_m045_send=False,
+            latest_counter_sync=dj_timezone.now() - timedelta(days=2),
+            latest_interaction_at=dj_timezone.now() - timedelta(days=1),
+        )
+        user2.profile.user_type = Profile.TypeChoices.LEARNER
+        user2.profile.save()
+        for _ in range(5):
+            LivekitSession.objects.create(
+                u1=user1,
+                u2=user2,
+                both_have_been_active=True,
+                is_active=False,
+            )
+
+        automatic_emails_m043_m044_m045()
+
+        calls = mock_send_email.delay.call_args_list
+        assert {call.kwargs["user_id"] for call in calls} == {user1.id, user2.id}
+        for call in calls:
+            assert (
+                call.kwargs["context"]["post_videocall_survey_url"]
+                == settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER
+            )
+
+    def test_fm021_includes_random_call_and_excludes_temporary(self):
+        _u1, _u2, rc_match = self._create_pair(
+            "fm021-rc",
+            MatchType.RANDOM_CALL,
+            support_matching=False,
+            completed=False,
+            completed_off_plattform=False,
+            total_mutal_video_calls_counter=0,
+        )
+        _t1, _t2, temp_match = self._create_pair(
+            "fm021-temp",
+            MatchType.TEMPORARY,
+            support_matching=False,
+            completed=False,
+            completed_off_plattform=False,
+            total_mutal_video_calls_counter=0,
+        )
+
+        result = automatic_emails_fm021_fm022__ghosted_matches()
+        match_ids = {match.pk for match in result["matches"]}
+
+        assert rc_match.pk in match_ids
+        assert temp_match.pk not in match_ids
+        rc_match.refresh_from_db()
+        assert rc_match.is_ghosted_match is False
+
+
+class TestAutomaticEmails_fm021_fm022(TestCase):
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+        self._send_email_patch = patch("management.tasks.send_email_background")
+        self.mock_send_email = self._send_email_patch.start()
+        self.addCleanup(self._send_email_patch.stop)
+        self._slack_sec = patch("management.api.report_unmatch.slack_notify_security_channel_async")
+        self._slack_comm = patch("management.api.report_unmatch.slack_notify_communication_channel_async")
+        self._slack_sec.start()
+        self._slack_comm.start()
+        self.addCleanup(self._slack_sec.stop)
+        self.addCleanup(self._slack_comm.stop)
+
+    def _create_one_sided_match(self, seed: str, *, message_days_ago: int):
+        user1 = User.objects.create_user(
+            email=f"fm021-{seed}-1@test.de",
+            password="Test123!",
+            first_name="Ghosted",
+            last_name="User",
+        )
+        user2 = User.objects.create_user(
+            email=f"fm021-{seed}-2@test.de",
+            password="Test123!",
+            first_name="Ghoster",
+            last_name="User",
+        )
+        user1.profile.first_name = "Ghosted"
+        user2.profile.first_name = "Ghoster"
+        user1.profile.save()
+        user2.profile.save()
+
+        message_at = dj_timezone.now() - timedelta(days=message_days_ago)
+        match = Match.objects.create(
+            user1=user1,
+            user2=user2,
+            match_type=MatchType.STANDARD,
+            active=True,
+            confirmed=True,
+            support_matching=False,
+            completed=False,
+            completed_off_plattform=False,
+            total_mutal_video_calls_counter=0,
+            first_interaction_at=message_at,
+        )
+        chat = Chat.objects.create(u1=user1, u2=user2)
+        with freeze_time(message_at):
+            Message.objects.create(chat=chat, sender=user1, recipient=user2, text="Hello?")
+        return user1, user2, match
+
+    def test_ghosts_one_sided_chat_with_no_video_call(self):
+        ghosted, ghoster, match = self._create_one_sided_match("no-vc", message_days_ago=16)
+
+        automatic_emails_fm021_fm022__ghosted_matches()
+        match.refresh_from_db()
+
+        assert match.is_ghosted_match is True
+        assert match.auto_email_fm021_send is True
+        assert match.auto_email_fm022_send is True
+        assert match.active is False
+        assert match.ghosted_by_id == ghoster.id
+
+        templates = [call.args[0] for call in self.mock_send_email.delay.call_args_list]
+        sent_user_ids = [call.kwargs["user_id"] for call in self.mock_send_email.delay.call_args_list]
+        assert templates == ["automatic-emails-fm021", "automatic-emails-fm022"]
+        assert sent_user_ids == [ghosted.id, ghoster.id]
+
+    def test_does_not_ghost_when_match_had_any_mutual_video_call(self):
+        _ghosted, _ghoster, match = self._create_one_sided_match("any-vc", message_days_ago=16)
+        with freeze_time(dj_timezone.now() - timedelta(days=20)):
+            LivekitSession.objects.create(
+                u1=match.user1,
+                u2=match.user2,
+                both_have_been_active=True,
+                is_active=False,
+            )
+
+        automatic_emails_fm021_fm022__ghosted_matches()
+        match.refresh_from_db()
+
+        assert match.is_ghosted_match is False
+        assert match.auto_email_fm021_send is False
+        assert match.active is True
+        self.mock_send_email.delay.assert_not_called()
+
+    def test_does_not_ghost_when_unreplied_under_15_days(self):
+        _ghosted, _ghoster, match = self._create_one_sided_match("recent-msg", message_days_ago=10)
+
+        automatic_emails_fm021_fm022__ghosted_matches()
+        match.refresh_from_db()
+
+        assert match.is_ghosted_match is False
+        assert match.active is True
+        self.mock_send_email.delay.assert_not_called()

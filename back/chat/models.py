@@ -55,7 +55,11 @@ class Chat(models.Model):
         return queryset
 
     def get_messages(self):
-        return Message.objects.filter(chat=self).order_by("-created")
+        # sender/recipient are read by MessageSerializer; without select_related a 20-row
+        # page hits management_user once per message (Sentry N+1 on /api/messages/{uuid}/).
+        # Harmless for the aggregate callers below: Django drops the join for `.count()`,
+        # and `last_message()` serializes the sender anyway.
+        return Message.objects.filter(chat=self).select_related("sender", "recipient").order_by("-created")
 
     @classmethod
     def get_chat(cls, users):

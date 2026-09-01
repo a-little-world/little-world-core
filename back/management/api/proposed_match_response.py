@@ -1,6 +1,4 @@
-"""
-This contains all api's related to confirming or denying a match
-"""
+"""APIs for accepting or rejecting a ProposedMatch (creates a Match on accept)."""
 
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
@@ -18,7 +16,7 @@ from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 
 
-class ConfirmMatchSerializer(serializers.Serializer):
+class ProposedMatchResponseSerializer(serializers.Serializer):
     unconfirmed_match_uuid = serializers.CharField(required=False, allow_blank=False)
     # Backward-compatible fallback during the hash -> uuid transition.
     unconfirmed_match_hash = serializers.CharField(required=False, allow_blank=False)
@@ -35,14 +33,14 @@ class ConfirmMatchSerializer(serializers.Serializer):
 
 
 @extend_schema(
-    request=ConfirmMatchSerializer(many=False),
+    request=ProposedMatchResponseSerializer(many=False),
 )
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
-def confirm_match(request):
-    # Could be renamed to accept_reject_match or similar
-    serializer = ConfirmMatchSerializer(data=request.data)
+def respond_to_proposed_match(request):
+    """Accept or reject a ProposedMatch. On accept, creates a Match and records the acceptor in confirmed_by."""
+    serializer = ProposedMatchResponseSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
 
     data = serializer.validated_data
@@ -69,6 +67,8 @@ def confirm_match(request):
             {unconfirmed_match.user1, unconfirmed_match.user2},
             match_type=unconfirmed_match.match_type,
         )
+        # Proposal acceptor (learner for STANDARD) is recorded immediately — no frontend follow-up.
+        matching.confirm(request.user)
         unconfirmed_match.closed = True
         unconfirmed_match.save()
 

@@ -1,7 +1,9 @@
+from datetime import timedelta
 from uuid import uuid4
 
 from chat.models import Chat, Message
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 from video.models import LivekitSession
 
@@ -22,6 +24,7 @@ class AdvancedMatchViewsetTests(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory(enforce_csrf_checks=True)
         self.view = AdvancedMatchViewset.as_view({"get": "retrieve"})
+        self.weekly_activity_details_view = AdvancedMatchViewset.as_view({"get": "weekly_activity_details"})
         self.list_view = AdvancedMatchViewset.as_view({"get": "list"})
         self.export_view = matches_export
 
@@ -49,6 +52,15 @@ class AdvancedMatchViewsetTests(TestCase):
         assert response.data["last_video_call_at"] is None
         assert response.data["user1_last_message_at"] is None
         assert response.data["user2_last_message_at"] is None
+        assert response.data["average_video_call_duration_seconds"] is None
+        assert response.data["median_video_call_duration_seconds"] is None
+        assert response.data["total_video_call_duration_seconds"] is None
+        assert response.data["qualifying_video_call_count"] == 0
+        assert "journey" in response.data
+        assert response.data["journey"]["desired_duration_weeks"] == 10
+        assert response.data["journey"]["current_week"] >= 1
+        assert "weekly_activity" in response.data["journey"]
+        assert "stages" in response.data["journey"]
 
     def test_list_does_not_include_match_stats_only_fields(self):
         request = self.factory.get("/api/matching/matches/")
@@ -61,6 +73,10 @@ class AdvancedMatchViewsetTests(TestCase):
         assert results
         sample = next(r for r in results if r["uuid"] == str(self.match.uuid))
         assert "user1_last_message_at" not in sample
+        assert "average_video_call_duration_seconds" not in sample
+        assert "median_video_call_duration_seconds" not in sample
+        assert "total_video_call_duration_seconds" not in sample
+        assert "qualifying_video_call_count" not in sample
 
     def test_retrieve_includes_match_stats_timestamps_when_present(self):
         chat = Chat.get_or_create_chat(self.staff_user, self.other_user)
@@ -76,11 +92,16 @@ class AdvancedMatchViewsetTests(TestCase):
             recipient=self.staff_user,
             text="yo",
         )
-        LivekitSession.objects.create(
+        session = LivekitSession.objects.create(
             u1=self.staff_user,
             u2=self.other_user,
             both_have_been_active=True,
             is_active=False,
+        )
+        call_time = timezone.now()
+        LivekitSession.objects.filter(pk=session.pk).update(
+            created_at=call_time,
+            end_time=call_time,
         )
 
         request = self.factory.get(f"/api/matching/matches/{self.match.uuid}/")
@@ -92,6 +113,101 @@ class AdvancedMatchViewsetTests(TestCase):
         assert response.data["user1_last_message_at"] is not None
         assert response.data["user2_last_message_at"] is not None
         assert response.data["last_video_call_at"] is not None
+        assert response.data["average_video_call_duration_seconds"] == 0
+        assert response.data["median_video_call_duration_seconds"] == 0
+        assert response.data["total_video_call_duration_seconds"] == 0
+
+    def test_retrieve_average_video_call_duration_seconds_for_both_active_calls(self):
+        match_start = self.match.created_at
+        first_session = LivekitSession.objects.create(
+            u1=self.staff_user,
+            u2=self.other_user,
+            both_have_been_active=True,
+            is_active=False,
+        )
+        LivekitSession.objects.filter(pk=first_session.pk).update(
+            created_at=match_start + timedelta(hours=1),
+            end_time=match_start + timedelta(hours=1, minutes=30),
+        )
+        second_session = LivekitSession.objects.create(
+            u1=self.staff_user,
+            u2=self.other_user,
+            both_have_been_active=True,
+            is_active=False,
+        )
+        LivekitSession.objects.filter(pk=second_session.pk).update(
+            created_at=match_start + timedelta(hours=2),
+            end_time=match_start + timedelta(hours=2, minutes=20),
+        )
+
+        request = self.factory.get(f"/api/matching/matches/{self.match.uuid}/")
+        force_authenticate(request, user=self.staff_user)
+
+        response = self.view(request, pk=str(self.match.uuid))
+
+        assert response.status_code == 200
+        assert response.data["qualifying_video_call_count"] == 2
+        assert response.data["average_video_call_duration_seconds"] == 1500
+        assert response.data["median_video_call_duration_seconds"] == 1500
+        assert response.data["total_video_call_duration_seconds"] == 3000
+        assert "streaks" in response.data["journey"]
+
+    def test_weekly_activity_details_requires_week_parameter(self):
+        request = self.factory.get(f"/api/matching/matches/{self.match.uuid}/weekly_activity_details/")
+        force_authenticate(request, user=self.staff_user)
+
+        response = self.weekly_activity_details_view(request, pk=str(self.match.uuid))
+
+        assert response.status_code == 400
+        assert response.data["msg"] == "week query parameter is required"
+
+    def test_weekly_activity_details_returns_calls_and_messages_oldest_first(self):
+        match_start = self.match.created_at
+        chat = Chat.get_or_create_chat(self.staff_user, self.other_user)
+
+        first_message = Message.objects.create(
+            chat=chat,
+            sender=self.staff_user,
+            recipient=self.other_user,
+            text="first",
+        )
+        second_message = Message.objects.create(
+            chat=chat,
+            sender=self.other_user,
+            recipient=self.staff_user,
+            text="second",
+        )
+        Message.objects.filter(pk=first_message.pk).update(created=match_start + timedelta(days=1))
+        Message.objects.filter(pk=second_message.pk).update(created=match_start + timedelta(days=2))
+
+        call_start = match_start + timedelta(days=3)
+        call_end = call_start + timedelta(minutes=30)
+        session = LivekitSession.objects.create(
+            u1=self.staff_user,
+            u2=self.other_user,
+            both_have_been_active=True,
+            is_active=False,
+        )
+        LivekitSession.objects.filter(pk=session.pk).update(
+            created_at=call_start,
+            end_time=call_end,
+        )
+
+        request = self.factory.get(
+            f"/api/matching/matches/{self.match.uuid}/weekly_activity_details/?week=1",
+        )
+        force_authenticate(request, user=self.staff_user)
+
+        response = self.weekly_activity_details_view(request, pk=str(self.match.uuid))
+
+        assert response.status_code == 200
+        assert response.data["week"] == 1
+        assert len(response.data["messages"]) == 2
+        assert response.data["messages"][0]["sender_id"] == self.staff_user.id
+        assert response.data["messages"][1]["sender_id"] == self.other_user.id
+        assert len(response.data["video_calls"]) == 1
+        assert response.data["video_calls"][0]["duration_seconds"] == 1800
+        assert response.data["video_calls"][0]["end_time"] is not None
 
     def test_retrieve_unknown_match_by_uuid_returns_404(self):
         missing_uuid = uuid4()
@@ -113,6 +229,33 @@ class AdvancedMatchViewsetTests(TestCase):
         returned_uuids = {item["uuid"] for item in results}
         assert str(self.off_platform_match.uuid) in returned_uuids
         assert str(self.match.uuid) not in returned_uuids
+
+    def test_export_of_an_inactive_bucket_with_user_columns(self):
+        """The export pre-joins user1/user2; the inactive-bucket classifier defers them.
+
+        `matches_export` applies `select_related("user1", ...)` before running the list
+        filter, and the closing-kind pass narrows to two columns with `.only()`. Inheriting
+        both makes Django refuse the query outright ("cannot be both deferred and traversed
+        using select_related"), which is why every `match_state__<kind>_<stage>` list failed
+        to export while the same list rendered fine on the page — the list view never joins.
+        """
+        unmatched = Match.objects.create(
+            user1=self.staff_user,
+            user2=self._create_user("export-unmatched"),
+            active=False,
+        )
+
+        request = self.factory.get(
+            "/api/matching/matches_export/"
+            "?list=match_state__unmatched_kickoff&page=1&page_size=50"
+            "&fields=uuid,user1.email,user1.profile.first_name,user2.email"
+        )
+        force_authenticate(request, user=self.staff_user)
+
+        response = self.export_view(request)
+
+        assert response.status_code == 200
+        assert unmatched.pk is not None
 
     def test_export_includes_completed_off_plattform_field(self):
         request = self.factory.get("/api/matching/matches_export/?list=match_completed_off_plattform")

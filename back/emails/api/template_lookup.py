@@ -3,7 +3,6 @@ import urllib.parse
 import pytz
 from django.conf import settings
 from django.utils import timezone
-from management.api.match_journey_filters import completed_match
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from patenmatch.models import PatenmatchUser
 
@@ -113,6 +112,10 @@ def newsletter_subscribe_url():
 
 def group_calls_url():
     return f"{settings.BASE_URL}/app/events"
+
+
+def random_calls_url():
+    return f"{settings.BASE_URL}/app/random-calls"
 
 
 def self_onboarding_url():
@@ -268,9 +271,12 @@ def native_app_bug_report_url(user=None, match=None, context={"native_app_bug_re
 
 def latest_completed_match_first_name(user):
     from django.db.models import Q
+    from management.match_success import successful_matches
+    from management.models.matches import Match
 
-    completed_matches = completed_match().filter(Q(user1=user) | Q(user2=user))
-    if completed_matches.count() == 0:
+    successful = successful_matches(Match.objects.filter(Q(user1=user) | Q(user2=user)))
+    match = successful.order_by("-created_at").first()
+    if match is None:
         return "..."
 
-    return completed_matches.order_by("-created_at").first().get_partner(user).profile.first_name
+    return match.get_partner(user).profile.first_name

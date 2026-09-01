@@ -210,7 +210,7 @@ jobs:
           echo "APP_IMAGE_URL=\"$IMAGE_URL\"" >> .env
           NAMESPACE="lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}"
           REDIS_URL="redis://redis-service.$NAMESPACE.svc.cluster.local:6379"
-          DJ_REDIS_HOST="redis"
+          DJ_REDIS_HOST="redis-service.$NAMESPACE.svc.cluster.local"
           DJ_REDIS_PORT="6379"
           DJ_CREATE_OPEN_CHAT_AUTOMATION_USER="true"
           DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL="tim+open-chat@little-world.com"
@@ -333,6 +333,8 @@ jobs:
             .registryAuth.token = "$GH_CR_AUTH"
             .registryAuth.use = true
             .backend.env.REDIS_URL = "${{ steps.setup_emperial_env.outputs.REDIS_URL }}"
+            .backend.env.DJ_REDIS_HOST = "${{ steps.setup_emperial_env.outputs.DJ_REDIS_HOST }}"
+            .backend.env.DJ_REDIS_PORT = "${{ steps.setup_emperial_env.outputs.DJ_REDIS_PORT }}"
             .backend.env.DJ_CREATE_OPEN_CHAT_AUTOMATION_USER = "${{ steps.setup_emperial_env.outputs.DJ_CREATE_OPEN_CHAT_AUTOMATION_USER }}"
             .backend.env.DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL = "${{ steps.setup_emperial_env.outputs.DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL }}"
             .backend.env.DJ_OPEN_CHAT_AUTOMATION_USER_PASSWORD = "${{ steps.setup_emperial_env.outputs.DJ_OPEN_CHAT_AUTOMATION_USER_PASSWORD }}"

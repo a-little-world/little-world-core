@@ -687,6 +687,11 @@
       "lookup": "emails.api.template_lookup.group_calls_url",
       "depends_on": []
     },
+    "random_calls_url": {
+      "id": "random_calls_url",
+      "lookup": "emails.api.template_lookup.random_calls_url",
+      "depends_on": []
+    },
     "self_onboarding_url": {
       "id": "self_onboarding_url",
       "lookup": "emails.api.template_lookup.self_onboarding_url",
