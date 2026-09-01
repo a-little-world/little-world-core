@@ -9,11 +9,16 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from management.helpers import IsAdminOrMatchingUser
+from management.models.courses import Course, UserCourseProgress
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.profile import Profile
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from management.models.user import User
+from management.self_onboarding_progress import (
+    self_onboarding_completed_at_for_user,
+    self_onboarding_progress_prefetch,
+)
 
 MATCH_TYPE_ALL = "all"
 SUPPORTED_MATCH_TYPES = {MATCH_TYPE_ALL, MatchType.STANDARD, MatchType.RANDOM_CALL}
@@ -161,6 +166,7 @@ def _filter_to_learner_first_proposals(proposals, match_type):
         .annotate(first_proposal_id=Subquery(_first_proposal_subquery(match_type)))
         .filter(id=F("first_proposal_id"))
         .select_related("confirming_user__state")
+        .prefetch_related(self_onboarding_progress_prefetch("confirming_user__"))
     )
 
 
@@ -230,8 +236,9 @@ def _user_onboarded_at(user, earliest_prematch_end_by_user=None):
     candidates = []
     if state.onboarding_call_completed_at:
         candidates.append(state.onboarding_call_completed_at)
-    if state.self_onboarding_completed_at:
-        candidates.append(timezone.make_aware(datetime.combine(state.self_onboarding_completed_at, time.min)))
+    self_completed_at = self_onboarding_completed_at_for_user(user)
+    if self_completed_at:
+        candidates.append(self_completed_at)
     if candidates:
         return min(candidates)
 
@@ -270,10 +277,16 @@ def _onboarded_users_in_range(accessible_users, start_datetime, end_datetime):
     candidates = (
         accessible_users.filter(state__is_onboarded=True)
         .filter(
-            Q(state__self_onboarding_completed_at__range=[start_date, end_date])
+            UserCourseProgress.exists_for_user(
+                slug=Course.SELF_ONBOARDING_SLUG,
+                completed=True,
+                completed_at__range=(start_datetime, end_datetime),
+            )
+            | Q(state__self_onboarding_completed_at__range=[start_date, end_date])
             | Q(state__onboarding_call_completed_at__range=[start_datetime, end_datetime])
         )
         .select_related("state", "profile")
+        .prefetch_related(self_onboarding_progress_prefetch())
     )
 
     candidate_ids = list(candidates.values_list("pk", flat=True))
@@ -285,7 +298,13 @@ def _onboarded_users_in_range(accessible_users, start_datetime, end_datetime):
         if onboarded_at and start_datetime <= onboarded_at <= end_datetime:
             cohort_ids.append(user.pk)
 
-    cohort = accessible_users.filter(id__in=cohort_ids).select_related("state", "profile")
+    # Same prefetch as `candidates`: callers run `_user_onboarded_at` over this cohort,
+    # and rebuilding the queryset without it dropped back to a query per user.
+    cohort = (
+        accessible_users.filter(id__in=cohort_ids)
+        .select_related("state", "profile")
+        .prefetch_related(self_onboarding_progress_prefetch())
+    )
     return cohort, earliest_prematch_end_by_user
 
 

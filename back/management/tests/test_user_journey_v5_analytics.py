@@ -25,6 +25,7 @@ from management.analytics.registry import (
     assert_partition_balances_strict,
     assert_partition_valid_strict,
     baseline_list_id,
+    classify_partition,
     composite_entries,
     compute_partition,
     get_partition,
@@ -41,6 +42,7 @@ from management.analytics.user_journey.partitions import (
     PartitionDefinition,
     PartitionPhase,
 )
+from management.analytics.user_journey.queries import traits
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.profile import Profile
@@ -397,13 +399,40 @@ class PartitionValidationRejectsBadDefinitionsTests(SimpleTestCase):
             assert_partition_valid_strict(self._partition("state__deleted", "state__deleted"))
 
 
+class JourneyV5CrossDatabaseEligibilityTests(TestCase):
+    def test_a0_german_array_membership_and_partition_classification(self):
+        user = User.objects.create_user(
+            email=f"sqlite-a0-{uuid4()}@example.com",
+            password="Test123!",
+            first_name="Test",
+            last_name="SQLite",
+        )
+        Profile.objects.filter(user=user).update(
+            user_type=Profile.TypeChoices.LEARNER,
+            country_of_residence=Profile.CountryChoices.GERMANY,
+            lang_skill=[
+                {"lang": Profile.LanguageChoices.ENGLISH, "level": Profile.LanguageSkillChoices.LEVEL_3},
+                {**_A0_GERMAN[0], "metadata": "ignored"},
+            ],
+        )
+        State.objects.filter(user=user).update(
+            user_form_state=State.UserFormStateChoices.FILLED,
+            email_authenticated=True,
+        )
+
+        self.assertEqual(list(User.objects.filter(traits.has_a0_german()).values_list("pk", flat=True)), [user.pk])
+        self.assertEqual(
+            classify_partition(USER_JOURNEY_V5, User.objects.filter(pk=user.pk)),
+            {user.pk: "state__onboarding_ineligible"},
+        )
+
+
 @skipUnlessDBFeature("supports_json_field_contains")
 class JourneyV5PartitionBalanceTests(TestCase):
     """Every cohort user lands in exactly one bucket, including the awkward ones.
 
-    Postgres only: the eligibility rules read German level out of ``Profile.lang_skill``
-    with a JSON ``contains`` lookup, which SQLite cannot execute. Local SQLite runs skip
-    this class; the structural tests above still cover the definition.
+    The successful-match fixtures still require PostgreSQL-specific analytics support.
+    Cross-database eligibility and classification are covered separately above.
     """
 
     @classmethod

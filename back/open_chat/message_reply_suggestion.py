@@ -4,7 +4,6 @@ from celery import current_app, shared_task
 from chat.models import Message as ChatMessage
 from django.conf import settings
 from django.db.models import Q
-from management import controller
 from management.models.support_task import SupportTask, SupportTaskAction
 from management.models.user import User
 from management.permissions import ManagementPermission
@@ -70,9 +69,6 @@ Reminder: your last action must be `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` w
 """.strip()
 
 
-MESSAGE_REPLY_SUGGESTION_SYSTEM_PROMPT = build_message_reply_suggestion_system_prompt()
-
-
 def _message_reply_suggestion_overrides() -> dict[str, object]:
     return build_interaction_overrides(
         system_prompt=build_message_reply_suggestion_system_prompt(),
@@ -106,7 +102,6 @@ def create_or_reuse_support_reply_task_for_message(
     source_user: User,
     target_user: User,
     created_by_user: User,
-    assigned_to_user: User,
     configuration_user_uuid: str | None = None,
     enqueue_interaction: bool = True,
 ) -> dict:
@@ -135,8 +130,6 @@ def create_or_reuse_support_reply_task_for_message(
         .first()
     )
     if existing_action is not None:
-        if existing_action.task.assigned_to is None:
-            SupportTask.objects.filter(pk=existing_action.task.pk).update(assigned_to_id=assigned_to_user.pk)
         has_suggestion = bool((existing_action.parameters or {}).get("message", "").strip())
         result = {
             "message_uuid": str(latest_message.uuid),
@@ -174,11 +167,8 @@ def create_or_reuse_support_reply_task_for_message(
         },
         parameters={"message": ""},
         created_by=created_by_user,
-        assigned_to=assigned_to_user,
         related_user=source_user,
     )
-    if support_task.assigned_to is None:
-        SupportTask.objects.filter(pk=support_task.pk).update(assigned_to_id=assigned_to_user.pk)
 
     result = {
         "message_uuid": str(latest_message.uuid),
@@ -213,7 +203,11 @@ def idempotent_actions__generate_message_replies(
 ):
     target_user = User.objects.filter(uuid=target_user_uuid).first()
     if target_user is None:
-        return {"status": "skipped", "reason": "target_user_missing", "target_user_uuid": target_user_uuid}
+        return {
+            "status": "skipped",
+            "reason": "target_user_missing",
+            "target_user_uuid": target_user_uuid,
+        }
     if not target_user.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
         return {
             "status": "skipped",
@@ -236,8 +230,6 @@ def idempotent_actions__generate_message_replies(
             "reason": "open_chat_automation_user_missing",
             "target_user_uuid": target_user_uuid,
         }
-    assigned_to_user = controller.get_base_management_user()
-
     from management.api.user_advanced_filter import get_user_with_message_to_admin
 
     # Only suggest replies for users whose latest message to the management user
@@ -264,7 +256,6 @@ def idempotent_actions__generate_message_replies(
             source_user=source_user,
             target_user=target_user,
             created_by_user=created_by_user,
-            assigned_to_user=assigned_to_user,
             configuration_user_uuid=str(configuration.user.uuid),
             enqueue_interaction=True,
         )
@@ -313,12 +304,23 @@ def open_chat_run_message_reply_suggestion_interaction(
 
     sender = User.objects.filter(uuid=sender_uuid).first()
     if sender is None:
-        return {"status": "skipped", "reason": "sender_missing", "sender_uuid": sender_uuid}
+        return {
+            "status": "skipped",
+            "reason": "sender_missing",
+            "sender_uuid": sender_uuid,
+        }
     recipient = User.objects.filter(uuid=recipient_uuid).first()
     if recipient is None:
-        return {"status": "skipped", "reason": "recipient_missing", "recipient_uuid": recipient_uuid}
+        return {
+            "status": "skipped",
+            "reason": "recipient_missing",
+            "recipient_uuid": recipient_uuid,
+        }
     if not recipient.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
-        return {"status": "skipped", "reason": "recipient_has_no_open_chat_access_permission"}
+        return {
+            "status": "skipped",
+            "reason": "recipient_has_no_open_chat_access_permission",
+        }
 
     support_action = (
         SupportTaskAction.objects.select_related("task", "task__created_by").filter(task_id=support_task_id).first()
@@ -382,7 +384,11 @@ def open_chat_run_message_reply_suggestion_interaction(
             shared_url,
         )
     except Exception as exc:
-        return {"status": "error", "reason": "open_chat_interaction_failed", "detail": str(exc)}
+        return {
+            "status": "error",
+            "reason": "open_chat_interaction_failed",
+            "detail": str(exc),
+        }
 
     static_parameters = dict(support_action.static_parameters or {})
     static_parameters["interaction_id"] = interaction_uuid

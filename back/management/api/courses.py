@@ -1,4 +1,5 @@
 from django.db.models import Avg, DurationField, ExpressionWrapper, F
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.urls import path
 from rest_framework import serializers, status
@@ -22,12 +23,21 @@ from management.models.courses import (
 )
 
 
+def _get_takable_course(request, slug: str) -> Course:
+    """Active course the current user is allowed to take, including unlisted ones."""
+    course = get_object_or_404(Course, slug=slug, is_active=True)
+    if not course.is_available_to_user(request.user):
+        raise Http404
+    return course
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def course_list(request):
     """
-    Returns all active courses available to the current user, filtered by their user type.
+    Returns all active, listed courses available to the current user, filtered by their user type.
+    The self-onboarding walkthrough is unlisted and never appears here.
     """
     courses = (
         Course.get_available_for_user(request.user).filter(is_listed=True).exclude(slug=Course.SELF_ONBOARDING_SLUG)
@@ -40,15 +50,11 @@ def course_list(request):
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def course_detail(request, slug: str):
     """
-    Returns full course detail for published courses. Chapters are filtered for the user's type.
+    Returns full course detail for an active course the user may take, including unlisted
+    courses such as self-onboarding. Chapters are filtered for the user's type.
     Staff draft preview uses GET /api/courses/preview/<slug>/ instead.
     """
-    course = get_object_or_404(Course, slug=slug, is_active=True)
-    if not course.is_public:
-        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-    if not course.is_available_to_user(request.user):
-        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-
+    course = _get_takable_course(request, slug)
     return Response(CourseDetailSerializer(course, context={"request": request}).data)
 
 
@@ -74,8 +80,8 @@ def course_preview(request, slug: str):
 def self_onboarding_course(request):
     """
     Returns the volunteer self-onboarding walkthrough course.
-    Unlike course_detail, does not require is_active=True so the walkthrough
-    stays available even when the course is not published for Trainings.
+    Kept as a dedicated URL for the existing walkthrough client; the same payload is
+    also available at GET /api/courses/self-onboarding/ once the course is active.
     """
     course = get_object_or_404(Course, slug=Course.SELF_ONBOARDING_SLUG)
     if not course.is_available_to_user(request.user):
@@ -91,16 +97,17 @@ def course_start(request, slug: str):
     """
     Starts a course for the current user. Idempotent — returns existing progress if already started.
     """
-    course = get_object_or_404(Course, slug=slug, is_active=True)
-    if not course.is_public:
-        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-    if not course.is_available_to_user(request.user):
-        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    course = _get_takable_course(request, slug)
 
-    progress, _ = UserCourseProgress.objects.get_or_create(
+    progress, created = UserCourseProgress.objects.get_or_create(
         user=request.user,
         course=course,
     )
+    if created and course.slug == Course.SELF_ONBOARDING_SLUG:
+        from management.self_onboarding_progress import hydrate_progress_from_legacy_state
+
+        hydrate_progress_from_legacy_state(progress, request.user.state)
+        progress.refresh_from_db()
     return Response(UserCourseProgressSerializer(progress).data, status=status.HTTP_200_OK)
 
 
@@ -113,9 +120,7 @@ def course_progress_update(request, slug: str):
     Accepts: { "current_chapter_id": str, "current_step_index": int }
     When advancing to a new chapter, pass current_step_index: 0.
     """
-    course = get_object_or_404(Course, slug=slug, is_active=True)
-    if not course.is_public:
-        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    course = _get_takable_course(request, slug)
 
     progress = get_object_or_404(UserCourseProgress, user=request.user, course=course)
 
@@ -136,10 +141,9 @@ def course_progress_update(request, slug: str):
 def course_complete(request, slug: str):
     """
     Marks a course as completed for the current user. Idempotent.
+    Completing the self-onboarding course also applies matching-eligibility side effects.
     """
-    course = get_object_or_404(Course, slug=slug, is_active=True)
-    if not course.is_public:
-        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    course = _get_takable_course(request, slug)
 
     progress = get_object_or_404(UserCourseProgress, user=request.user, course=course)
 
@@ -159,6 +163,9 @@ def admin_course_stats(request, slug: str):
     """
     Returns engagement stats for a course.
     Optional query params: start_date (YYYY-MM-DD), end_date (YYYY-MM-DD) — filter by started_at.
+
+    chapter_funnel drop_off_pct is the share of people who reached that chapter and are
+    still on it (did not continue, or did not complete the course on the last chapter).
     """
     course = get_object_or_404(Course, slug=slug)
 
@@ -207,16 +214,21 @@ def admin_course_stats(request, slug: str):
 
     chapter_funnel = []
     for i, chapter in enumerate(chapters):
-        prev_reached = chapter_funnel[i - 1]["reached"] if i > 0 else total_started
-        drop_off_pct = round((prev_reached - reached_counts[i]) / prev_reached * 100, 1) if prev_reached > 0 else 0.0
+        # Share of people who reached this chapter and are still on it (did not
+        # continue, or did not complete if this is the last chapter). Using
+        # "never reached this chapter" would always be 0% on chapter 1 and would
+        # attribute chapter-N stalls to chapter N+1.
+        reached = reached_counts[i]
+        currently_here = currently_here_counts[i]
+        drop_off_pct = round(currently_here / reached * 100, 1) if reached > 0 else 0.0
         chapter_funnel.append(
             {
                 "chapter_id": chapter.chapter_id,
                 "title": chapter.title,
                 "order": chapter.order,
                 "step_count": chapter.quiz_steps.count(),
-                "reached": reached_counts[i],
-                "currently_here": currently_here_counts[i],
+                "reached": reached,
+                "currently_here": currently_here,
                 "drop_off_pct": drop_off_pct,
             }
         )

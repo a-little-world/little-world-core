@@ -337,7 +337,11 @@ def _inactive_stage_ids(qs: QuerySet) -> dict[str, set[int]]:
 
     def build() -> dict[str, set[int]]:
         buckets: dict[str, set[int]] = {key: set() for key in _INACTIVE_KEYS}
-        inactive = list(_baseline(qs).filter(active=False).only("id", "report_unmatch"))
+        # `select_related(None)` clears whatever the caller joined on. This pass reads two
+        # columns and never touches user1/user2, but a caller that pre-joined them — the
+        # matches export does — would otherwise hand us a queryset that both defers and
+        # traverses the same field, which Django rejects outright.
+        inactive = list(_baseline(qs).filter(active=False).select_related(None).only("id", "report_unmatch"))
         if not inactive:
             return buckets
 

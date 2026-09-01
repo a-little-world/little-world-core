@@ -30,34 +30,11 @@ from open_chat.tool_definitions import (
     ensure_rest_tool_definitions,
 )
 from open_chat.tool_definitions_management import (
-    GET_DYNAMIC_USER_LIST_REST_TOOL_NAME,
     GET_MATCH_DETAIL_REST_TOOL_NAME,
-    GET_MATCH_NOTES_REST_TOOL_NAME,
-    GET_SCORE_DETAIL_REST_TOOL_NAME,
-    GET_SUPPORT_TASK_DETAIL_REST_TOOL_NAME,
-    GET_SUPPORT_TASK_STATS_REST_TOOL_NAME,
     GET_USER_DETAIL_REST_TOOL_NAME,
-    GET_USER_EMAILS_REST_TOOL_NAME,
-    GET_USER_MATCH_WAITING_TIME_REST_TOOL_NAME,
-    GET_USER_MESSAGES_REST_TOOL_NAME,
-    GET_USER_NOTES_REST_TOOL_NAME,
-    GET_USER_PREMATCHING_APPOINTMENT_REST_TOOL_NAME,
-    GET_USER_SMS_REST_TOOL_NAME,
-    GET_USER_TASKS_REST_TOOL_NAME,
-    GET_VIDEO_CALL_DETAIL_REST_TOOL_NAME,
-    LIST_DYNAMIC_USER_LISTS_REST_TOOL_NAME,
-    LIST_MATCH_FILTERS_REST_TOOL_NAME,
-    LIST_SCORE_FILTERS_REST_TOOL_NAME,
-    LIST_SUPPORT_STAFF_REST_TOOL_NAME,
     LIST_USER_FILTERS_REST_TOOL_NAME,
-    LIST_VIDEO_CALL_FILTERS_REST_TOOL_NAME,
-    QUERY_MATCHES_REST_TOOL_NAME,
-    QUERY_PREMATCHING_APPOINTMENTS_REST_TOOL_NAME,
-    QUERY_SCORES_REST_TOOL_NAME,
-    QUERY_SUPPORT_TASKS_REST_TOOL_NAME,
+    MANAGEMENT_REST_TOOL_NAMES,
     QUERY_USERS_REST_TOOL_NAME,
-    QUERY_VIDEO_CALLS_REST_TOOL_NAME,
-    SUPPORT_TASK_USER_SEARCH_REST_TOOL_NAME,
     build_management_tool_init,
 )
 
@@ -67,36 +44,7 @@ logger = logging.getLogger(__name__)
 CHAT_REPLY_BOT = "little_world_support_chat"
 BASIC_CHAT_INTERACTION_CONTEXT = DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT
 
-_BASIC_CHAT_MANAGEMENT_TOOL_NAMES = (
-    LIST_USER_FILTERS_REST_TOOL_NAME,
-    LIST_MATCH_FILTERS_REST_TOOL_NAME,
-    LIST_VIDEO_CALL_FILTERS_REST_TOOL_NAME,
-    LIST_SCORE_FILTERS_REST_TOOL_NAME,
-    LIST_DYNAMIC_USER_LISTS_REST_TOOL_NAME,
-    QUERY_USERS_REST_TOOL_NAME,
-    QUERY_MATCHES_REST_TOOL_NAME,
-    QUERY_VIDEO_CALLS_REST_TOOL_NAME,
-    QUERY_SCORES_REST_TOOL_NAME,
-    QUERY_SUPPORT_TASKS_REST_TOOL_NAME,
-    QUERY_PREMATCHING_APPOINTMENTS_REST_TOOL_NAME,
-    GET_USER_DETAIL_REST_TOOL_NAME,
-    GET_MATCH_DETAIL_REST_TOOL_NAME,
-    GET_VIDEO_CALL_DETAIL_REST_TOOL_NAME,
-    GET_SCORE_DETAIL_REST_TOOL_NAME,
-    GET_SUPPORT_TASK_DETAIL_REST_TOOL_NAME,
-    GET_DYNAMIC_USER_LIST_REST_TOOL_NAME,
-    GET_USER_MESSAGES_REST_TOOL_NAME,
-    GET_USER_TASKS_REST_TOOL_NAME,
-    GET_USER_NOTES_REST_TOOL_NAME,
-    GET_USER_MATCH_WAITING_TIME_REST_TOOL_NAME,
-    GET_USER_PREMATCHING_APPOINTMENT_REST_TOOL_NAME,
-    GET_USER_SMS_REST_TOOL_NAME,
-    GET_USER_EMAILS_REST_TOOL_NAME,
-    GET_MATCH_NOTES_REST_TOOL_NAME,
-    GET_SUPPORT_TASK_STATS_REST_TOOL_NAME,
-    SUPPORT_TASK_USER_SEARCH_REST_TOOL_NAME,
-    LIST_SUPPORT_STAFF_REST_TOOL_NAME,
-)
+_BASIC_CHAT_MANAGEMENT_TOOL_NAMES = MANAGEMENT_REST_TOOL_NAMES
 
 
 def build_basic_chat_interaction_system_prompt() -> str:
@@ -132,9 +80,6 @@ Rules:
 
 Reminder: your last action must be `{CHAT_REPLY_REST_TOOL_NAME}` with the formatted reply in `message`.
 """.strip()
-
-
-BASIC_CHAT_INTERACTION_SYSTEM_PROMPT = build_basic_chat_interaction_system_prompt()
 
 
 def _basic_chat_interaction_overrides() -> dict[str, object]:
@@ -212,7 +157,10 @@ def open_chat_basic_chat_interaction(
         return {"status": "skipped", "reason": "sender_missing"}
 
     if not recipient.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
-        return {"status": "skipped", "reason": "recipient_has_no_open_chat_access_permission"}
+        return {
+            "status": "skipped",
+            "reason": "recipient_has_no_open_chat_access_permission",
+        }
 
     configuration = OpenChatConfiguration.objects.filter(user_id=recipient.pk).first()
     config_owner = "recipient"
@@ -314,4 +262,8 @@ def open_chat_basic_chat_interaction(
             "interaction_message_payload": interaction_message_payload,
         }
     except Exception as exc:
-        return {"status": "error", "reason": "open_chat_interaction_failed", "detail": str(exc)}
+        return {
+            "status": "error",
+            "reason": "open_chat_interaction_failed",
+            "detail": str(exc),
+        }

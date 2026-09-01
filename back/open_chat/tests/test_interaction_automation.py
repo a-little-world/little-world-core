@@ -18,25 +18,29 @@ from management.permissions import ManagementPermission
 
 from open_chat.basic_chat_interaction import (
     BASIC_CHAT_INTERACTION_CONTEXT,
-    BASIC_CHAT_INTERACTION_SYSTEM_PROMPT,
-    _basic_chat_interaction_overrides,
+    build_basic_chat_interaction_system_prompt,
     open_chat_basic_chat_interaction,
 )
 from open_chat.helpers import rewrite_open_chat_url_for_browser
-from open_chat.interaction_config import DEFAULT_OPEN_CHAT_MAX_TOKENS, DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS
+from open_chat.interaction_config import (
+    DEFAULT_OPEN_CHAT_MAX_TOKENS,
+    DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS,
+)
 from open_chat.message_reply_suggestion import (
     MESSAGE_REPLY_SUGGESTION_CONTEXT,
-    MESSAGE_REPLY_SUGGESTION_SYSTEM_PROMPT,
-    _message_reply_suggestion_overrides,
+    build_message_reply_suggestion_system_prompt,
     idempotent_actions__generate_message_replies,
     open_chat_run_message_reply_suggestion_interaction,
 )
 from open_chat.models import DEFAULT_OPEN_CHAT_HOST, OpenChatConfiguration
-from open_chat.tool_definitions import CHAT_REPLY_REST_TOOL_NAME
+from open_chat.tool_definitions import (
+    CHAT_REPLY_REST_TOOL_NAME,
+    MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
+    RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
+    RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+)
 from open_chat.tool_definitions_management import (
-    LIST_USER_FILTERS_REST_TOOL_NAME,
     MANAGEMENT_REST_TOOL_NAMES,
-    QUERY_USERS_REST_TOOL_NAME,
     build_management_tool_init,
 )
 
@@ -134,6 +138,11 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             content_type=content_type,
             defaults={"name": ManagementPermission.MATCHING_USER.codename},
         )
+        reply_permission, _ = Permission.objects.get_or_create(
+            codename=ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES.codename,
+            content_type=content_type,
+            defaults={"name": ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES.codename},
+        )
 
         cls.admin_user = User.objects.create_user(
             email=settings.MATCHING_USER_MAIL,
@@ -142,7 +151,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             first_name="Admin",
             last_name="User",
         )
-        cls.admin_user.user_permissions.add(open_chat_permission)
+        cls.admin_user.user_permissions.add(open_chat_permission, reply_permission)
         OpenChatConfiguration.objects.create(
             user=cls.admin_user,
             open_chat_api_key="admin-key",
@@ -242,17 +251,20 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             action.static_parameters.get("message_uuid"),
             str(self.source_message.uuid),
         )
-        assigned_to = action.task.assigned_to
         created_by = action.task.created_by
-        self.assertIsNotNone(assigned_to)
         self.assertIsNotNone(created_by)
-        assert assigned_to is not None
         assert created_by is not None
-        self.assertEqual(assigned_to.pk, self.admin_user.pk)
+        self.assertEqual(
+            set(action.task.assignees.values_list("pk", flat=True)),
+            {self.admin_user.pk},
+        )
         self.assertEqual(created_by.pk, self.automation_user.pk)
         self.assertEqual(mock_send_task.call_count, 2)
         send_task_args, send_task_kwargs = mock_send_task.call_args
-        self.assertEqual(send_task_args[0], "management.tasks.open_chat_run_message_reply_suggestion_interaction")
+        self.assertEqual(
+            send_task_args[0],
+            "management.tasks.open_chat_run_message_reply_suggestion_interaction",
+        )
         queued_kwargs = send_task_kwargs["kwargs"]
         self.assertEqual(queued_kwargs["support_task_id"], action.task.pk)
 
@@ -315,7 +327,9 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
 
     @patch("open_chat.message_reply_suggestion.current_app.send_task")
     def test_create_support_reply_accepts_open_chat_automation_sender(self, mock_send_task):
-        from open_chat.message_reply_suggestion import create_or_reuse_support_reply_task_for_message
+        from open_chat.message_reply_suggestion import (
+            create_or_reuse_support_reply_task_for_message,
+        )
 
         mock_send_task.return_value = MagicMock(id="interaction-task-id")
         if self.automation_user.pk == self.admin_user.pk:
@@ -335,7 +349,6 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             source_user=self.automation_user,
             target_user=self.admin_user,
             created_by_user=self.automation_user,
-            assigned_to_user=self.admin_user,
             configuration_user_uuid=str(self.admin_user.uuid),
             enqueue_interaction=True,
         )
@@ -388,21 +401,26 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         _, interact_kwargs = mock_client.interact.call_args
         self.assertEqual(interact_kwargs["bot"], "little_world_support_chat")
         self.assertTrue(interact_kwargs["share"])
-        self.assertEqual(interact_kwargs["overrides"], _basic_chat_interaction_overrides())
-        self.assertEqual(
-            interact_kwargs["overrides"]["system_prompt"],
-            BASIC_CHAT_INTERACTION_SYSTEM_PROMPT,
+        overrides = interact_kwargs["overrides"]
+        self.assertEqual(overrides["system_prompt"], build_basic_chat_interaction_system_prompt())
+        self.assertIn(CHAT_REPLY_REST_TOOL_NAME, overrides["system_prompt"])
+        self.assertIn(
+            "Use available tools to gather conversation history",
+            overrides["system_prompt"],
         )
-        self.assertIn("http://localhost:8000", interact_kwargs["overrides"]["system_prompt"])
-        self.assertIn("/matching/users/", interact_kwargs["overrides"]["system_prompt"])
-        self.assertEqual(interact_kwargs["overrides"]["context"], BASIC_CHAT_INTERACTION_CONTEXT)
-        self.assertEqual(interact_kwargs["overrides"]["max_tokens"], DEFAULT_OPEN_CHAT_MAX_TOKENS)
+        self.assertIn("/matching/user/{numeric_id}", overrides["system_prompt"])
+        self.assertEqual(overrides["context"], BASIC_CHAT_INTERACTION_CONTEXT)
+        self.assertEqual(overrides["max_tokens"], DEFAULT_OPEN_CHAT_MAX_TOKENS)
+        self.assertEqual(overrides["temperature"], 0.2)
         self.assertEqual(
-            interact_kwargs["overrides"]["tools"][-1],
-            CHAT_REPLY_REST_TOOL_NAME,
+            set(overrides["tools"]),
+            {
+                RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+                RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
+                *MANAGEMENT_REST_TOOL_NAMES,
+                CHAT_REPLY_REST_TOOL_NAME,
+            },
         )
-        self.assertIn(LIST_USER_FILTERS_REST_TOOL_NAME, interact_kwargs["overrides"]["tools"])
-        self.assertIn(QUERY_USERS_REST_TOOL_NAME, interact_kwargs["overrides"]["tools"])
         chat_reply_init = interact_kwargs["tool_init"][CHAT_REPLY_REST_TOOL_NAME]
         past_messages_init = interact_kwargs["tool_init"]["little_world_retrieve_past_messages"]
         permissions_init = interact_kwargs["tool_init"]["little_world_retrieve_management_permissions"]
@@ -442,7 +460,6 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             },
             parameters={"message": ""},
             created_by=self.automation_user,
-            assigned_to=self.admin_user,
             related_user=self.source_user,
         )
 
@@ -477,13 +494,21 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertEqual(interact_kwargs["bot"], "little_world_reply_suggestion")
         self.assertTrue(interact_kwargs["share"])
         self.assertEqual(interact_kwargs["message"], self.source_message.text)
-        self.assertEqual(interact_kwargs["overrides"], _message_reply_suggestion_overrides())
+        overrides = interact_kwargs["overrides"]
+        self.assertEqual(overrides["system_prompt"], build_message_reply_suggestion_system_prompt())
+        self.assertIn(RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME, overrides["system_prompt"])
+        self.assertIn(MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME, overrides["system_prompt"])
+        self.assertIn("the ONLY way to persist a reply draft", overrides["system_prompt"])
+        self.assertEqual(overrides["context"], MESSAGE_REPLY_SUGGESTION_CONTEXT)
+        self.assertEqual(overrides["max_tokens"], DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS)
+        self.assertEqual(overrides["temperature"], 0.1)
         self.assertEqual(
-            interact_kwargs["overrides"]["system_prompt"],
-            MESSAGE_REPLY_SUGGESTION_SYSTEM_PROMPT,
+            overrides["tools"],
+            [
+                RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+                MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
+            ],
         )
-        self.assertEqual(interact_kwargs["overrides"]["context"], MESSAGE_REPLY_SUGGESTION_CONTEXT)
-        self.assertEqual(interact_kwargs["overrides"]["max_tokens"], DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS)
         suggestion_init = interact_kwargs["tool_init"]["little_world_message_reply_suggestion"]
         past_messages_init = interact_kwargs["tool_init"]["little_world_retrieve_past_messages"]
         self.assertEqual(suggestion_init["task_pk"], support_task.pk)
@@ -493,7 +518,10 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertTrue(suggestion_init["api_host"])
 
         support_action = SupportTaskAction.objects.get(task=support_task)
-        self.assertEqual(support_action.static_parameters.get("interaction_id"), "suggestion-interaction-uuid")
+        self.assertEqual(
+            support_action.static_parameters.get("interaction_id"),
+            "suggestion-interaction-uuid",
+        )
         self.assertEqual(
             support_action.static_parameters.get("shared_interaction_url"),
             expected_shared_url,
@@ -513,7 +541,6 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             },
             parameters={"message": ""},
             created_by=self.automation_user,
-            assigned_to=self.admin_user,
             related_user=self.source_user,
         )
         support_task.action.resolve(SupportTaskAction.Status.CANCELLED, self.admin_user)
@@ -550,7 +577,10 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
     def test_message_reply_suggestion_tool_init_uses_open_chat_task_creator_session(
         self, mock_client_cls, _mock_new_message_send, mock_create_session
     ):
-        mock_create_session.return_value = ("session-from-open-chat-user", "csrf-from-open-chat-user")
+        mock_create_session.return_value = (
+            "session-from-open-chat-user",
+            "csrf-from-open-chat-user",
+        )
         support_task = SupportTask.create_of_type(
             "support_reply",
             static_parameters={
@@ -564,7 +594,6 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             },
             parameters={"message": ""},
             created_by=self.automation_user,
-            assigned_to=self.admin_user,
             related_user=self.source_user,
         )
         mock_client = MagicMock()

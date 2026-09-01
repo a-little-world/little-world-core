@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime, time
 from typing import Literal, cast
 
 from chat.helpers import MatchSendForbidden, MessageSendValidationError
@@ -143,11 +142,11 @@ def get_match_waiting_time(user):
             candidates = []
             if user_state.onboarding_call_completed_at is not None:
                 candidates.append(user_state.onboarding_call_completed_at)
-            if user_state.self_onboarding_completed_at is not None:
-                d = user_state.self_onboarding_completed_at
-                candidates.append(
-                    timezone.make_aware(datetime.combine(d, time.min)),
-                )
+            from management.self_onboarding_progress import self_onboarding_completed_at_for_user
+
+            self_completed_at = self_onboarding_completed_at_for_user(user)
+            if self_completed_at is not None:
+                candidates.append(self_completed_at)
             if not candidates:
                 return {
                     "number_of_days": None,
