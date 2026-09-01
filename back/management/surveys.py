@@ -9,6 +9,7 @@ failed silently for a year, so the ``event:call_ended`` trigger *creates* an off
 next poll finds it — which also removes the "only if the user is connected" limitation.
 """
 
+import logging
 from datetime import datetime, time, timedelta
 from uuid import uuid4
 
@@ -28,6 +29,8 @@ from management.models.survey import (
     build_context_key,
     option_values,
 )
+
+logger = logging.getLogger(__name__)
 
 POST_CALL_SLUG = "post-call"
 
@@ -281,6 +284,21 @@ def user_matches_audience(campaign: SurveyCampaign, user) -> bool:
     return False
 
 
+def _notify_survey_offered(user) -> None:
+    """Nudge a connected client to re-fetch the pending endpoint.
+
+    Best effort, and deliberately after the row exists: the socket only saves the user a
+    wait, it is never how the survey arrives. A push that fails costs nothing because the
+    next poll still finds the row — which is the whole reason delivery moved off the socket.
+    """
+    from chat.consumers.messages import SurveyOffered
+
+    try:
+        SurveyOffered().send(str(user.uuid))
+    except Exception:
+        logger.warning("Could not push survey_offered to user %s", user.pk, exc_info=True)
+
+
 def offer_survey(campaign: SurveyCampaign, user, *, context_key: str = "", live_session=None) -> SurveyResponse | None:
     """Create the offer for ``(campaign, user, context_key)``, or return the open one.
 
@@ -306,6 +324,8 @@ def offer_survey(campaign: SurveyCampaign, user, *, context_key: str = "", live_
 
     if not created and response.is_terminal:
         return None
+    if created:
+        _notify_survey_offered(user)
     return response
 
 

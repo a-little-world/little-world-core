@@ -9,6 +9,8 @@ offered the survey, while ``shown`` proves the client actually rendered it. Offe
 with ``shown_count`` stuck at zero is precisely the failure that went unnoticed for a year.
 """
 
+import logging
+
 from django.core.exceptions import ValidationError
 from django.db.models import Avg, Count, Q
 from django.shortcuts import get_object_or_404
@@ -25,6 +27,8 @@ from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.models.survey import PRIMARY_COPY_LANGUAGE, SurveyCampaign, SurveyResponse
+
+logger = logging.getLogger(__name__)
 
 
 class PendingSurveySerializer(serializers.Serializer):
@@ -113,7 +117,17 @@ def submit_survey(request, response_id: int):
     try:
         surveys.submit_survey(response, serializer.validated_data["answers"])
     except ValidationError as e:
-        return Response({"status": "error", "message": " ".join(e.messages)}, status=400)
+        # The message stays generic. Validation text here reflects the caller's own payload
+        # back at them ("'x' is not an option of 'y'") and describes internal structure, so
+        # it belongs in the log, not the response. The client already validates required
+        # answers before submitting, so a failure here is a crafted or out-of-date request.
+        logger.warning(
+            "Rejected survey submission for response %s (user %s): %s",
+            response.pk,
+            request.user.pk,
+            "; ".join(e.messages),
+        )
+        return Response({"status": "error", "message": "Invalid survey answers"}, status=400)
     return Response({"status": "ok", "survey_id": response.pk})
 
 
@@ -229,7 +243,13 @@ def _campaign_queryset():
 
 
 def _saved_campaign_response(serializer, status_code: int):
-    """Save, converting the model's own ValidationError into a 400 the form can render."""
+    """Save, converting the model's own ValidationError into a 400 the form can render.
+
+    This one does surface the model's text, unlike the user-facing endpoints. It is behind
+    ``IsAdminOrMatchingUser``, and the message is the whole point — "Cannot activate with
+    copy missing: title (de)" is what tells the editor which field to fill. Genericising it
+    would leave them guessing.
+    """
     try:
         campaign = serializer.save()
     except ValidationError as e:

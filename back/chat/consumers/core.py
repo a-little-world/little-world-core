@@ -22,6 +22,7 @@ from chat.consumers.messages import (
     OutUserWentOffline,
     OutUserWentOnline,
     PreMatchingAppointmentBooked,
+    SurveyOffered,
 )
 from django.conf import settings
 
@@ -171,6 +172,10 @@ class CoreConsumer(AsyncWebsocketConsumer):
     async def pre_matching_appointment_booked(self, event):
         assert event["type"] == MessageTypes.pre_matching_appointment_booked.value
         await self.send(text_data=PreMatchingAppointmentBooked(**event).action_json())
+
+    async def survey_offered(self, event):
+        assert event["type"] == MessageTypes.survey_offered.value
+        await self.send(text_data=SurveyOffered(**event).action_json())
 
     async def notification(self, event):
         assert event["type"] == MessageTypes.notification.value
