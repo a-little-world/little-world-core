@@ -8,6 +8,7 @@ from management.api.user_advanced_filter import (
     EXTRA__lingoda_learners_scoring,
     EXTRA__lingoda_users,
     EXTRA__onboarded_volunteers_with_activity_in_last3weeks,
+    EXTRA__priority_learners_and_searching_volunteers,
     EXTRA__refugee_learners_scoring,
     EXTRA__suggestion_match_completed_off_plattform,
     EXTRA__suggestion_match_completed_on_plattform,
@@ -32,6 +33,7 @@ from management.api.user_advanced_filter import (
     users_with_open_tasks,
 )
 from management.api.user_journey_filters import (
+    EXTRA__random_call_email_blast_2026_08_27,
     active_match,
     all_volunteers_min_one_no_ongoing_match,
     booked_onboarding_call,
@@ -378,7 +380,11 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("journey_v2__too_low_german_level_or_not_onboarded", None, too_low_german_level_or_not_onboarded),
     FilterListEntry("needs_matching_volunteers", None, needs_matching_volunteers),
     FilterListEntry("herrduenschnlate", None, only_hd_test_user),
-    FilterListEntry("community", None, community_calls),
+    FilterListEntry(
+        "community",
+        "Onboarded learners & volunteers — signed up last 6 months or active last 3 months",
+        community_calls,
+    ),
     FilterListEntry("community__active_volunteers", None, community__active_volunteers),
     FilterListEntry("learners_with_a1a2", "Learners with A1/A2", learners_with_a1a2),
     FilterListEntry("learners_better_than_a1a2", "Learners with at least B1", learners_better_than_a1a2),
@@ -418,6 +424,11 @@ USER_JOURNEY_FILTER_LISTS = [
         users_with_duplicate_automatic_emails_29_01_2026,
     ),
     FilterListEntry("EXTRA__lingoda_users", "Lingoda users", EXTRA__lingoda_users),
+    FilterListEntry(
+        "EXTRA__random_call_email_blast_2026_08_27",
+        "Random Call e-mail blast 27 Aug 2026 (apology audience)",
+        EXTRA__random_call_email_blast_2026_08_27,
+    ),
     FilterListEntry("EXTRA__lingoda_learners_scoring", "Lingoda learners for scoring", EXTRA__lingoda_learners_scoring),
     FilterListEntry("EXTRA__fh_aachen_users", "FH Aachen users", EXTRA__fh_aachen_users),
     FilterListEntry(
@@ -433,6 +444,11 @@ USER_JOURNEY_FILTER_LISTS = [
         "EXTRA__onboarded_volunteers_with_activity_in_last3weeks",
         "Onboarded Volunteers with activity in the last 3 weeks",
         EXTRA__onboarded_volunteers_with_activity_in_last3weeks,
+    ),
+    FilterListEntry(
+        "EXTRA__priority_learners_and_searching_volunteers",
+        "Onboarded priority learners and searching volunteers",
+        EXTRA__priority_learners_and_searching_volunteers,
     ),
     FilterListEntry(
         "EXTRA__eligible_for_random_calls",

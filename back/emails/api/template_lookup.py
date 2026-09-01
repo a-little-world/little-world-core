@@ -114,6 +114,10 @@ def group_calls_url():
     return f"{settings.BASE_URL}/app/events"
 
 
+def random_calls_url():
+    return f"{settings.BASE_URL}/app/random-calls"
+
+
 def self_onboarding_url():
     return f"{settings.BASE_URL}/app/onboarding/walkthrough"
 

@@ -10,12 +10,19 @@ from management.permissions import ManagementPermission
 
 from open_chat.helpers import (
     FALLBACK_USER_MESSAGE,
+    build_chat_text_markup_hint,
     build_open_chat_client,
     build_session_tool_init_payload,
     build_tool_session_context,
     resolve_open_chat_automation_task_creator_user,
     rewrite_open_chat_url_for_browser,
     value_or,
+)
+from open_chat.interaction_config import (
+    DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT,
+    DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS,
+    DEFAULT_OPEN_CHAT_SUGGESTION_TEMPERATURE,
+    build_interaction_overrides,
 )
 from open_chat.models import OpenChatConfiguration
 from open_chat.tool_definitions import (
@@ -30,6 +37,49 @@ RUN_INTERACTION_TASK_NAME = "management.tasks.open_chat_run_message_reply_sugges
 
 # Pre-provisioned Open Chat bot that owns the message-reply-suggestion interaction config.
 SUGGESTION_BOT = "little_world_reply_suggestion"
+MESSAGE_REPLY_SUGGESTION_CONTEXT = DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT
+
+
+def build_message_reply_suggestion_system_prompt() -> str:
+    return f"""
+You are a Little World support assistant helping staff draft replies to user messages.
+
+This Open Chat thread is an internal workspace only. Text you write here is NOT saved as a support reply suggestion.
+
+Your tools:
+- `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}` — load earlier messages in the current conversation for context.
+- `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` — the ONLY way to persist a reply draft on the open support task.
+
+Workflow:
+1. Use `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}` when you need more conversation context.
+2. Draft a helpful support reply based on the latest user message and any context you retrieved.
+3. You MUST finish by calling `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` exactly once with the complete draft
+   in `parameters`, e.g. `{{"message": "<your full suggested reply>"}}`.
+
+Rules:
+- Never treat plain assistant text in this thread as the saved suggestion.
+- Do not skip `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` — if you skip it, nothing is stored on the support task.
+- Put the draft (including any link markup) in the tool's `parameters.message` field, not in assistant text here.
+- If you already used `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}`, still call `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` afterward.
+- When the draft includes admin panel or external links, use the Little World chat markup described below.
+
+{build_chat_text_markup_hint()}
+
+Reminder: your last action must be `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` with the draft in `parameters.message`.
+""".strip()
+
+
+def _message_reply_suggestion_overrides() -> dict[str, object]:
+    return build_interaction_overrides(
+        system_prompt=build_message_reply_suggestion_system_prompt(),
+        context=MESSAGE_REPLY_SUGGESTION_CONTEXT,
+        max_tokens=DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS,
+        temperature=DEFAULT_OPEN_CHAT_SUGGESTION_TEMPERATURE,
+        tools=[
+            RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+            MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
+        ],
+    )
 
 
 def _is_skipped_matching_staff_sender(user: User) -> bool:
@@ -308,6 +358,7 @@ def open_chat_run_message_reply_suggestion_interaction(
             bot=SUGGESTION_BOT,
             message=message,
             share=True,
+            overrides=_message_reply_suggestion_overrides(),
             tool_init={
                 MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME: {
                     **session_init,
