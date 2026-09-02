@@ -129,6 +129,7 @@ class RandomCallLobbyUser(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     user = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="user_in_lobby")
     is_active = models.BooleanField(default=True)
+    first_joined_at = models.DateTimeField(null=True, blank=True)
     last_status_checked_at = models.DateTimeField(null=True, blank=True)
     lobby = models.ForeignKey("video.RandomCallLobby", on_delete=models.CASCADE, related_name="lobby_users")
 

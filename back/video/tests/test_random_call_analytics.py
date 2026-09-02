@@ -399,10 +399,15 @@ class RandomCallAnalyticsTests(TestCase):
         self.assertEqual(instance_snapshot["first_time_users"], snapshot.first_time_users)
         self.assertEqual(instance_snapshot["returning_users"], snapshot.returning_users)
         self.assertEqual(instance_snapshot["completed_calls"], snapshot.completed_calls)
+        self.assertEqual(
+            instance_snapshot["users_with_successful_calls"],
+            snapshot.users_with_successful_calls,
+        )
         self.assertEqual(instance_snapshot["proposals_accepted"], snapshot.proposals_accepted)
         self.assertEqual(instance_snapshot["first_time_users"], 1)
         self.assertEqual(instance_snapshot["returning_users"], 1)
         self.assertEqual(instance_snapshot["completed_calls"], 1)
+        self.assertEqual(instance_snapshot["users_with_successful_calls"], 2)
 
     def test_finished_lobby_list_and_detail_snapshots_match(self):
         """Finished lobbies must not reclassify open proposals using inactive-user heuristics."""
@@ -927,6 +932,40 @@ class RandomCallAnalyticsTests(TestCase):
             + row["proposals_dangling"],
             row["proposals_total"],
         )
+
+    def test_list_lobby_trends_api(self):
+        learner = self._create_user("trends_learner", Profile.TypeChoices.LEARNER)
+        volunteer = self._create_user("trends_volunteer", Profile.TypeChoices.VOLUNTEER)
+        lobby = self._create_lobby(
+            name="default",
+            start_time=timezone.now() - timezone.timedelta(days=3),
+            end_time=timezone.now() - timezone.timedelta(days=3) + timezone.timedelta(hours=2),
+        )
+        RandomCallLobbyUser.objects.create(user=learner, lobby=lobby, is_active=False)
+        RandomCallLobbyUser.objects.create(user=volunteer, lobby=lobby, is_active=False)
+        RandomCallMatching.objects.create(lobby=lobby, u1=learner, u2=volunteer, accepted=True, completed=True)
+
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(user=self._create_admin_user("trends_api"))
+        response = client.get(
+            "/api/random_calls/analytics/lobbies/trends",
+            {
+                "lobby_name": "default",
+                "from": (timezone.now() - timezone.timedelta(days=7)).date().isoformat(),
+                "to": timezone.now().date().isoformat(),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(response.data["count"], 1)
+        row = next(item for item in response.data["results"] if item["lobby_uuid"] == str(lobby.uuid))
+        self.assertEqual(row["learner_count"], 1)
+        self.assertEqual(row["volunteer_count"], 1)
+        self.assertEqual(row["total_users"], 2)
+        self.assertEqual(row["users_with_successful_calls"], 2)
+        self.assertEqual(response.data["results"][0]["start_time"] <= row["start_time"], True)
 
     def test_list_lobby_analytics_proposals_are_final_flag(self):
         live_lobby = self._create_lobby(

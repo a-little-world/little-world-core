@@ -25,6 +25,7 @@ from video.analytics.lobbies import (
 )
 from video.analytics.queries import (
     batch_count_pending_dangling_by_lobby,
+    build_lobby_participants,
     count_pending_dangling_buckets,
     proposal_bucket_mismatch,
 )
@@ -64,6 +65,7 @@ class LobbyInstanceSnapshot:
     proposals_pending: int
     proposals_dangling: int
     completed_calls: int
+    users_with_successful_calls: int
 
     learner_count: int
     volunteer_count: int
@@ -193,12 +195,17 @@ def _merge_proposal_buckets(lobby: RandomCallLobby, *, open_buckets: dict[str, i
     return buckets, mismatch
 
 
+def _users_with_successful_calls(lobby_participants: list[dict]) -> int:
+    return sum(1 for participant in lobby_participants if participant.get("completed_calls", 0) > 0)
+
+
 def _snapshot_from_lobby_row(
     lobby: RandomCallLobby,
     *,
     attendance: dict[str, int],
     open_buckets: dict[str, int],
     as_of: datetime,
+    users_with_successful_calls: int = 0,
 ) -> LobbyInstanceSnapshot:
     buckets, mismatch = _merge_proposal_buckets(lobby, open_buckets=open_buckets)
 
@@ -221,11 +228,42 @@ def _snapshot_from_lobby_row(
         proposals_pending=buckets["pending"],
         proposals_dangling=buckets["dangling"],
         completed_calls=_read_annotation(lobby, ANNOT_COMPLETED_CALLS),
+        users_with_successful_calls=users_with_successful_calls,
         learner_count=_read_annotation(lobby, ANNOT_LEARNER_COUNT),
         volunteer_count=_read_annotation(lobby, ANNOT_VOLUNTEER_COUNT),
         bucket_mismatch=mismatch,
         proposals_are_final=proposals_are_final,
     )
+
+
+def _batch_users_with_successful_calls(lobbies: list[RandomCallLobby], *, as_of: datetime) -> dict[int, int]:
+    from video.random_calls import is_lobby_active
+
+    if not lobbies:
+        return {}
+
+    lobby_ids = [lobby.pk for lobby in lobbies]
+    proposals_by_lobby: dict[int, list[RandomCallMatching]] = defaultdict(list)
+    for proposal in RandomCallMatching.objects.filter(lobby_id__in=lobby_ids):
+        proposals_by_lobby[proposal.lobby_id].append(proposal)
+
+    counts: dict[int, int] = {}
+    for lobby in lobbies:
+        all_lobby_users = RandomCallLobbyUser.objects.filter(lobby=lobby)
+        active_lobby_user_ids = (
+            set(all_lobby_users.filter(is_active=True).values_list("user_id", flat=True))
+            if is_lobby_active(lobby)
+            else None
+        )
+        participants = build_lobby_participants(
+            all_lobby_users,
+            proposals_by_lobby.get(lobby.pk, []),
+            lobby,
+            active_lobby_user_ids,
+            as_of=as_of,
+        )
+        counts[lobby.pk] = _users_with_successful_calls(participants)
+    return counts
 
 
 def build_snapshots(
@@ -252,13 +290,20 @@ def build_snapshots(
 
     attendance = _batch_user_attendance_breakdown(lobbies)
     open_buckets_by_lobby = batch_count_pending_dangling_by_lobby(lobbies, as_of=as_of)
+    users_with_successful_calls_by_lobby = _batch_users_with_successful_calls(lobbies, as_of=as_of)
     snapshots: dict[UUID, LobbyInstanceSnapshot] = {}
     mismatched_uuids: list[str] = []
 
     for lobby in lobbies:
         att = attendance[lobby.pk]
         open_buckets = open_buckets_by_lobby[lobby.pk]
-        snapshot = _snapshot_from_lobby_row(lobby, attendance=att, open_buckets=open_buckets, as_of=as_of)
+        snapshot = _snapshot_from_lobby_row(
+            lobby,
+            attendance=att,
+            open_buckets=open_buckets,
+            as_of=as_of,
+            users_with_successful_calls=users_with_successful_calls_by_lobby[lobby.pk],
+        )
         snapshots[lobby.uuid] = snapshot
         if snapshot.bucket_mismatch != 0:
             mismatched_uuids.append(str(lobby.uuid))
@@ -278,6 +323,8 @@ def build_snapshot_for_lobby(
     *,
     proposals: list[RandomCallMatching] | None = None,
     as_of: datetime | None = None,
+    lobby_participants: list[dict] | None = None,
+    active_lobby_user_ids: set[int] | None = None,
 ) -> LobbyInstanceSnapshot | None:
     """Single-lobby persisted snapshot (SQL buckets + Python pending/dangling only)."""
     as_of = as_of or timezone.now()
@@ -289,9 +336,35 @@ def build_snapshot_for_lobby(
     if proposals is None:
         proposals = list(RandomCallMatching.objects.filter(lobby=lobby))
 
+    if lobby_participants is None:
+        from video.random_calls import is_lobby_active
+
+        all_lobby_users = RandomCallLobbyUser.objects.filter(lobby=lobby)
+        if active_lobby_user_ids is None:
+            active_lobby_user_ids = (
+                set(all_lobby_users.filter(is_active=True).values_list("user_id", flat=True))
+                if is_lobby_active(lobby)
+                else None
+            )
+        lobby_participants = build_lobby_participants(
+            all_lobby_users,
+            proposals,
+            lobby,
+            active_lobby_user_ids,
+            as_of=as_of,
+        )
+
+    users_with_successful_calls = _users_with_successful_calls(lobby_participants)
+
     open_buckets = count_pending_dangling_buckets(proposals, lobby=lobby, as_of=as_of)
     attendance = _batch_user_attendance_breakdown([lobby_row])[lobby_row.pk]
-    snapshot = _snapshot_from_lobby_row(lobby_row, attendance=attendance, open_buckets=open_buckets, as_of=as_of)
+    snapshot = _snapshot_from_lobby_row(
+        lobby_row,
+        attendance=attendance,
+        open_buckets=open_buckets,
+        as_of=as_of,
+        users_with_successful_calls=users_with_successful_calls,
+    )
     if snapshot.bucket_mismatch != 0:
         logger.info(
             "Proposal bucket mismatch for lobby instance %s",
@@ -319,6 +392,7 @@ def lobby_instance_snapshot_to_dict(snapshot: LobbyInstanceSnapshot) -> dict:
         "proposals_pending": snapshot.proposals_pending,
         "proposals_dangling": snapshot.proposals_dangling,
         "completed_calls": snapshot.completed_calls,
+        "users_with_successful_calls": snapshot.users_with_successful_calls,
         "learner_count": snapshot.learner_count,
         "volunteer_count": snapshot.volunteer_count,
         "bucket_mismatch": snapshot.bucket_mismatch,

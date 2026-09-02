@@ -400,12 +400,23 @@ def build_lobby_participants(all_lobby_users, all_proposals, lobby, active_lobby
     participants = {}
     for lobby_user in all_lobby_users.order_by("-id").select_related("user", "user__profile"):
         user = lobby_user.user
+        first_joined_at = lobby_user.first_joined_at
+        existing = participants.get(user.pk)
+        if existing is not None:
+            existing_first_joined_at = existing.get("first_joined_at")
+            if first_joined_at is not None and (
+                existing_first_joined_at is None or first_joined_at.isoformat() < existing_first_joined_at
+            ):
+                existing["first_joined_at"] = first_joined_at.isoformat()
+            continue
+
         participants[user.pk] = {
             "user_id": user.pk,
             "user_uuid": str(user.uuid),
             "user_name": f"{user.profile.first_name}",
             "user_type": user.profile.user_type,
             "is_active": lobby_user.is_active,
+            "first_joined_at": first_joined_at.isoformat() if first_joined_at else None,
             "completed_calls": 0,
             "unsuccessful_proposals": 0,
             "accepted_proposals": 0,

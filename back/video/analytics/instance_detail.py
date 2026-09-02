@@ -63,7 +63,21 @@ def build_lobby_instance_detail(lobby: RandomCallLobby) -> dict:
         as_of=now,
     )
 
-    snapshot = build_snapshot_for_lobby(lobby, proposals=all_matches, as_of=now)
+    lobby_participants = build_lobby_participants(
+        all_lobby_users,
+        all_matches,
+        lobby,
+        classify_active_ids,
+        as_of=now,
+    )
+
+    snapshot = build_snapshot_for_lobby(
+        lobby,
+        proposals=all_matches,
+        as_of=now,
+        lobby_participants=lobby_participants,
+        active_lobby_user_ids=classify_active_ids,
+    )
     snapshot_data = lobby_instance_snapshot_to_dict(snapshot) if snapshot is not None else None
 
     lobby_data = {
@@ -75,14 +89,6 @@ def build_lobby_instance_detail(lobby: RandomCallLobby) -> dict:
         "active_users_count": active_lobby_users.values("user_id").distinct().count(),
         "total_users_count": all_lobby_users.values("user_id").distinct().count(),
     }
-
-    lobby_participants = build_lobby_participants(
-        all_lobby_users,
-        all_matches,
-        lobby,
-        classify_active_ids,
-        as_of=now,
-    )
 
     return {
         "snapshot": snapshot_data,

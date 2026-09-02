@@ -119,11 +119,14 @@ def join_random_call_lobby(request, lobby_uuid):
         return Response("Lobby is not active", status=400)
     # 2 - check if the user is already in the lobby
     already_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby, is_active=True).exists()
-    RandomCallLobbyUser.objects.update_or_create(
+    now = timezone.now()
+    lobby_user, created = RandomCallLobbyUser.objects.update_or_create(
         user=request.user,
         lobby=lobby,
-        defaults={"is_active": True, "last_status_checked_at": timezone.now()},
+        defaults={"is_active": True, "last_status_checked_at": now},
     )
+    if created or lobby_user.first_joined_at is None:
+        RandomCallLobbyUser.objects.filter(pk=lobby_user.pk, first_joined_at__isnull=True).update(first_joined_at=now)
     # 4 - a-new user joined so start the celery task that performs the matching
     random_call_lobby_perform_matching.apply_async(args=[str(lobby.uuid)])
     cleanup_inactive_lobby_users.apply_async(args=[str(lobby.uuid)], countdown=12)

@@ -51,6 +51,28 @@ def list_lobby_stats(request):
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAdminOrMatchingUser])
+def list_lobby_trends(request):
+    """Chronological lobby instance snapshots for trend charts (no pagination)."""
+    lobby_name = request.query_params.get("lobby_name", "default")
+    from_dt = parse_analytics_datetime_bound(request.query_params.get("from"))
+    to_dt = parse_analytics_datetime_bound(request.query_params.get("to"), end_of_day=True)
+
+    qs = filtered_lobby_queryset(lobby_name=lobby_name, from_dt=from_dt, to_dt=to_dt)
+    qs = annotate_lobby_metrics(qs)
+    try:
+        qs = apply_lobby_ordering(qs, "start_time")
+    except ValueError as exc:
+        return Response({"error": str(exc)}, status=400)
+
+    lobbies = list(qs)
+    snapshots = build_snapshots(lobbies)
+    results = [lobby_instance_snapshot_to_dict(snapshots[lobby.uuid]) for lobby in lobbies if lobby.uuid in snapshots]
+    return Response({"count": len(results), "results": results}, status=200)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAdminOrMatchingUser])
 def get_lobby_instance(request, lobby_name="default"):
     """
     Lobby instance detail: analytics snapshot plus live proposal/participant breakdown.
@@ -74,6 +96,10 @@ api_urls = [
     path(
         "api/random_calls/analytics/lobbies",
         list_lobby_stats,
+    ),
+    path(
+        "api/random_calls/analytics/lobbies/trends",
+        list_lobby_trends,
     ),
     path(
         "api/random_calls/analytics/lobby/<str:lobby_name>/instance",
