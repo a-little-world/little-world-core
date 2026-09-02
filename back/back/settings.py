@@ -749,7 +749,14 @@ DATABASES = (
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
-            "OPTIONS": {"timeout": 10},
+            "OPTIONS": {
+                "timeout": 30,
+                # WAL so readers don't block the writer; IMMEDIATE takes the write lock at
+                # BEGIN, so a concurrent writer waits out `timeout` instead of failing at the
+                # deferred read->write upgrade (which no timeout covers).
+                "init_command": "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;",
+                "transaction_mode": "IMMEDIATE",
+            },
         }
     }
     if ((IS_DEV and ("DJ_DATABASE_ENGINE" not in os.environ)) or USE_SQLITE)
