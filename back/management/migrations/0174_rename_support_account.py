@@ -22,7 +22,7 @@ def rename_support_account(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("management", "0172_supporttasknote"),
+        ("management", "0173_supporttasknote"),
     ]
 
     operations = [
