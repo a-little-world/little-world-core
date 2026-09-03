@@ -1,6 +1,7 @@
 from dataclasses import dataclass, fields
 
 import django.contrib.auth.password_validation as pw_validation
+from back.build_types import BuildType
 from django.conf import settings
 from django.contrib.auth import login
 from django.core import exceptions
@@ -311,7 +312,7 @@ class RegisterWebNative(APIView):
         request=RegistrationSerializerNativeWeb(many=False),
     )
     def post(self, request) -> Response | None:
-        if settings.IS_PROD:
+        if settings.BUILD_TYPE == BuildType.PRODUCTION:
             return Response(
                 {"detail": "This endpoint is disabled in production environments"},
                 status=status.HTTP_405_METHOD_NOT_ALLOWED,

@@ -151,7 +151,7 @@ class SupportTaskApiTests(TestCase):
         self.assertEqual(payload["count"], 1)
         self.assertEqual(payload["results"][0]["id"], task_for_regular_user.id)
 
-    def test_support_reply_defaults_to_all_effective_reply_permission_users(self):
+    def test_support_reply_defaults_to_unassigned(self):
         task = SupportTask.create_of_type(
             "support_reply",
             created_by=self.admin_user,
@@ -160,10 +160,7 @@ class SupportTaskApiTests(TestCase):
             parameters={"message": ""},
         )
 
-        self.assertEqual(
-            set(task.assignees.values_list("id", flat=True)),
-            {self.direct_reply_user.id, self.group_reply_user.id, self.superuser.id},
-        )
+        self.assertFalse(task.assignees.exists())
 
     def test_update_replaces_and_serializes_multiple_assignees(self):
         task = SupportTask.create_of_type(

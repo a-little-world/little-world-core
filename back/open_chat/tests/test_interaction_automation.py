@@ -254,10 +254,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         created_by = action.task.created_by
         self.assertIsNotNone(created_by)
         assert created_by is not None
-        self.assertEqual(
-            set(action.task.assignees.values_list("pk", flat=True)),
-            {self.admin_user.pk},
-        )
+        self.assertFalse(action.task.assignees.exists())
         self.assertEqual(created_by.pk, self.automation_user.pk)
         self.assertEqual(mock_send_task.call_count, 2)
         send_task_args, send_task_kwargs = mock_send_task.call_args

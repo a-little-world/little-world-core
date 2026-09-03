@@ -1,5 +1,6 @@
 from typing import Any
 
+from back.build_types import BuildType
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.core.cache import cache
@@ -257,12 +258,12 @@ def enforce_ios_integrity(
         key_id=key_id,
         challenge_bytes=challenge_bytes,
         attestation_raw=attestation_object,
-        is_prod=settings.IS_PROD,
+        is_prod=settings.BUILD_TYPE == BuildType.PRODUCTION,
     )
 
 
 def enforce_web_integrity(bypass_token: str | None) -> None:
-    if settings.IS_PROD:
+    if settings.BUILD_TYPE == BuildType.PRODUCTION:
         raise MethodNotAllowed(method="POST", detail="Invalid integrity token or request hash")
     can_bypass_integrity_check(bypass_token)
 

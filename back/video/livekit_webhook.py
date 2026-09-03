@@ -3,13 +3,16 @@ import logging
 from datetime import timedelta
 
 from chat.consumers.messages import InBlockIncomingCall, NewActiveCallRoom
+from chat.models import Chat, ChatConnections
 from django.db.models import F, Q
 from django.http import JsonResponse
 from django.urls import path
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from management.models.matches import Match
-from management.models.user import User
+from management.models.user import PushNotificationType, User
+from management.tasks import push_notification_background
+from translations import get_translation
 
 from video.models import (
     LiveKitRoom,
@@ -72,6 +75,26 @@ def process_webhook_random_call__participant_joined(data, event, participant_id,
         )
 
 
+def _notify_incoming_call(caller, partner, session):
+    partner_was_active = session.u1_was_active if partner == session.u1 else session.u2_was_active
+    if partner_was_active or ChatConnections.is_user_online(partner):
+        return
+    chat = Chat.get_chat([caller, partner])
+    title = get_translation("push_notification.incoming_call.title", partner.profile.display_language)
+    description = get_translation(
+        "push_notification.incoming_call.description", partner.profile.display_language
+    ).format(name=f"{caller.first_name} {caller.last_name}")
+
+    push_notification_background.delay(
+        partner.pk,
+        title=title,
+        description=description,
+        notification_type=PushNotificationType.CHAT,
+        path=f"/app/chat/{str(chat.uuid)}" if chat is not None else "/app/chat/",
+        group=f"call:{str(session.uuid)}",
+    )
+
+
 def process_webhook_classic_call__participant_joined(data, event, participant_id, user, room_id, room):
     # 4 - we determine if a session is already active for that room
     active_session = LivekitSession.objects.filter(room=room, is_active=True)
@@ -104,6 +127,10 @@ def process_webhook_classic_call__participant_joined(data, event, participant_id
         NewActiveCallRoom(call_room=SerializeLivekitSession(session, context={"user": partner}).data).send(
             str(partner.uuid)
         )
+        try:
+            _notify_incoming_call(user, partner, session)
+        except Exception:
+            pass
     else:
         raise Exception(
             "Edge-Case Detected (@tbscode) classic call participant joined: session not found for room:", room.uuid

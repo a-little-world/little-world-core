@@ -8,6 +8,42 @@ The same platform powers all processes at Little World — [join us and sign up 
 
 ---
 
+## Video calls (LiveKit — local)
+
+Video calls run on a [LiveKit](https://livekit.io) server. For local development one runs in Docker.
+
+**Start it** (part of the `all` profile, or on its own):
+
+```bash
+docker compose --profile livekit up   # just LiveKit
+docker compose --profile all up        # everything, including LiveKit
+```
+
+**Ports** (published by the `livekit` service in `docker-compose.yaml`):
+
+| Port | Purpose |
+|------|---------|
+| `7880` | signaling (WebSocket) |
+| `7881/tcp` | ICE/TCP fallback |
+| `7882/udp` | media (audio/video) |
+
+**Config** lives in `dev/livekit.yaml`. The `keys:` map (`APIKEY: SECRET`) must match the backend env in `dev/envs/dev.env`:
+
+| `livekit.yaml` | `dev.env` |
+|----------------|-----------|
+| key name in `keys:` | `DJ_LIVEKIT_API_KEY` |
+| its secret in `keys:` | `DJ_LIVEKIT_API_SECRET` |
+| secret of `webhook.api_key` | `DJ_LIVEKIT_WEBHOOK_SECRET` |
+
+The backend uses **two** URLs, which differ only in local Docker:
+
+- `DJ_LIVEKIT_URL` (`ws://localhost:7880`) — handed to the browser/app client as the server URL.
+- `DJ_LIVEKIT_INTERNAL_URL` (`http://livekit:7880`) — used backend→LiveKit for API calls over the Docker network.
+
+> Testing on a real phone needs TLS (`wss`) and a media path reachable from the device, so `localhost` won't work — you'll need to expose LiveKit on a routable host.
+
+---
+
 ## License
 
 Copyright (C) 2025 A Little World gUG
