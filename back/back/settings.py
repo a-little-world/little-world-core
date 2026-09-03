@@ -1113,6 +1113,7 @@ EXTRA_MATCH_PRIORITY_COMPANIES = string_list_env("DJ_EXTRA_MATCH_PRIORITY_COMPAN
 MATCH_PRIORITY_COMPANIES = [
     "accenture",
     "amazon",
+    "beff",
     "generali",
     "lingoda",
     "fh-aachen",

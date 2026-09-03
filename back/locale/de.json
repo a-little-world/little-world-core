@@ -79,7 +79,7 @@
   "register.second_name_blank_err": "Bitte gib einen zweiten Namen ein",
   "register.birth_year_invalid": "Bitte gib ein gültiges Geburtsjahr ein",
   "register.birth_year_under_1900": "Entschuldige, aber du kannst nicht so alt sein",
-  "register.birth_year_over_2024": "Entschuldigung, derzeit müssen Nutzer mindestens 18 Jahre alt sein",
+  "register.birth_year_too_high": "Entschuldigung, derzeit müssen Nutzer mindestens 18 Jahre alt sein",
   "api.register_user_email_exists": "Nutzer mit dieser E-Mail existiert bereits",
   "api.passwords_must_match": "Passwörter müssen übereinstimmen",
   "profile.user_type.learner": "Sprachlernende*r",
