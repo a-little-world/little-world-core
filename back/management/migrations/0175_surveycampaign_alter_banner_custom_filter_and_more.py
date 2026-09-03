@@ -10,7 +10,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('management', '0172_state_searching_state_last_updated_not_auto_now'),
+        ('management', '0174_rename_support_account'),
         ('video', '0028_randomcallmatching_u1_status_and_more'),
     ]
 
