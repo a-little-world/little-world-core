@@ -13,10 +13,12 @@ from django.conf import settings
 from django.core.wsgi import get_wsgi_application
 from whitenoise import WhiteNoise
 
+from back.build_types import BuildType
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "back.settings")
 
 application = get_wsgi_application()
 
-if settings.BUILD_TYPE in ["development"]:
+if settings.BUILD_TYPE == BuildType.DEVELOPMENT:
     root_path = settings.STATIC_ROOT
     application = WhiteNoise(application, root=root_path)

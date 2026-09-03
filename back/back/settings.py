@@ -8,6 +8,8 @@ from datetime import timedelta
 from corsheaders.defaults import default_headers
 from firebase_admin import credentials, initialize_app
 
+from back.build_types import BuildType
+
 
 def bool_env(name, default):
     # deliberately no default set, it should be explicit and visible what the default is
@@ -59,12 +61,7 @@ if USE_SENTRY:
         print("WARINING: unable to start sentry", str(e))
 
 # This can be used to exclude apps or middleware
-BUILD_TYPE = os.environ["BUILD_TYPE"]
-assert BUILD_TYPE in ["deployment", "staging", "development"]
-
-IS_DEV = BUILD_TYPE == "development"
-IS_STAGE = BUILD_TYPE == "staging"
-IS_PROD = BUILD_TYPE == "deployment"
+BUILD_TYPE = BuildType(os.environ["BUILD_TYPE"])
 
 PROD_ATTACH = os.environ.get("DJ_PROD_ATTACH", "false").lower() in ("true", "1", "t")
 
@@ -83,7 +80,7 @@ MANAGEMENT_USER_MAIL = os.environ.get("DJ_MANAGEMENT_USER_MAIL", "littleworld.ma
 MATCHING_USER_MAIL = os.environ.get("DJ_MATCHING_USER_MAIL", "tim.timschupp+420@gmail.com")
 MATCHING_USER_PASSWORD = os.environ.get(
     "DJ_MATCHING_USER_PASSWORD",
-    None if IS_PROD else "Test123!",  # No default on prod, just error!
+    None if BUILD_TYPE == BuildType.PRODUCTION else "Test123!",  # No default on prod, just error!
 )
 MANAGEMENT_USER_PASSWORD = os.environ.get("DJ_MANAGEMENT_USER_PASSWORD", None)
 
@@ -94,7 +91,7 @@ MATCHING_USER_FIRST_NAME = os.environ.get("DJ_MATCHING_USER_FIRST_NAME", "Tim")
 MATCHING_USER_SECOND_NAME = os.environ.get("DJ_MATCHING_USER_SECOND_NAME", "Schupp")
 ADMIN_OPEN_KEYPHRASE = os.environ.get(
     "DJ_ADMIN_OPEN_KEYPHRASE",
-    str(uuid.uuid4()) if IS_PROD else "opensesame",  # random string if nothing is set in production
+    str(uuid.uuid4()) if BUILD_TYPE == BuildType.PRODUCTION else "opensesame",
 )
 DEFAULT_FROM_EMAIL = os.environ.get("DJ_SG_DEFAULT_FROM_EMAIL", "littleworld.management@gmail.com")
 EXPOSE_DEV_LOGIN = os.environ.get("DJ_EXPOSE_DEV_LOGIN", "false").lower() in ("true", "1", "t")
@@ -102,13 +99,24 @@ USE_MQ_AS_BROKER = os.environ.get("DJ_USE_MQ_AS_BROKER", "false").lower() in ("t
 
 DOCS_PROXY = os.environ.get("DJ_DOCS_PROXY", "false").lower() in ("true", "1", "t")
 DOCS_URL = os.environ.get("DJ_DOCS_URL", "")
+ENABLE_SPAGHETTI = bool_env(
+    "DJ_ENABLE_SPAGHETTI",
+    "true" if BUILD_TYPE == BuildType.DEVELOPMENT else "false",
+)
+ENABLE_PRODUCTION_CELERY_SCHEDULES = bool_env(
+    "DJ_ENABLE_PRODUCTION_CELERY_SCHEDULES",
+    "true" if BUILD_TYPE == BuildType.PRODUCTION else "false",
+)
 
 
 def get_redis_connect_url_port():
     return os.environ.get("DJ_REDIS_HOST", "redis"), int(os.environ.get("DJ_REDIS_PORT", "6379"))
 
 
-REDIS_PROTOCOL = os.environ.get("DJ_REDIS_PROTO", "redis" if IS_DEV else "rediss")
+REDIS_PROTOCOL = os.environ.get(
+    "DJ_REDIS_PROTO",
+    "redis" if BUILD_TYPE == BuildType.DEVELOPMENT else "rediss",
+)
 REDIS_PASSWORD = os.environ.get("DJ_REDIS_PASSWORD", None)
 
 USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
@@ -169,7 +177,7 @@ LIVEKIT_URL = os.environ.get("DJ_LIVEKIT_URL", "")
 MATOMO_TOKEN_AUTH = os.environ.get("DJ_MATOMO_TOKEN_AUTH", "")
 MATOMO_URL = os.environ.get("DJ_MATOMO_URL", "")
 
-if IS_PROD and "K8_POD_IP" in os.environ:
+if BUILD_TYPE == BuildType.PRODUCTION and "K8_POD_IP" in os.environ:
     # So that we can further restrict access to the depoloyment kubernetes node
     K8_POD_IP = os.environ.get("K8_POD_IP", None)
     if K8_POD_IP is not None:
@@ -244,7 +252,7 @@ INSTALLED_APPS = [
     # Though we keep the backages so we don't have to split the code
     "drf_spectacular",  # for api shema generation
     "drf_spectacular_sidecar",  # statics for redoc and swagger
-    *(["django_spaghetti"] if BUILD_TYPE in ["staging", "development"] else []),
+    *(["django_spaghetti"] if ENABLE_SPAGHETTI else []),
     *(["debug_toolbar"] if USE_DEBUG_TOOLBAR else []),
     "webpack_loader",  # Load bundled webpack files, check `./run.py front`
     "storages",  # django storages managing s3 bucket files!
@@ -255,13 +263,12 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    *(["revproxy"] if IS_STAGE else []),
-    # *(['django.contrib.sessions'] if IS_PROD or IS_STAGE else []),
+    *(["revproxy"] if DOCS_PROXY else []),
     "push_notifications",  # django-push-notifications
 ]
 print("Installed apps:\n" + "\n- ".join(INSTALLED_APPS))
 
-if BUILD_TYPE in ["staging", "development"]:
+if ENABLE_SPAGHETTI:
     SPAGHETTI_SAUCE = {
         "apps": ["auth", "management", "tracking", "emails", "chat", "video"],
         "show_fields": False,
@@ -277,7 +284,7 @@ MIDDLEWARE = [
         [  # Whitenoise to server static only needed in development
             "whitenoise.middleware.WhiteNoiseMiddleware",
         ]
-        if (IS_DEV or DOCS_BUILD or USE_WHITENOISE)
+        if (BUILD_TYPE == BuildType.DEVELOPMENT or DOCS_BUILD or USE_WHITENOISE)
         else []
     ),
     *(["debug_toolbar.middleware.DebugToolbarMiddleware"] if USE_DEBUG_TOOLBAR else []),
@@ -326,7 +333,13 @@ if DEBUG:
         }
 
 COOKIE_CONSENT_ENABLED = True
-COOKIE_CONSENT_DOMAIN = ".little-world.com" if IS_PROD else None
+COOKIE_CONSENT_DOMAIN = (
+    os.environ.get(
+        "DJ_COOKIE_CONSENT_DOMAIN",
+        ".little-world.com" if BUILD_TYPE == BuildType.PRODUCTION else "",
+    )
+    or None
+)
 
 ROOT_URLCONF = "back.urls"
 """
@@ -395,7 +408,7 @@ CORS_ALLOWED_ORIGIN_REGEXES = ["file://.*"]  # Native apps are serverd from a fi
 CORS_ALLOWED_ORIGINS = []
 CORS_ORIGIN_WHITELIST = []
 CSRF_TRUSTED_ORIGINS = []
-if IS_STAGE or IS_PROD:
+if BUILD_TYPE == BuildType.PRODUCTION:
     CORS_ALLOWED_ORIGINS = [BASE_URL]
     CORS_ORIGIN_WHITELIST = [BASE_URL]
     CSRF_TRUSTED_ORIGINS = [BASE_URL]
@@ -409,7 +422,7 @@ elif DEBUG:
     CORS_ORIGIN_WHITELIST = ["https://*.github.dev"] + EXTRA_CORS_ALLOWED_ORIGINS
     CSRF_ORIGIN_ALLOW_ALL = True
 
-if IS_STAGE or DEBUG:
+if DEBUG:
     dev_origins = [
         "http://localhost",
         "https://localhost",
@@ -488,7 +501,7 @@ if USE_MINIO:
     MINIO_STORAGE_STATIC_BUCKET_NAME = os.getenv("DJ_MINIO_BUCKET_NAME")
     MINIO_STORAGE_AUTO_CREATE_STATIC_BUCKET = True
 
-elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHITENOISE)):
+elif EXTERNAL_S3 or ((not DOCS_BUILD and BUILD_TYPE == BuildType.PRODUCTION) and (not USE_WHITENOISE)):
     print("TRYING to push statics to bucket")
     # In production & staging we use S3 as file storage!
     COLLECTFAST_ENABLED = True
@@ -615,9 +628,6 @@ CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_RESULT_EXTENDED = True
 CELERY_ENABLE_UTC = True
 
-if BUILD_TYPE in ["staging", "development"]:
-    pass
-
 """
 django-rest-password reset config:
 Password reset tokens are only valid for 1h!
@@ -629,7 +639,7 @@ DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE = True
 DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
-if (IS_PROD or USE_MQ_AS_BROKER) and (not USE_REDIS_AS_BROKER):
+if (BUILD_TYPE == BuildType.PRODUCTION or USE_MQ_AS_BROKER) and (not USE_REDIS_AS_BROKER):
     # Sadly it turnsour that celery doesn't support redis clusters
     # So we will need to use Rabbit MQ instead
     # url, port = get_redis_connect_url_port()
@@ -681,7 +691,7 @@ EMAILS_APP = {
     ],
 }
 
-if IS_PROD:
+if BUILD_TYPE == BuildType.PRODUCTION:
     # disable browsable api in production
     REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = ["rest_framework.renderers.JSONRenderer"]
 
@@ -709,7 +719,7 @@ SPECTACULAR_SETTINGS = {
 }
 
 
-if IS_DEV or EMPHIRIAL or (REDIS_PASSWORD is None):
+if BUILD_TYPE == BuildType.DEVELOPMENT or EMPHIRIAL or (REDIS_PASSWORD is None):
     REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
     CHANNEL_LAYERS = {
         "default": {
@@ -719,15 +729,14 @@ if IS_DEV or EMPHIRIAL or (REDIS_PASSWORD is None):
             },
         }
     }
-elif IS_PROD and (REDIS_PASSWORD is not None):
+elif BUILD_TYPE == BuildType.PRODUCTION and (REDIS_PASSWORD is not None):
     """
     SSL true seems required, 'diss://' in the url doesn't seem to suffice: https://github.com/django/channels_redis/issues/235
     """
     url, port = get_redis_connect_url_port()
     path = f"{REDIS_PROTOCOL}://{url}:{port}"
-    if IS_PROD:
-        r_auth_token = os.environ["DJ_REDIS_PASSWORD"]
-        path = f"{REDIS_PROTOCOL}://:{r_auth_token}@{url}:{port}"
+    r_auth_token = os.environ["DJ_REDIS_PASSWORD"]
+    path = f"{REDIS_PROTOCOL}://:{r_auth_token}@{url}:{port}"
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -752,7 +761,7 @@ DATABASES = (
             "OPTIONS": {"timeout": 10},
         }
     }
-    if ((IS_DEV and ("DJ_DATABASE_ENGINE" not in os.environ)) or USE_SQLITE)
+    if ((BUILD_TYPE == BuildType.DEVELOPMENT and ("DJ_DATABASE_ENGINE" not in os.environ)) or USE_SQLITE)
     else {
         "default": {
             "ENGINE": "django.db.backends.{}".format(os.environ["DJ_DATABASE_ENGINE"]),
@@ -771,7 +780,9 @@ DATABASES = (
     }
 )
 
-if IS_PROD or IS_STAGE or (os.environ.get("DJ_DEVELOPMENT_ALLOW_EMAILS", "false").lower() in ("true", "1", "t")):
+if BUILD_TYPE == BuildType.PRODUCTION or (
+    os.environ.get("DJ_DEVELOPMENT_ALLOW_EMAILS", "false").lower() in ("true", "1", "t")
+):
     EMAIL_HOST = "smtp.sendgrid.net"
     EMAIL_HOST_USER = "apikey"
     EMAIL_HOST_PASSWORD = os.environ["DJ_SG_SENDGRID_API_KEY"]

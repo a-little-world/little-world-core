@@ -6,7 +6,7 @@ exports.DEFAULT_LOGIN_USERNAME = this.DEVELOPMENT
 exports.DEFAULT_LOGIN_PASSWORD = this.DEVELOPMENT
   ? 'Test123'
   : 'aPassYouCantUse:)';
-exports.BACKEND_URL = this.DEVELOPMENT
-  ? 'http://localhost:3333'
-  : 'http://localhost:8000';
+// This defaults to production because the banner may be served from another subdomain.
+exports.BACKEND_URL =
+  process.env.COOKIE_BANNER_BACKEND_URL || 'https://little-world.com';
 exports.STORYBOOK = false;

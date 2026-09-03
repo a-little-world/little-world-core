@@ -8,7 +8,7 @@ services:
       args:
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
-        BUILD_TYPE: "dev"
+        BUILD_TYPE: "development"
         ENTRYPOINT: "./entry.sh"
     working_dir: /front
     entrypoint: sh /back/entries/frontend_hot_reload.sh main_frontend
@@ -31,7 +31,7 @@ services:
       args:
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
-        BUILD_TYPE: "dev"
+        BUILD_TYPE: "development"
         ENTRYPOINT: "./entry.sh"
     working_dir: /front
     entrypoint: sh /back/entries/frontend_hot_reload.sh admin_panel_frontend
@@ -52,7 +52,8 @@ services:
       args:
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
-        BUILD_TYPE: "dev"
+        BUILD_TYPE: "development"
+        COOKIE_BANNER_BACKEND_URL: "${COOKIE_BANNER_BACKEND_URL:-}"
         ENTRYPOINT: "./entry.sh"
     working_dir: /front
     entrypoint: sh /back/entries/frontend_hot_reload.sh cookie_banner_frontend
@@ -81,7 +82,8 @@ services:
         DEVELOPMENT: true
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
-        BUILD_TYPE: "dev"
+        BUILD_TYPE: "development"
+        COOKIE_BANNER_BACKEND_URL: "${COOKIE_BANNER_BACKEND_URL:-}"
         ENTRYPOINT: "./entry.sh"
     image: "littleworld-backend:dev"
     ports:
