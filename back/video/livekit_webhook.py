@@ -12,6 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from management.models.matches import Match
 from management.models.user import PushNotificationType, User
 from management.tasks import push_notification_background
+from translations import get_translation
 
 from video.models import (
     LiveKitRoom,
@@ -79,10 +80,15 @@ def _notify_incoming_call(caller, partner, session):
     if partner_was_active or ChatConnections.is_user_online(partner):
         return
     chat = Chat.get_chat([caller, partner])
+    title = get_translation("push_notification.incoming_call.title", partner.profile.display_language)
+    description = get_translation(
+        "push_notification.incoming_call.description", partner.profile.display_language
+    ).format(name=f"{caller.first_name} {caller.last_name}")
+
     push_notification_background.delay(
         partner.pk,
-        title=f"{caller.first_name} {caller.last_name}",
-        description="Incoming call",
+        title=title,
+        description=description,
         notification_type=PushNotificationType.CHAT,
         path=f"/app/chat/{str(chat.uuid)}" if chat is not None else "/app/chat/",
         group=f"call:{str(session.uuid)}",

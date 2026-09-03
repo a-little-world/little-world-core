@@ -439,6 +439,8 @@
   "push_notification.confirm_match.description": "You have a new match suggestion",
   "push_notification.confirm_match_reminder.title": "Confirm match",
   "push_notification.confirm_match_reminder.description": "Your match suggestion will expire soon. Confirm it now and start messaging",
+  "push_notification.incoming_call.title": "Incoming call",
+  "push_notification.incoming_call.description": "{name} is calling you",
   "push_notification.onboarding_call_reminder.title": "Your onboarding starts soon",
   "push_notification.onboarding_call_reminder.description": "Your onboarding call starts in one hour",
   "push_notification.missed_onboarding_learner.title": "Your spot is still waiting for you",

@@ -450,6 +450,8 @@
   "push_notification.confirm_match.description": "Du hast einen neuen Match-Vorschlag",
   "push_notification.confirm_match_reminder.title": "Bestätige dein Match",
   "push_notification.confirm_match_reminder.description": "Dein Match-Vorschlag läuft bald ab. Bestätige ihn jetzt und starte ein Gespräch",
+  "push_notification.incoming_call.title": "Eingehender Anruf",
+  "push_notification.incoming_call.description": "{name} ruft dich an",
   "push_notification.onboarding_call_reminder.title": "Dein Onboarding startet bald",
   "push_notification.onboarding_call_reminder.description": "In einer Stunde startet dein Onboarding-Gespräch",
   "push_notification.missed_onboarding_learner.title": "Dein Platz wartet noch auf dich",
