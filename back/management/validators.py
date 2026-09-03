@@ -1,6 +1,8 @@
 import contextlib
+from datetime import datetime
 
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from rest_framework import serializers
 from translations import get_translation
 
@@ -85,6 +87,15 @@ def validate_postal_code(value: str, country_of_residence: str = None):
 def validate_year(value: int):
     """validates a valid year"""
     pass  # TODO
+
+
+SIGNUP_MINIMUM_AGE = 18
+
+
+def max_birth_year_for_minimum_age(minimum_age: int = SIGNUP_MINIMUM_AGE, as_of: datetime | None = None) -> int:
+    """Latest birth year allowed for year-only signup (matches frontend date.ts)."""
+    reference = as_of or timezone.now()
+    return reference.year - minimum_age
 
 
 DAYS = ["mo", "tu", "we", "th", "fr", "sa", "su"]
