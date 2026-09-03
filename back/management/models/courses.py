@@ -71,6 +71,12 @@ class Course(models.Model):
 
 
 class CourseChapter(models.Model):
+    """A chapter in a course.
+
+    Quiz steps are optional. A chapter with no ``quiz_steps`` is video-only: learners
+    continue to the next chapter (or finish the course) after the video, with no question.
+    """
+
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="chapters")
     chapter_id = models.CharField(max_length=128)
     order = models.PositiveIntegerField()

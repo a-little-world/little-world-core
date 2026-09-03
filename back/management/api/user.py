@@ -32,6 +32,7 @@ from management.controller import (
     is_base_management_user,
 )
 from management.models.banner import Banner, BannerSerializer
+from management.models.courses import Course
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.profile import SelfProfileSerializer
@@ -689,21 +690,55 @@ SELF_ONBOARDING_STEP_TO_RANK = {step_id: idx + 1 for idx, step_id in enumerate(S
 SELF_ONBOARDING_COMPLETED_RANK = len(SELF_ONBOARDING_STEP_ORDER)
 
 
-def get_rank_from_stored_self_onboarding_value(stored: str | None) -> int:
-    """Rank from stored canonical step id only; unknown or empty values are treated as not started."""
+def get_self_onboarding_marker_ranks() -> tuple[dict[str, int], int]:
+    """Every id the walkthrough can report -> 1-based chapter rank, plus the rank that finishes it.
+
+    The walkthrough reports a chapter's last quiz step id, or the chapter id itself when the
+    chapter is video-only and has no quiz step to report, so both forms are accepted. Ranks are
+    built from the course's actual chapters: while the accepted ids were hardcoded, adding a
+    chapter or leaving its quiz empty made this endpoint reject the update, and the caller
+    swallows the error — progress silently stopped being recorded, and a walkthrough ending on
+    such a chapter never onboarded the volunteer at all.
+
+    The hardcoded order stays as the fallback for stored values and for a database with no
+    self-onboarding course rows yet.
+    """
+    course = Course.objects.filter(slug=Course.SELF_ONBOARDING_SLUG).first()
+    chapters = list(course.chapters.prefetch_related("quiz_steps").order_by("order")) if course else []
+    if not chapters:
+        return dict(SELF_ONBOARDING_STEP_TO_RANK), SELF_ONBOARDING_COMPLETED_RANK
+
+    ranks: dict[str, int] = {}
+    for idx, chapter in enumerate(chapters):
+        rank = idx + 1
+        ranks[chapter.chapter_id] = rank
+        for step in chapter.quiz_steps.all():
+            ranks[f"{chapter.chapter_id}_q_{step.order}"] = rank
+    # Values stored before the course was editable still have to resolve to a rank.
+    for step_id, legacy_rank in SELF_ONBOARDING_STEP_TO_RANK.items():
+        ranks.setdefault(step_id, legacy_rank)
+    return ranks, len(chapters)
+
+
+def get_rank_from_stored_self_onboarding_value(stored: str | None, ranks: dict[str, int] | None = None) -> int:
+    """Rank from a stored walkthrough marker; unknown or empty values are treated as not started."""
     if not stored:
         return 0
     s = str(stored).strip()
     if not s:
         return 0
-    return SELF_ONBOARDING_STEP_TO_RANK.get(s, 0)
+    if ranks is None:
+        ranks, _ = get_self_onboarding_marker_ranks()
+    return ranks.get(s, 0)
 
 
-def get_self_onboarding_step_rank(request) -> int | None:
+def get_self_onboarding_step_rank(request, ranks: dict[str, int] | None = None) -> int | None:
     step_id = request.query_params.get("self_onboarding_step_id")
     if not step_id:
         return None
-    return SELF_ONBOARDING_STEP_TO_RANK.get(step_id)
+    if ranks is None:
+        ranks, _ = get_self_onboarding_marker_ranks()
+    return ranks.get(step_id)
 
 
 @extend_schema(
@@ -728,8 +763,9 @@ def get_self_onboarding_step_rank(request) -> int | None:
 @permission_classes([IsAuthenticated])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def self_onboarding_update(request):
+    ranks, completed_rank = get_self_onboarding_marker_ranks()
     step_id = request.query_params.get("self_onboarding_step_id")
-    self_onboarding_step_rank = get_self_onboarding_step_rank(request)
+    self_onboarding_step_rank = get_self_onboarding_step_rank(request, ranks)
     if self_onboarding_step_rank is None or not step_id:
         return Response(
             {
@@ -742,14 +778,14 @@ def self_onboarding_update(request):
     user = request.user
     completed = False
 
-    current_rank = get_rank_from_stored_self_onboarding_value(user.state.self_onboarding_step_id)
+    current_rank = get_rank_from_stored_self_onboarding_value(user.state.self_onboarding_step_id, ranks)
     if self_onboarding_step_rank > current_rank:
         user.state.self_onboarding_step_id = step_id
 
     if self_onboarding_step_rank > 0:
         user.state.self_onboarding_started = True
 
-    if self_onboarding_step_rank >= SELF_ONBOARDING_COMPLETED_RANK:
+    if self_onboarding_step_rank >= completed_rank:
         user.state.self_onboarding_completed_at = timezone.now()
         user.state.self_onboarding_completed = True
         user.state.is_onboarded = True
