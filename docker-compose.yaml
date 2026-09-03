@@ -125,6 +125,16 @@ services:
     image: redis:5
     ports:
       - "6379:6379"
+  livekit:
+    profiles: [ "livekit", "all", "all-pt" ]
+    image: livekit/livekit-server:latest
+    command: --config /etc/livekit.yaml
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    volumes:
+      - ./dev/livekit.yaml:/etc/livekit.yaml:ro
   patenmatch:
     profiles: [ "patenmatch", "all-pt" ]
     ports:
