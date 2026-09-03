@@ -24,9 +24,10 @@ from video.analytics.lobbies import (
     annotate_lobby_metrics,
 )
 from video.analytics.queries import (
+    batch_completed_call_durations,
     batch_count_pending_dangling_by_lobby,
-    build_lobby_participants,
     count_pending_dangling_buckets,
+    is_successful_call,
     proposal_bucket_mismatch,
 )
 from video.models import RandomCallLobby, RandomCallLobbyUser, RandomCallMatching
@@ -65,6 +66,7 @@ class LobbyInstanceSnapshot:
     proposals_pending: int
     proposals_dangling: int
     completed_calls: int
+    successful_calls: int
     users_with_successful_calls: int
 
     learner_count: int
@@ -81,7 +83,28 @@ def lobby_display_day_date(start_time: datetime | None) -> tuple[str | None, dat
     return local.strftime("%A"), local.date()
 
 
-def _batch_user_attendance_breakdown(lobbies: list[RandomCallLobby]) -> dict[int, dict[str, int]]:
+def batch_lobby_participant_ids(lobbies: list[RandomCallLobby]) -> dict[int, set[int]]:
+    """{lobby_id: {user_id}} for the whole page in one query.
+
+    The single source of the participant set: attendance and users-with-a-call both
+    count against it, so the columns reconcile against ``total_users`` (§6).
+    """
+    if not lobbies:
+        return {}
+
+    participants_by_lobby: dict[int, set[int]] = defaultdict(set)
+    for lobby_id, user_id in RandomCallLobbyUser.objects.filter(
+        lobby_id__in=[lobby.pk for lobby in lobbies]
+    ).values_list("lobby_id", "user_id"):
+        participants_by_lobby[lobby_id].add(user_id)
+    return participants_by_lobby
+
+
+def _batch_user_attendance_breakdown(
+    lobbies: list[RandomCallLobby],
+    *,
+    participants_by_lobby: dict[int, set[int]],
+) -> dict[int, dict[str, int]]:
     """First-time vs returning per lobby.
 
     Returning means the user attended any prior lobby instance (any lobby name)
@@ -90,15 +113,9 @@ def _batch_user_attendance_breakdown(lobbies: list[RandomCallLobby]) -> dict[int
     if not lobbies:
         return {}
 
-    lobby_ids = [lobby.pk for lobby in lobbies]
-    participants_by_lobby: dict[int, set[int]] = defaultdict(set)
     all_user_ids: set[int] = set()
-
-    for lobby_id, user_id in RandomCallLobbyUser.objects.filter(lobby_id__in=lobby_ids).values_list(
-        "lobby_id", "user_id"
-    ):
-        participants_by_lobby[lobby_id].add(user_id)
-        all_user_ids.add(user_id)
+    for lobby in lobbies:
+        all_user_ids |= participants_by_lobby.get(lobby.pk, set())
 
     user_first_seen: dict[int, datetime] = {}
     if all_user_ids:
@@ -195,17 +212,14 @@ def _merge_proposal_buckets(lobby: RandomCallLobby, *, open_buckets: dict[str, i
     return buckets, mismatch
 
 
-def _users_with_successful_calls(lobby_participants: list[dict]) -> int:
-    return sum(1 for participant in lobby_participants if participant.get("completed_calls", 0) > 0)
-
-
 def _snapshot_from_lobby_row(
     lobby: RandomCallLobby,
     *,
     attendance: dict[str, int],
     open_buckets: dict[str, int],
     as_of: datetime,
-    users_with_successful_calls: int = 0,
+    successful_calls: int,
+    users_with_successful_calls: int,
 ) -> LobbyInstanceSnapshot:
     buckets, mismatch = _merge_proposal_buckets(lobby, open_buckets=open_buckets)
 
@@ -228,6 +242,7 @@ def _snapshot_from_lobby_row(
         proposals_pending=buckets["pending"],
         proposals_dangling=buckets["dangling"],
         completed_calls=_read_annotation(lobby, ANNOT_COMPLETED_CALLS),
+        successful_calls=successful_calls,
         users_with_successful_calls=users_with_successful_calls,
         learner_count=_read_annotation(lobby, ANNOT_LEARNER_COUNT),
         volunteer_count=_read_annotation(lobby, ANNOT_VOLUNTEER_COUNT),
@@ -236,34 +251,54 @@ def _snapshot_from_lobby_row(
     )
 
 
-def _batch_users_with_successful_calls(lobbies: list[RandomCallLobby], *, as_of: datetime) -> dict[int, int]:
-    from video.random_calls import is_lobby_active
+def _batch_successful_calls(
+    lobbies: list[RandomCallLobby],
+    *,
+    participants_by_lobby: dict[int, set[int]],
+) -> tuple[dict[int, int], dict[int, int]]:
+    """Per lobby: successful-call count, and how many participants had one.
 
+    A *completed* call is a proposal both users accepted and finished; it becomes a
+    *successful* one only once the pair actually talked for ``MIN_SUCCESSFUL_CALL_SECONDS``
+    (see ``is_successful_call``), so a few seconds of connect-and-drop no longer inflates
+    the success rate. ``completed_calls`` keeps the unfiltered count, so the pair of columns
+    shows the shortfall rather than hiding it.
+
+    Persisted state only (§7): ``classify_proposal_bucket`` returns "accepted" on
+    ``proposal.accepted`` before it consults ``active_lobby_user_ids``, and durations come
+    from finished LiveKit sessions, so no live-context parameter reaches the snapshot path.
+
+    Two queries for the whole page regardless of lobby count.
+    """
     if not lobbies:
-        return {}
+        return {}, {}
 
-    lobby_ids = [lobby.pk for lobby in lobbies]
+    lobbies_by_id = {lobby.pk: lobby for lobby in lobbies}
     proposals_by_lobby: dict[int, list[RandomCallMatching]] = defaultdict(list)
-    for proposal in RandomCallMatching.objects.filter(lobby_id__in=lobby_ids):
+    for proposal in RandomCallMatching.objects.filter(
+        lobby_id__in=list(lobbies_by_id),
+        accepted=True,
+        completed=True,
+    ):
         proposals_by_lobby[proposal.lobby_id].append(proposal)
 
-    counts: dict[int, int] = {}
+    durations = batch_completed_call_durations(proposals_by_lobby, lobbies_by_id=lobbies_by_id)
+
+    calls_by_lobby: dict[int, int] = {}
+    users_by_lobby: dict[int, int] = {}
     for lobby in lobbies:
-        all_lobby_users = RandomCallLobbyUser.objects.filter(lobby=lobby)
-        active_lobby_user_ids = (
-            set(all_lobby_users.filter(is_active=True).values_list("user_id", flat=True))
-            if is_lobby_active(lobby)
-            else None
-        )
-        participants = build_lobby_participants(
-            all_lobby_users,
-            proposals_by_lobby.get(lobby.pk, []),
-            lobby,
-            active_lobby_user_ids,
-            as_of=as_of,
-        )
-        counts[lobby.pk] = _users_with_successful_calls(participants)
-    return counts
+        successful_users: set[int] = set()
+        successful = 0
+        for proposal in proposals_by_lobby.get(lobby.pk, []):
+            if not is_successful_call(durations.get(proposal.pk, 0)):
+                continue
+            successful += 1
+            successful_users.update((proposal.u1_id, proposal.u2_id))
+        calls_by_lobby[lobby.pk] = successful
+        # Intersected with the lobby's participant set so the count can never exceed
+        # `total_users`, which is the denominator the percentage column divides by.
+        users_by_lobby[lobby.pk] = len(successful_users & participants_by_lobby.get(lobby.pk, set()))
+    return calls_by_lobby, users_by_lobby
 
 
 def build_snapshots(
@@ -288,9 +323,12 @@ def build_snapshots(
                 "Call annotate_lobby_metrics() first."
             )
 
-    attendance = _batch_user_attendance_breakdown(lobbies)
+    participants_by_lobby = batch_lobby_participant_ids(lobbies)
+    attendance = _batch_user_attendance_breakdown(lobbies, participants_by_lobby=participants_by_lobby)
     open_buckets_by_lobby = batch_count_pending_dangling_by_lobby(lobbies, as_of=as_of)
-    users_with_successful_calls_by_lobby = _batch_users_with_successful_calls(lobbies, as_of=as_of)
+    successful_calls_by_lobby, users_with_successful_calls_by_lobby = _batch_successful_calls(
+        lobbies, participants_by_lobby=participants_by_lobby
+    )
     snapshots: dict[UUID, LobbyInstanceSnapshot] = {}
     mismatched_uuids: list[str] = []
 
@@ -302,6 +340,7 @@ def build_snapshots(
             attendance=att,
             open_buckets=open_buckets,
             as_of=as_of,
+            successful_calls=successful_calls_by_lobby[lobby.pk],
             users_with_successful_calls=users_with_successful_calls_by_lobby[lobby.pk],
         )
         snapshots[lobby.uuid] = snapshot
@@ -323,8 +362,6 @@ def build_snapshot_for_lobby(
     *,
     proposals: list[RandomCallMatching] | None = None,
     as_of: datetime | None = None,
-    lobby_participants: list[dict] | None = None,
-    active_lobby_user_ids: set[int] | None = None,
 ) -> LobbyInstanceSnapshot | None:
     """Single-lobby persisted snapshot (SQL buckets + Python pending/dangling only)."""
     as_of = as_of or timezone.now()
@@ -336,34 +373,21 @@ def build_snapshot_for_lobby(
     if proposals is None:
         proposals = list(RandomCallMatching.objects.filter(lobby=lobby))
 
-    if lobby_participants is None:
-        from video.random_calls import is_lobby_active
-
-        all_lobby_users = RandomCallLobbyUser.objects.filter(lobby=lobby)
-        if active_lobby_user_ids is None:
-            active_lobby_user_ids = (
-                set(all_lobby_users.filter(is_active=True).values_list("user_id", flat=True))
-                if is_lobby_active(lobby)
-                else None
-            )
-        lobby_participants = build_lobby_participants(
-            all_lobby_users,
-            proposals,
-            lobby,
-            active_lobby_user_ids,
-            as_of=as_of,
-        )
-
-    users_with_successful_calls = _users_with_successful_calls(lobby_participants)
-
     open_buckets = count_pending_dangling_buckets(proposals, lobby=lobby, as_of=as_of)
-    attendance = _batch_user_attendance_breakdown([lobby_row])[lobby_row.pk]
+    participants_by_lobby = batch_lobby_participant_ids([lobby_row])
+    attendance = _batch_user_attendance_breakdown([lobby_row], participants_by_lobby=participants_by_lobby)[
+        lobby_row.pk
+    ]
+    successful_calls_by_lobby, users_by_lobby = _batch_successful_calls(
+        [lobby_row], participants_by_lobby=participants_by_lobby
+    )
     snapshot = _snapshot_from_lobby_row(
         lobby_row,
         attendance=attendance,
         open_buckets=open_buckets,
         as_of=as_of,
-        users_with_successful_calls=users_with_successful_calls,
+        successful_calls=successful_calls_by_lobby[lobby_row.pk],
+        users_with_successful_calls=users_by_lobby[lobby_row.pk],
     )
     if snapshot.bucket_mismatch != 0:
         logger.info(
@@ -392,6 +416,7 @@ def lobby_instance_snapshot_to_dict(snapshot: LobbyInstanceSnapshot) -> dict:
         "proposals_pending": snapshot.proposals_pending,
         "proposals_dangling": snapshot.proposals_dangling,
         "completed_calls": snapshot.completed_calls,
+        "successful_calls": snapshot.successful_calls,
         "users_with_successful_calls": snapshot.users_with_successful_calls,
         "learner_count": snapshot.learner_count,
         "volunteer_count": snapshot.volunteer_count,

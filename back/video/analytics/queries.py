@@ -27,6 +27,21 @@ _TERMINAL_EXPIRED_STATUSES = (
     RandomCallProposalUserStatus.EXITED,
 )
 
+# A proposal both users accepted and completed is a *completed* call; it only counts as a
+# *successful* one once the pair actually talked for this long. Two people connecting and
+# dropping out after a few seconds is not a conversation, and counting it as one inflates
+# every success rate on the page.
+#
+# Applied to the proposal's total duration, not to each LiveKit session: a call that drops
+# and reconnects is one conversation split across rows (see `_sessions_for_proposal`), so
+# 40s + 30s is a 70s call, not two failures.
+MIN_SUCCESSFUL_CALL_SECONDS = 60
+
+
+def is_successful_call(duration_seconds: int) -> bool:
+    """Single definition of "successful call" — every count on the page routes through it."""
+    return duration_seconds >= MIN_SUCCESSFUL_CALL_SECONDS
+
 
 def open_proposal_q() -> Q:
     return Q(accepted=False, completed=False)
@@ -336,34 +351,8 @@ def _sessions_for_proposal(
     return windowed
 
 
-def build_completed_call_durations(completed_proposals, *, lobby: RandomCallLobby):
-    if not completed_proposals:
-        return {}
-
-    lobby_start, lobby_end = _lobby_call_start_window(lobby)
-    user_ids = {proposal.u1_id for proposal in completed_proposals} | {
-        proposal.u2_id for proposal in completed_proposals
-    }
-    expected_pairs = {_pair_key_for_users(proposal.u1_id, proposal.u2_id) for proposal in completed_proposals}
-
-    sessions = LivekitSession.objects.filter(
-        random_call_session=True,
-        both_have_been_active=True,
-        end_time__isnull=False,
-        u1_id__in=user_ids,
-        u2_id__in=user_ids,
-    )
-    if lobby_start is not None:
-        sessions = sessions.filter(created_at__gte=lobby_start)
-    if lobby_end is not None:
-        sessions = sessions.filter(created_at__lte=lobby_end)
-
-    sessions_by_pair: dict[tuple[int, int], list] = defaultdict(list)
-    for session in sessions:
-        pair_key = _pair_key_for_users(session.u1_id, session.u2_id)
-        if pair_key in expected_pairs:
-            sessions_by_pair[pair_key].append(session)
-
+def _durations_for_one_lobby(completed_proposals, *, lobby: RandomCallLobby, sessions_by_pair) -> dict[int, int]:
+    """Window a lobby's pair sessions onto its proposals. Shared by both public forms."""
     proposals_by_pair: dict[tuple[int, int], list[RandomCallMatching]] = defaultdict(list)
     for proposal in completed_proposals:
         proposals_by_pair[_pair_key_for_users(proposal.u1_id, proposal.u2_id)].append(proposal)
@@ -395,19 +384,103 @@ def build_completed_call_durations(completed_proposals, *, lobby: RandomCallLobb
     return proposal_durations
 
 
+def _sessions_by_pair(completed_proposals, *, start: datetime | None, end: datetime | None):
+    """LiveKit sessions for the given proposals' pairs, in one query, keyed by pair.
+
+    ``start``/``end`` only narrow what SQL fetches; the authoritative per-proposal window
+    is applied by ``_sessions_for_proposal``. A ``None`` bound means unbounded, which is
+    what a lobby with no ``end_time`` already produced.
+    """
+    user_ids = {proposal.u1_id for proposal in completed_proposals} | {
+        proposal.u2_id for proposal in completed_proposals
+    }
+    expected_pairs = {_pair_key_for_users(proposal.u1_id, proposal.u2_id) for proposal in completed_proposals}
+
+    sessions = LivekitSession.objects.filter(
+        random_call_session=True,
+        both_have_been_active=True,
+        end_time__isnull=False,
+        u1_id__in=user_ids,
+        u2_id__in=user_ids,
+    )
+    if start is not None:
+        sessions = sessions.filter(created_at__gte=start)
+    if end is not None:
+        sessions = sessions.filter(created_at__lte=end)
+
+    sessions_by_pair: dict[tuple[int, int], list] = defaultdict(list)
+    for session in sessions:
+        pair_key = _pair_key_for_users(session.u1_id, session.u2_id)
+        if pair_key in expected_pairs:
+            sessions_by_pair[pair_key].append(session)
+    return sessions_by_pair
+
+
+def batch_completed_call_durations(
+    proposals_by_lobby: dict[int, list[RandomCallMatching]],
+    *,
+    lobbies_by_id: dict[int, RandomCallLobby],
+) -> dict[int, int]:
+    """Per-proposal call duration across many lobbies, in one LiveKit query.
+
+    The batch form is the primitive and ``build_completed_call_durations`` is the
+    one-lobby call of it (§5); windowing lives in ``_sessions_for_proposal`` alone, so
+    the list and detail views cannot drift on what a call's duration is.
+
+    The SQL window spans every lobby in the batch, which is wider than any single lobby's
+    — harmless, because ``_sessions_for_proposal`` re-applies each lobby's own bounds and
+    a pair's sessions from a *later* lobby fall outside the earlier lobby's ``end_time``.
+    """
+    all_proposals = [proposal for proposals in proposals_by_lobby.values() for proposal in proposals]
+    if not all_proposals:
+        return {}
+
+    starts = [lobbies_by_id[lobby_id].start_time for lobby_id in proposals_by_lobby]
+    ends = [lobbies_by_id[lobby_id].end_time for lobby_id in proposals_by_lobby]
+    # A single unbounded lobby makes the batch bound unbounded on that side, matching
+    # what that lobby would have queried on its own.
+    start = None if any(value is None for value in starts) else min(starts)
+    end = None if any(value is None for value in ends) else max(ends)
+
+    sessions_by_pair = _sessions_by_pair(all_proposals, start=start, end=end)
+
+    durations: dict[int, int] = {}
+    for lobby_id, proposals in proposals_by_lobby.items():
+        durations.update(
+            _durations_for_one_lobby(
+                proposals,
+                lobby=lobbies_by_id[lobby_id],
+                sessions_by_pair=sessions_by_pair,
+            )
+        )
+    return durations
+
+
+def build_completed_call_durations(completed_proposals, *, lobby: RandomCallLobby):
+    """Single-lobby call durations — a one-element ``batch_completed_call_durations``."""
+    if not completed_proposals:
+        return {}
+
+    return batch_completed_call_durations({lobby.pk: list(completed_proposals)}, lobbies_by_id={lobby.pk: lobby})
+
+
 def build_lobby_participants(all_lobby_users, all_proposals, lobby, active_lobby_user_ids, *, as_of=None):
     proposal_stale_threshold = proposal_stale_threshold_for_lobby(lobby, as_of=as_of)
     participants = {}
+    # `-id` first, and the first row per user wins: (user, lobby) carries no unique
+    # constraint, so duplicates are possible and the newest row is the one whose
+    # `is_active` reflects the user's current state.
     for lobby_user in all_lobby_users.order_by("-id").select_related("user", "user__profile"):
         user = lobby_user.user
         first_joined_at = lobby_user.first_joined_at
         existing = participants.get(user.pk)
         if existing is not None:
-            existing_first_joined_at = existing.get("first_joined_at")
-            if first_joined_at is not None and (
-                existing_first_joined_at is None or first_joined_at.isoformat() < existing_first_joined_at
-            ):
-                existing["first_joined_at"] = first_joined_at.isoformat()
+            # Earliest join across the duplicates. Held as a datetime and serialized once
+            # below — comparing ISO strings only matches time order while every value
+            # carries the same UTC offset.
+            earliest = existing["first_joined_at"]
+            if first_joined_at is not None and (earliest is None or first_joined_at < earliest):
+                existing["first_joined_at"] = first_joined_at
             continue
 
         participants[user.pk] = {
@@ -416,8 +489,9 @@ def build_lobby_participants(all_lobby_users, all_proposals, lobby, active_lobby
             "user_name": f"{user.profile.first_name}",
             "user_type": user.profile.user_type,
             "is_active": lobby_user.is_active,
-            "first_joined_at": first_joined_at.isoformat() if first_joined_at else None,
+            "first_joined_at": first_joined_at,
             "completed_calls": 0,
+            "successful_calls": 0,
             "unsuccessful_proposals": 0,
             "accepted_proposals": 0,
             "longest_call_duration_seconds": 0,
@@ -455,12 +529,18 @@ def build_lobby_participants(all_lobby_users, all_proposals, lobby, active_lobby
             if user.pk not in participants:
                 continue
             participants[user.pk]["completed_calls"] += 1
+            if is_successful_call(duration):
+                participants[user.pk]["successful_calls"] += 1
             participants[user.pk]["longest_call_duration_seconds"] = max(
                 participants[user.pk]["longest_call_duration_seconds"],
                 duration,
             )
 
-    return sorted(participants.values(), key=lambda participant: participant["user_name"].lower())
+    ordered = sorted(participants.values(), key=lambda participant: participant["user_name"].lower())
+    for participant in ordered:
+        joined_at = participant["first_joined_at"]
+        participant["first_joined_at"] = joined_at.isoformat() if joined_at else None
+    return ordered
 
 
 def compute_user_attendance_breakdown(all_lobby_users, lobby: RandomCallLobby):
