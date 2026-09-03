@@ -13,6 +13,7 @@ from uuid import uuid4
 
 from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
 from django.utils import timezone
+from video.models import LivekitSession
 
 from management.analytics.core.catalog import CatalogEntry
 from management.analytics.core.roles import CatalogRole
@@ -43,6 +44,8 @@ from management.analytics.user_journey.partitions import (
     PartitionPhase,
 )
 from management.analytics.user_journey.queries import traits
+from management.match_success import match_is_successful
+from management.match_success.versions.v1_total_minutes import SUCCESS_MINUTES
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.profile import Profile
@@ -499,6 +502,40 @@ class JourneyV5PartitionBalanceTests(TestCase):
         Match.objects.filter(pk=match.pk).update(created_at=timezone.now() - timedelta(days=created_days_ago))
         return match
 
+    @classmethod
+    def _mutual_call(cls, user1, user2, *, minutes, started_at):
+        """Finished LiveKit session both users were active in — what match success counts.
+
+        Written back with ``update`` because ``created_at`` is set on insert (conventions §13).
+        """
+        session = LivekitSession.objects.create(u1=user1, u2=user2, both_have_been_active=True)
+        LivekitSession.objects.filter(pk=session.pk).update(
+            created_at=started_at, end_time=started_at + timedelta(minutes=minutes)
+        )
+        return session
+
+    @classmethod
+    def _successful_match(cls, user1, user2, *, created_days_ago=1, **fields):
+        """Match that succeeds under the *active* success rule.
+
+        ``_has_success_match`` delegates to ``match_success``, and its active version reads
+        finished mutual call minutes. The ``completed`` flag (deprecated) and the message /
+        video counters are the retired v0 signals, so a fixture built from those never
+        reaches a success bucket — which is exactly how the success cells came to be
+        asserted against users the partition classified as never having succeeded. Success
+        is therefore built from a qualifying call here, and checked rather than assumed.
+
+        Nothing in ``_has_live_match`` reads ``completed`` either: liveness is ``active``
+        plus interaction recency and counters, so these fixtures carry no ``completed``
+        flag at all and their placement does not depend on it.
+        """
+        match = cls._match(user1, user2, created_days_ago=created_days_ago, **fields)
+        match.refresh_from_db()
+        cls._mutual_call(user1, user2, minutes=SUCCESS_MINUTES, started_at=match.created_at + timedelta(hours=1))
+        if not match_is_successful(match):
+            raise AssertionError("fixture match does not satisfy the active match-success rule")
+        return match
+
     # -- fixtures ----------------------------------------------------------
 
     @classmethod
@@ -679,21 +716,39 @@ class JourneyV5PartitionBalanceTests(TestCase):
 
     @classmethod
     def _success_users(cls):
-        # Completed flag, no live activity → idle success cell.
+        # Succeeded on call minutes, match since wrapped up → idle success cell.
         completed = cls._onboarded("success_idle", searching=False, user_type=Profile.TypeChoices.VOLUNTEER)
         completed_partner = cls._onboarded(
             "success_idle_partner", searching=False, user_type=Profile.TypeChoices.LEARNER
         )
-        cls._match(completed, completed_partner, active=True, confirmed=True, completed=True, created_days_ago=90)
+        cls._successful_match(completed, completed_partner, active=True, confirmed=True, created_days_ago=90)
 
-        # Free-play still counts as live → settled success cell.
+        # Succeeded and the match is still in free play → settled success cell.
         free_play = cls._onboarded("success_ongoing_settled", searching=False, user_type=Profile.TypeChoices.VOLUNTEER)
         free_play_partner = cls._onboarded(
             "success_ongoing_settled_partner", searching=False, user_type=Profile.TypeChoices.LEARNER
         )
-        cls._match(
+        cls._successful_match(
             free_play,
             free_play_partner,
+            active=True,
+            confirmed=True,
+            created_days_ago=100,
+            total_messages_counter=20,
+            total_mutal_video_calls_counter=8,
+            latest_interaction_at=timezone.now() - timedelta(days=2),
+        )
+
+        # The same shape with no qualifying call time. Sustained messaging is liveness, not
+        # success, so this pair belongs in the first-match phase — under the retired v0 rule
+        # it was "free play = success" and sat in the settled success cell instead.
+        no_calls = cls._onboarded("free_play_never_succeeded", searching=False, user_type=Profile.TypeChoices.VOLUNTEER)
+        no_calls_partner = cls._onboarded(
+            "free_play_never_succeeded_partner", searching=False, user_type=Profile.TypeChoices.LEARNER
+        )
+        cls._match(
+            no_calls,
+            no_calls_partner,
             active=True,
             confirmed=True,
             created_days_ago=100,
@@ -707,7 +762,7 @@ class JourneyV5PartitionBalanceTests(TestCase):
         searching_partner = cls._onboarded(
             "success_searching_partner", searching=False, user_type=Profile.TypeChoices.LEARNER
         )
-        cls._match(searching, searching_partner, active=False, confirmed=True, completed=True, created_days_ago=95)
+        cls._successful_match(searching, searching_partner, active=False, confirmed=True, created_days_ago=95)
 
         # Successful, still live, and searching for another.
         both = cls._onboarded("success_ongoing_searching", user_type=Profile.TypeChoices.VOLUNTEER)
@@ -715,7 +770,7 @@ class JourneyV5PartitionBalanceTests(TestCase):
             "success_ongoing_searching_done", searching=False, user_type=Profile.TypeChoices.LEARNER
         )
         both_live = cls._onboarded("success_ongoing_searching_live", user_type=Profile.TypeChoices.LEARNER)
-        cls._match(both, both_done, active=True, confirmed=True, completed=True, created_days_ago=95)
+        cls._successful_match(both, both_done, active=True, confirmed=True, created_days_ago=95)
         cls._match(
             both,
             both_live,
@@ -749,9 +804,11 @@ class JourneyV5PartitionBalanceTests(TestCase):
         stateless = cls._user("record_incomplete")
         State.objects.filter(user=stateless).delete()
 
+        # Off-platform completion is the other arm of the success rule: the minute bands
+        # structurally cannot see calls the pair took elsewhere, so it counts on its own.
         gone = cls._user("past_deleted_after_success", is_active=False)
         gone_partner = cls._onboarded("gone_partner", searching=False, user_type=Profile.TypeChoices.LEARNER)
-        cls._match(gone, gone_partner, active=True, confirmed=True, completed=True, created_days_ago=95)
+        cls._match(gone, gone_partner, active=True, confirmed=True, completed_off_plattform=True, created_days_ago=95)
 
     @classmethod
     def _pathological_users(cls):
@@ -796,7 +853,7 @@ class JourneyV5PartitionBalanceTests(TestCase):
         both = cls._onboarded("completed_and_ongoing", searching=False, user_type=Profile.TypeChoices.VOLUNTEER)
         both_partner_a = cls._onboarded("both_partner_a", searching=False, user_type=Profile.TypeChoices.LEARNER)
         both_partner_b = cls._onboarded("both_partner_b", searching=False, user_type=Profile.TypeChoices.LEARNER)
-        cls._match(both, both_partner_a, active=True, confirmed=True, completed=True, created_days_ago=95)
+        cls._successful_match(both, both_partner_a, active=True, confirmed=True, created_days_ago=95)
         cls._match(
             both,
             both_partner_b,
@@ -814,7 +871,7 @@ class JourneyV5PartitionBalanceTests(TestCase):
         unresponsive_partner = cls._onboarded(
             "unresponsive_partner", searching=False, user_type=Profile.TypeChoices.LEARNER
         )
-        cls._match(unresponsive, unresponsive_partner, active=True, confirmed=True, completed=True, created_days_ago=95)
+        cls._successful_match(unresponsive, unresponsive_partner, active=True, confirmed=True, created_days_ago=95)
 
         # Self-onboarding started and no call booked: matched both
         # `journey_v2__user_form_completed` and `journey_v2__self_onboarding_started`.
@@ -929,6 +986,15 @@ class JourneyV5PartitionBalanceTests(TestCase):
         self.assertEqual(self._bucket_of("kickoff_partner"), ["state__first_match_kickoff"])
         self.assertEqual(self._bucket_of("first_match_ongoing"), ["state__first_match_ongoing"])
         self.assertEqual(self._bucket_of("ongoing_partner"), ["state__first_match_ongoing"])
+
+    def test_free_play_without_call_minutes_has_not_succeeded(self):
+        """Sustained messaging keeps a match live; only call minutes make it a success.
+
+        The v0 rule counted free play as success, so this fixture used to be asserted as
+        ``success_ongoing_settled``.
+        """
+        self.assertEqual(self._bucket_of("free_play_never_succeeded"), ["state__first_match_ongoing"])
+        self.assertEqual(self._bucket_of("free_play_never_succeeded_partner"), ["state__first_match_ongoing"])
 
     def test_after_failed_first_cells(self):
         self.assertEqual(self._bucket_of("rematch_proposed"), ["state__rematch_proposed"])

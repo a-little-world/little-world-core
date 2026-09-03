@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Q
 from django.dispatch import receiver
 from django.http import HttpResponseRedirect
@@ -791,14 +792,24 @@ def self_onboarding_update(request):
         user.state.self_onboarding_completed_at = timezone.now()
         user.state.self_onboarding_completed = True
         user.state.is_onboarded = True
-        user.grant_permission(ManagementPermission.USE_RANDOM_CALLS)
         user.state.searching_state = State.SearchingStateChoices.SEARCHING
-        send_email_background.delay("automatic-emails-u071", user_id=user.id)
         user.state.attended_auto_email_u071_send = True
         user.state.attended_auto_email_u071_send_at = timezone.now()
         completed = True
 
-    user.state.save()
+    # Write the state and the permission together, and only enqueue the email once they are
+    # committed. The permission write and the broker call used to sit between the field
+    # assignments and the save, so an unreachable broker granted the permission, saved none
+    # of the onboarding state, and — because the client swallows the error — surfaced
+    # nothing: the volunteer looked onboarded to themselves and to nobody else.
+    with transaction.atomic():
+        user.state.save()
+        if completed:
+            user.grant_permission(ManagementPermission.USE_RANDOM_CALLS)
+
+    if completed:
+        send_email_background.delay("automatic-emails-u071", user_id=user.id)
+
     return Response(
         {
             "completed": completed,
