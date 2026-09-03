@@ -62,9 +62,6 @@ var config = function (env) {
         ),
         __DEV__: env.DEBUG === "1",
         "global.__DEV__": env.DEBUG === "1",
-        "process.env.BUILD_TYPE": JSON.stringify(
-          env.DEBUG === "1" ? "dev" : "pro"
-        ),
       }),
     ],
     devtool: devTool,

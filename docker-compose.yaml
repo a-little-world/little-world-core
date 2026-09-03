@@ -8,7 +8,7 @@ services:
       args:
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
-        BUILD_TYPE: "dev"
+        BUILD_TYPE: "development"
         ENTRYPOINT: "./entry.sh"
     working_dir: /front
     entrypoint: sh /back/entries/frontend_hot_reload.sh main_frontend
@@ -31,7 +31,7 @@ services:
       args:
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
-        BUILD_TYPE: "dev"
+        BUILD_TYPE: "development"
         ENTRYPOINT: "./entry.sh"
     working_dir: /front
     entrypoint: sh /back/entries/frontend_hot_reload.sh admin_panel_frontend
@@ -52,7 +52,8 @@ services:
       args:
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
-        BUILD_TYPE: "dev"
+        BUILD_TYPE: "development"
+        COOKIE_BANNER_BACKEND_URL: "${COOKIE_BANNER_BACKEND_URL:-}"
         ENTRYPOINT: "./entry.sh"
     working_dir: /front
     entrypoint: sh /back/entries/frontend_hot_reload.sh cookie_banner_frontend
@@ -81,7 +82,8 @@ services:
         DEVELOPMENT: true
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
-        BUILD_TYPE: "dev"
+        BUILD_TYPE: "development"
+        COOKIE_BANNER_BACKEND_URL: "${COOKIE_BANNER_BACKEND_URL:-}"
         ENTRYPOINT: "./entry.sh"
     image: "littleworld-backend:dev"
     ports:
@@ -123,6 +125,16 @@ services:
     image: redis:5
     ports:
       - "6379:6379"
+  livekit:
+    profiles: [ "livekit", "all", "all-pt" ]
+    image: livekit/livekit-server:latest
+    command: --config /etc/livekit.yaml
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    volumes:
+      - ./dev/livekit.yaml:/etc/livekit.yaml:ro
   patenmatch:
     profiles: [ "patenmatch", "all-pt" ]
     ports:

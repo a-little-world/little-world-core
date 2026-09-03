@@ -1,0 +1,10 @@
+port: 7880
+keys:
+  devkey: secret
+webhook:
+  api_key: devkey
+  urls:
+    - "http://backend:8000/api/livekit/webhook"
+rtc:
+  udp_port: 7882
+  use_external_ip: false

@@ -608,9 +608,7 @@ def get_user_data(user):
 
     banner = BannerSerializer(banner_query).data if banner_query else {}
 
-    has_random_calls_access = ("herrduenschnlate+" in str(user.email)) or user.has_perm(
-        ManagementPermission.USE_RANDOM_CALLS
-    )
+    has_random_calls_access = user.has_perm(ManagementPermission.USE_RANDOM_CALLS)
 
     onboarding = self_onboarding_user_payload(user)
 
