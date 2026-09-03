@@ -127,7 +127,10 @@ def process_webhook_classic_call__participant_joined(data, event, participant_id
         NewActiveCallRoom(call_room=SerializeLivekitSession(session, context={"user": partner}).data).send(
             str(partner.uuid)
         )
-        _notify_incoming_call(user, partner, session)
+        try:
+            _notify_incoming_call(user, partner, session)
+        except Exception:
+            pass
     else:
         raise Exception(
             "Edge-Case Detected (@tbscode) classic call participant joined: session not found for room:", room.uuid
