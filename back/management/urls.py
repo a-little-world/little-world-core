@@ -33,6 +33,7 @@ from management.api import (
     short_links,
     slack,
     support_task,
+    surveys,
     trans,
     translator,
     user_advanced_statistics,
@@ -185,6 +186,7 @@ api_routes = [
     *notifications.api_urls,
     *push_notifications.api_urls,
     *support_task.api_urls,
+    *surveys.api_urls,
     # User
     path("api/trans", trans.get_translation_catalogue),
     path("api/trans/<str:lang>/", trans.get_translation_catalogue),

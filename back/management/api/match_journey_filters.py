@@ -2,15 +2,7 @@
 from datetime import timedelta
 
 from chat.models import Message
-from django.db.models import (
-    DurationField,
-    Exists,
-    ExpressionWrapper,
-    F,
-    OuterRef,
-    Q,
-)
-from django.db.models.functions import ExtractDay, Greatest
+from django.db.models import Exists, F, OuterRef, Q
 from django.utils import timezone
 
 from management.match_success import successful_match_ids
@@ -190,39 +182,23 @@ def completed_match(
         Q(completed=True) | Q(completed_off_plattform=True)
     ).exclude(match_type=MatchType.TEMPORARY)
 
-    now = timezone.now()
-    completed_by_criteria = (
-        _journey(qs)
-        .filter(
-            Q(Exists(user1_to_user2_message_exists) & Exists(user2_to_user1_message_exists)),
-            active=True,
-            total_messages_counter__gte=min_total_mutual_messages,
-            total_mutal_video_calls_counter__gte=min_total_mutual_video_calls,
-        )
-        .annotate(
-            duration_since_last_interaction_in_days=ExpressionWrapper(
-                Greatest(ExtractDay(now - F("latest_interaction_at")), 0), output_field=DurationField()
-            ),
-            duration_between_first_and_last_interaction_days=ExpressionWrapper(
-                Greatest(ExtractDay(F("latest_interaction_at") - F("created_at")), 0), output_field=DurationField()
-            ),
-        )
-        .filter(
-            duration_between_first_and_last_interaction_days__gte=last_and_first_interaction_days,
-            duration_since_last_interaction_in_days__gte=last_interaction_days,
-        )
+    # Datetime comparisons, not ExtractDay on a duration: SQLite has no native
+    # DurationField, and Extract(now - latest_interaction_at) raises there.
+    completed_by_criteria = _journey(qs).filter(
+        Q(Exists(user1_to_user2_message_exists) & Exists(user2_to_user1_message_exists)),
+        active=True,
+        total_messages_counter__gte=min_total_mutual_messages,
+        total_mutal_video_calls_counter__gte=min_total_mutual_video_calls,
+        latest_interaction_at__lte=days_ago(last_interaction_days),
     )
+    if last_and_first_interaction_days > 0:
+        completed_by_criteria = completed_by_criteria.filter(
+            latest_interaction_at__gte=F("created_at") + timedelta(days=last_and_first_interaction_days)
+        )
 
     return qs.filter(
         Q(id__in=completed_or_completed_off_plattform.values_list("id", flat=True))
         | Q(id__in=completed_by_criteria.values_list("id", flat=True))
-    ).annotate(
-        duration_since_last_interaction_in_days=ExpressionWrapper(
-            Greatest(ExtractDay(now - F("latest_interaction_at")), 0), output_field=DurationField()
-        ),
-        duration_between_first_and_last_interaction_days=ExpressionWrapper(
-            Greatest(ExtractDay(F("latest_interaction_at") - F("created_at")), 0), output_field=DurationField()
-        ),
     )
 
 
@@ -265,10 +241,9 @@ def contact_stopped(qs=Match.objects.all()):
     """
     [Match-Journey] (Failed-Matching) Matches older than the desired match duration where users interacted but their interaction stopped before the desired duration.
     """
-    qs = completed_match(qs, last_and_first_interaction_days=0).filter(
-        duration_between_first_and_last_interaction_days__lt=4 * 7
+    return completed_match(qs, last_and_first_interaction_days=0).filter(
+        latest_interaction_at__lt=F("created_at") + timedelta(days=4 * 7)
     )
-    return qs
 
 
 def matching_proposals(qs=ProposedMatch.objects.all()):

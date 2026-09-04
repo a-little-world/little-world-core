@@ -106,6 +106,52 @@ Tasks are the unit of work for the support team. Key invariants:
 
 **History** (`management/models/object_history.py`): Generic `ObjectHistory` model using Django `ContentType` framework. `SupportTask` and `SupportTaskAction` both have `GenericRelation(ObjectHistory)`. History entries are written automatically in the model `save()` overrides (CREATE on first save, UPDATE on field diffs). Tracked fields: `SupportTask` → title, description, status, priority, assigned_to_id; `SupportTaskAction` → status, parameters.
 
+### Survey campaigns
+
+In-app surveys are configuration, not code. `SurveyCampaign` declares audience, active window,
+trigger, eligible-after condition, `repeat_scope`, rating `scale` and `questions`; `SurveyResponse`
+holds one row per *offer*, unique on `(campaign, user, context_key)`.
+
+- `context_key` is `""` for once-per-user campaigns and `live_session:<uuid>` for once-per-call
+  ones — one field lets both kinds share one table and one uniqueness rule. It is never `NULL`.
+- Delivery is `GET /api/surveys/pending` only. There is deliberately no WebSocket path: the old
+  post-call survey used one and failed silently for a year.
+- Rows are created when the survey is offered, never bulk-inserted at launch, so eligibility
+  stays dynamic and `shown_count` staying flat is a visible delivery failure.
+- A user is shown at most one card per `SHOW_COOLDOWN` (12h), across *every* campaign, not
+  per offer. The client refetches the pending endpoint as soon as a survey closes, so a
+  per-offer rule would hand over the next campaign's card immediately. A user inside the
+  quiet period is offered nothing and creates nothing; offers an event trigger already wrote
+  stay open and are delivered once the window passes, so deferring a survey never loses it.
+  `shown_at` is only written when the client confirms it rendered the card, so an offer that
+  never displayed does not start the window.
+- Answered questions are immutable (id, type, referenced choice options). `scale` cannot
+  change once a rating has been submitted — growing or shrinking would change what existing
+  scores mean. Enforced in `SurveyCampaign.save()`, not in admin.
+- Audience is everyone, a company already on `state.company`, or one of the banner/event
+  filters (`CustomFilterChoices`). Picked from a single dropdown in the admin panel.
+- Trigger is when the card is presented (`on_session` vs after a call). Eligible-after is a
+  named journey condition: immediately, onboarded (`state.is_onboarded`), first qualifying
+  call (standard calls only, not random, under 10 minutes, both active), match created, or match success (the shared
+  `management.match_success` definition). Conditions take effect as soon as they are true.
+  Optional `eligible_after_since` is a lower bound on when that condition counts — e.g.
+  onboarded on or after 31 Aug 2025. Match conditions qualify if *any* of the user's matches
+  satisfy them; support matches and the signup admin chat do not count. Once-per-user
+  campaigns still offer the survey only once. `starts_at` / `ends_at` are the campaign
+  calendar: after `ends_at` nobody is offered the survey.
+- Copy lives on the campaign row as `{de, en}` (campaign title/description/submit plus
+  per-question labels), not in frontend locale files. German is required to activate; English
+  falls back to it. Completeness is validated in `SurveyCampaign.save()` only on activation, so
+  drafts can be saved half-finished. The pending endpoint resolves copy for the user's
+  `display_language` before it leaves the backend.
+- Star-rating captions (`survey.star.1`–`5`) live in the frontend locale files. They belong to
+  the widget, not the campaign, so a configurable scale does not need one label per star on the
+  row. They describe the five points of a five-star scale and are only rendered when `scale`
+  is 5 — stretching five words over another scale labels values twice or shifts what each one
+  means, so any other scale shows bare stars.
+- Campaigns are created and edited in the admin panel (`Communications → Surveys`), not via
+  management commands. Logic lives in `management/surveys.py`; a new survey is a new row.
+
 ### API pattern
 
 All API endpoints are function-based views using `@api_view`, `@authentication_classes`, `@permission_classes`. Each api module exports `api_urls = [path(...), ...]` which is imported and flattened in `management/urls.py`.

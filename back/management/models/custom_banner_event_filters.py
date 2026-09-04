@@ -6,7 +6,6 @@ from management.permissions import ManagementPermission
 
 
 class CustomFilterChoices(models.TextChoices):
-    CAPEGEMINI = "capegemini", "capegemini"
     LEARNERS_WITH_A1A2 = "learners_with_a1a2", "learners_with_a1a2"
     LEARNERS_ABOVE_A1A2 = "learners_above_a1a2", "learners_above_a1a2"
     VOLUNTEERS = "volunteers", "volunteers"
@@ -76,7 +75,6 @@ def filter__match_eligible_users(user):
 
 
 FILTER_FUNC_MAP = {
-    CustomFilterChoices.CAPEGEMINI: filter__learners_above_a1a2,
     CustomFilterChoices.LEARNERS_WITH_A1A2: filter__learners_with_a1a2,
     CustomFilterChoices.LEARNERS_ABOVE_A1A2: filter__learners_above_a1a2,
     CustomFilterChoices.VOLUNTEERS: filter__volunteers,
