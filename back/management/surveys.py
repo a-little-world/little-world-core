@@ -22,7 +22,7 @@ from django.utils import timezone
 from management.models.custom_banner_event_filters import FILTER_FUNC_MAP, CustomFilterChoices
 from management.models.survey import (
     MAX_TEXT_ANSWER_LENGTH,
-    QUALIFYING_CALL_MAX_DURATION,
+    QUALIFYING_CALL_MIN_DURATION,
     QuestionType,
     SurveyCampaign,
     SurveyResponse,
@@ -76,9 +76,13 @@ def live_campaigns(trigger: str | None = None) -> list[SurveyCampaign]:
 
 
 def qualifying_sessions(user):
-    """Finished standard calls where both users were active and which ran under ten minutes.
+    """Finished standard calls where both users were active and which ran long enough to count.
 
-    Random calls are excluded — the same rule as the post-call offer trigger.
+    "Qualifying" is one threshold with one meaning — a call long enough to be a real
+    conversation. It answers "has this user actually had a call yet", so a longer call counts
+    for more, never less.
+
+    Random calls are excluded, the same as for the post-call trigger.
     """
     from video.models import LivekitSession
 
@@ -90,7 +94,7 @@ def qualifying_sessions(user):
             random_call_session=False,
         )
         .annotate(duration=ExpressionWrapper(F("end_time") - F("created_at"), output_field=DurationField()))
-        .filter(duration__lt=QUALIFYING_CALL_MAX_DURATION)
+        .filter(duration__gte=QUALIFYING_CALL_MIN_DURATION)
     )
 
 
@@ -345,29 +349,40 @@ def _post_call_context_key(campaign: SurveyCampaign, live_session) -> str:
 
 
 def offer_post_call_survey(user, live_session) -> SurveyResponse | None:
-    """Offer every live after-a-call campaign to one participant of a finished standard call.
+    """Offer the campaigns that match how this call went, to one participant of it.
 
-    Every campaign with the ``event:call_ended`` trigger is offered, not just ``post-call``:
-    the admin panel lets any campaign choose that trigger, and a campaign that quietly
-    collects nothing is the failure this feature exists to remove. A context-scoped campaign
-    is keyed on the session, a user-scoped one is asked once ever.
+    Which trigger fires depends on the call's length, split at ``QUALIFYING_CALL_MIN_DURATION``:
+    a call that ran long enough is a real conversation and fires ``QUALIFYING_CALL_ENDED``; a
+    shorter one fires ``NON_QUALIFYING_CALL_ENDED``, which is there to find out what went wrong.
+
+    Every live campaign on the matching trigger is offered, not just ``post-call``: the admin
+    panel lets any campaign choose one, and a campaign that quietly collects nothing is the
+    failure this feature exists to remove. A context-scoped campaign is keyed on the session, a
+    user-scoped one is asked once ever.
 
     Random calls (``LivekitSession.random_call_session``) are excluded — that flow has its
-    own post-call UX and should not surface the standard call survey. Calls that ran ten
-    minutes or longer are excluded too.
+    own post-call UX and should not surface the standard call survey.
 
-    Returns the first offer made, which is the whole result while ``post-call`` is the only
-    campaign using this trigger.
+    Returns the first offer made — the whole result while each trigger has at most one
+    campaign on it.
     """
     if getattr(live_session, "random_call_session", False):
         return None
     if live_session.end_time is None:
         return None
-    if live_session.end_time - live_session.created_at >= QUALIFYING_CALL_MAX_DURATION:
-        return None
+
+    # The call's length picks the trigger, so every finished standard call reaches exactly one
+    # of the two: a real conversation gets asked how it went, a short one gets asked what went
+    # wrong. A campaign on the other trigger simply is not selected here.
+    duration = live_session.end_time - live_session.created_at
+    trigger = (
+        SurveyCampaign.Trigger.QUALIFYING_CALL_ENDED
+        if duration >= QUALIFYING_CALL_MIN_DURATION
+        else SurveyCampaign.Trigger.NON_QUALIFYING_CALL_ENDED
+    )
 
     first = None
-    for campaign in live_campaigns(SurveyCampaign.Trigger.CALL_ENDED):
+    for campaign in live_campaigns(trigger):
         if not user_is_eligible(campaign, user):
             continue
         response = offer_survey(
