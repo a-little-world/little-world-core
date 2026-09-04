@@ -120,7 +120,7 @@ class MatchingQualitySuccessDrivenTests(TestCase):
     def test_quality_pie_distribution_is_success_driven(self):
         request = self.factory.post(
             "/api/matching/users/statistics/match_quality/",
-            {"start_date": "2021-01-01", "end_date": timezone.now().date().isoformat()},
+            {"start_date": "2021-01-01", "end_date": display_time.today().isoformat()},
             format="json",
         )
         force_authenticate(request, user=self.staff)
@@ -154,7 +154,7 @@ class MatchingQualitySuccessDrivenTests(TestCase):
 
         request = self.factory.post(
             "/api/matching/users/statistics/match_quality/",
-            {"start_date": "2021-01-01", "end_date": timezone.now().date().isoformat()},
+            {"start_date": "2021-01-01", "end_date": display_time.today().isoformat()},
             format="json",
         )
         force_authenticate(request, user=self.staff)
