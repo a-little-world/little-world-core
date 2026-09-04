@@ -8,11 +8,6 @@ asks for a token count.
 A match succeeds under **either** path below (temporary matches excluded from the flag
 path). Kept so the impact of the token rules can be measured against what came before.
 
-**Postgres only.** ``completed_match`` extracts days from a datetime difference, which
-SQLite cannot do — calling this version on a SQLite run raises
-``ValueError: Extract requires native DurationField database support``. That is another
-reason it is not activatable: the active version has to work everywhere the app runs.
-
 **Path A — explicit flags**
   ``completed=True`` or ``completed_off_plattform=True`` (excludes ``match_type=TEMPORARY``).
 
