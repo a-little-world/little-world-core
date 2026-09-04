@@ -886,6 +886,21 @@ class AdminSurveyApiTests(TestCase):
         self.assertEqual(self.client.delete(f"{self.ENDPOINT}{campaign.pk}/").status_code, 204)
         self.assertFalse(SurveyCampaign.objects.filter(pk=campaign.pk).exists())
 
+    def test_options_serves_the_trigger_and_eligibility_enums(self):
+        """The form's dropdowns are served, not restated in the frontend.
+
+        They were duplicated once and drifted: a whole trigger was missing from the admin
+        panel, so a campaign type the backend supported could not be created.
+        """
+        payload = self.client.get(f"{self.ENDPOINT}options/").json()
+
+        for key, choices in (
+            ("triggers", SurveyCampaign.Trigger.choices),
+            ("eligible_after_events", SurveyCampaign.EligibleAfterEvent.choices),
+        ):
+            served = [(option["value"], option["label"]) for option in payload[key]]
+            self.assertEqual(served, [(value, str(label)) for value, label in choices])
+
     def test_options_lists_companies_and_filters(self):
         self.staff.state.company = "lingoda"
         self.staff.state.save()
