@@ -144,7 +144,7 @@ class Command(BaseCommand):
             questions=POST_CALL_QUESTIONS,
             audience_type=SurveyCampaign.AudienceType.ALL,
             audience_value="",
-            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            trigger=SurveyCampaign.Trigger.NON_QUALIFYING_CALL_ENDED,
             eligible_after_event="",
             repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
             context_type=SurveyCampaign.ContextType.LIVE_SESSION,
