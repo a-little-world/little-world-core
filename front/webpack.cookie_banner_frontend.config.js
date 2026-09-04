@@ -53,6 +53,11 @@ var config = function (env) {
           },
         ],
       }),
+      new webpack.DefinePlugin({
+        'process.env.COOKIE_BANNER_BACKEND_URL': JSON.stringify(
+          env.BACKEND_URL || ''
+        ),
+      }),
     ],
     devtool: devTool,
     module: {

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, fields
-from datetime import datetime
 
 import django.contrib.auth.password_validation as pw_validation
+from back.build_types import BuildType
 from django.conf import settings
 from django.contrib.auth import login
 from django.core import exceptions
@@ -76,11 +76,10 @@ class RegistrationSerializer(serializers.Serializer):
     password2 = serializers.CharField(max_length=100, required=True)
     birth_year = serializers.IntegerField(
         min_value=1900,
-        max_value=(datetime.now().year - 17),
         error_messages={
             "invalid": get_translation("register.birth_year_invalid"),  # Updated key
             "min_value": get_translation("register.birth_year_under_1900"),  # Updated key
-            "max_value": get_translation("register.birth_year_over_2024"),  # Updated key
+            "max_value": get_translation("register.birth_year_too_high"),  # Updated key
         },
     )
     user_type = serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=True)
@@ -105,6 +104,12 @@ class RegistrationSerializer(serializers.Serializer):
 
     def validate_second_name(self, value):
         return validators.validate_name(value)
+
+    def validate_birth_year(self, value):
+        max_year = validators.max_birth_year_for_minimum_age()
+        if value > max_year:
+            raise serializers.ValidationError(get_translation("register.birth_too_high"))
+        return value
 
     def validate(self, data):
         usr = None
@@ -307,7 +312,7 @@ class RegisterWebNative(APIView):
         request=RegistrationSerializerNativeWeb(many=False),
     )
     def post(self, request) -> Response | None:
-        if settings.IS_PROD:
+        if settings.BUILD_TYPE == BuildType.PRODUCTION:
             return Response(
                 {"detail": "This endpoint is disabled in production environments"},
                 status=status.HTTP_405_METHOD_NOT_ALLOWED,

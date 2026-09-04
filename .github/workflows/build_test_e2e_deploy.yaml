@@ -212,6 +212,7 @@ jobs:
           REDIS_URL="redis://redis-service.$NAMESPACE.svc.cluster.local:6379"
           DJ_REDIS_HOST="redis-service.$NAMESPACE.svc.cluster.local"
           DJ_REDIS_PORT="6379"
+          COOKIE_BANNER_BACKEND_URL="https://${{ steps.sanitize_branch.outputs.sanitized_branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
           DJ_CREATE_OPEN_CHAT_AUTOMATION_USER="true"
           DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL="tim+open-chat@little-world.com"
           DJ_OPEN_CHAT_AUTOMATION_USER_PASSWORD="Test123!"
@@ -222,7 +223,9 @@ jobs:
           echo "REDIS_URL=\"$REDIS_URL\"" >> .env
           echo "DJ_REDIS_HOST=\"$DJ_REDIS_HOST\"" >> .env
           echo "DJ_REDIS_PORT=\"$DJ_REDIS_PORT\"" >> .env
-          echo "BUILD_TYPE=\"pro\"" >> .env
+          # Build production frontend assets while running the E2E backend in development mode.
+          echo "BUILD_TYPE=\"production\"" >> .env
+          echo "COOKIE_BANNER_BACKEND_URL=\"$COOKIE_BANNER_BACKEND_URL\"" >> .env
           echo "ENTRYPOINT=\"./entry.sh\"" >> .env
           echo "DJ_CREATE_OPEN_CHAT_AUTOMATION_USER=\"$DJ_CREATE_OPEN_CHAT_AUTOMATION_USER\"" >> .env
           echo "DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL=\"$DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL\"" >> .env

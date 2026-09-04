@@ -1,7 +1,19 @@
 # This is the general entry point for server startup ( dev )
 # "rediss://:$DJ_REDIS_PASSWORD@$DJ_REDIS_HOST:DJ_REDIS_PORT"
 
-if [ "$BUILD_TYPE" != "staging" ]; then
+if [ "$BUILD_TYPE" = "production" ]; then
+    START_CELERY_WORKER="${START_CELERY_WORKER:-true}"
+    START_CELERY_BEAT="${START_CELERY_BEAT:-false}"
+    START_CELERY_SINGLE_BEAT="${START_CELERY_SINGLE_BEAT:-true}"
+    RUN_MIGRATIONS_ON_CONTAINER_START="${RUN_MIGRATIONS_ON_CONTAINER_START:-true}"
+else
+    START_CELERY_WORKER="${START_CELERY_WORKER:-true}"
+    START_CELERY_BEAT="${START_CELERY_BEAT:-true}"
+    START_CELERY_SINGLE_BEAT="${START_CELERY_SINGLE_BEAT:-false}"
+    RUN_MIGRATIONS_ON_CONTAINER_START="${RUN_MIGRATIONS_ON_CONTAINER_START:-false}"
+fi
+
+if [ "$START_CELERY_WORKER" = "true" ]; then
     if [ "$BUILD_TYPE" = "development" ] && [ "$DJ_USE_AUTO_RELOAD" = "1" ]; then
         # Owns the Celery worker and restarts it when /back/**/*.py changes.
         python3 /back/entries/celery_worker_reloader.py &
@@ -10,16 +22,13 @@ if [ "$BUILD_TYPE" != "staging" ]; then
     fi
 fi
 
-if [ "$BUILD_TYPE" = "deployment" ]; then
+if [ "$START_CELERY_SINGLE_BEAT" = "true" ]; then
     SINGLE_BEAT_REDIS_SERVER="$FULL_ACCESS_REDIS_URL" single-beat celery -A back beat --loglevel=info &
-elif [ "$BUILD_TYPE" = "staging" ]; then
-    # SINGLE_BEAT_REDIS_SERVER="$FULL_ACCESS_REDIS_URL" single-beat celery -A back beat --loglevel=info &
-    echo ""
-else
+elif [ "$START_CELERY_BEAT" = "true" ]; then
     celery -A back beat --loglevel=info &
 fi
 
-if [ "$BUILD_TYPE" = "deployment" ]; then
+if [ "$RUN_MIGRATIONS_ON_CONTAINER_START" = "true" ]; then
     python3 manage.py migrate --noinput || exit $?
 fi
 
@@ -40,8 +49,12 @@ fi
 python3 manage.py shell --command 'from django.apps import apps; from django.contrib.auth.management import create_permissions; app_config = apps.get_app_config("management"); create_permissions(app_config, verbosity=0); from management.controller import get_base_management_user; get_base_management_user()'
 
 
-if [ "$BUILD_TYPE" = "development" ] && [ "$DJ_USE_DEBUG_TOOLBAR" = "1" ]; then
-    python3 -Xfrozen_modules=off -m debugpy --listen 0.0.0.0:5678 -m uvicorn back.asgi:application --reload --port 8000 --host 0.0.0.0
+if [ "$BUILD_TYPE" = "development" ]; then
+    if [ "$DJ_USE_DEBUG_TOOLBAR" = "1" ]; then
+        python3 -Xfrozen_modules=off -m debugpy --listen 0.0.0.0:5678 -m uvicorn back.asgi:application --reload --port 8000 --host 0.0.0.0
+    else
+        uvicorn back.asgi:application --reload --port 8000 --host 0.0.0.0
+    fi
 else
-    uvicorn back.asgi:application --reload --port 8000 --host 0.0.0.0
+    uvicorn back.asgi:application --port 8000 --host 0.0.0.0
 fi

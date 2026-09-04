@@ -252,7 +252,7 @@ if not settings.PROD_ATTACH:
             "task": "im_allive_task",
             "schedule": 60.0 * 5.0,  # Every five minutes!
         },
-        **(prod_shedules if settings.IS_PROD else {}),
+        **(prod_shedules if settings.ENABLE_PRODUCTION_CELERY_SCHEDULES else {}),
     }
 
 """

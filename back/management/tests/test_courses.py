@@ -6,7 +6,13 @@ from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from management.models.courses import Course, CourseChapter, UserCourseProgress, UserTypeAvailabilityChoices
+from management.models.courses import (
+    ChapterQuizStep,
+    Course,
+    CourseChapter,
+    UserCourseProgress,
+    UserTypeAvailabilityChoices,
+)
 from management.models.profile import Profile
 from management.models.state import State
 from management.models.user import User
@@ -187,3 +193,95 @@ class CourseStatsFunnelTests(TestCase):
         self.assertEqual([row["reached"] for row in funnel], [16, 14, 11])
         # 2/16, 3/14, 1/11 — stalls belong on the chapter people are sitting on
         self.assertEqual([row["drop_off_pct"] for row in funnel], [12.5, 21.4, 9.1])
+
+
+class AdminCourseVideoOnlyChapterTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.staff = User.objects.create_user(
+            email=f"course-admin-{uuid4()}@example.com",
+            password="Test123!",
+            first_name="Course",
+            last_name="Admin",
+        )
+        self.staff.is_staff = True
+        self.staff.save(update_fields=["is_staff"])
+        self.client.force_authenticate(user=self.staff)
+
+    def test_create_and_update_chapter_without_quiz_steps(self):
+        create = self.client.post(
+            "/api/admin/courses/",
+            {
+                "title": "Video Only",
+                "slug": "video-only",
+                "description": "",
+                "is_active": True,
+                "is_listed": True,
+                "available_to": UserTypeAvailabilityChoices.ALL,
+                "chapters": [
+                    {
+                        "chapter_id": "watch-intro",
+                        "order": 1,
+                        "available_to": UserTypeAvailabilityChoices.ALL,
+                        "title": "Watch intro",
+                        "description": "",
+                        "video_url": "https://example.com/intro",
+                        "video_title": "Intro",
+                        "completed_title": "",
+                        "completed_description": "",
+                        "completed_additional_text": "",
+                        "completed_cta_label": "",
+                        "quiz_steps": [],
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(create.status_code, 201)
+        self.assertEqual(create.data["chapters"][0]["quiz_steps"], [])
+        self.assertEqual(ChapterQuizStep.objects.count(), 0)
+
+        volunteer = User.objects.create_user(
+            email=f"video-learner-{uuid4()}@example.com",
+            password="Test123!",
+            first_name="Video",
+            last_name="Learner",
+        )
+        volunteer.profile.user_type = Profile.TypeChoices.VOLUNTEER
+        volunteer.profile.save(update_fields=["user_type"])
+        learner_client = APIClient()
+        learner_client.force_authenticate(user=volunteer)
+        detail = learner_client.get("/api/courses/video-only/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.data["chapters"][0]["quiz_steps"], [])
+
+        update = self.client.put(
+            "/api/admin/courses/video-only/",
+            {
+                "title": "Video Only",
+                "slug": "video-only",
+                "description": "Updated",
+                "is_active": True,
+                "is_listed": True,
+                "available_to": UserTypeAvailabilityChoices.ALL,
+                "chapters": [
+                    {
+                        "chapter_id": "watch-intro",
+                        "order": 1,
+                        "available_to": UserTypeAvailabilityChoices.ALL,
+                        "title": "Watch intro",
+                        "description": "",
+                        "video_url": "https://example.com/intro",
+                        "video_title": "Intro",
+                        "completed_title": "",
+                        "completed_description": "",
+                        "completed_additional_text": "",
+                        "completed_cta_label": "",
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(update.status_code, 200)
+        self.assertEqual(update.data["chapters"][0]["quiz_steps"], [])
+        self.assertEqual(ChapterQuizStep.objects.count(), 0)

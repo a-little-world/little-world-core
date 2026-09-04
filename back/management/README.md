@@ -29,15 +29,20 @@ This will enter you into the docker container. Then:
 `python3 manage.py shell`
 Now you're in the shell where you can trigger websocket calls.
 Some examples of triggering calls are below.
-Trigger the post call survey:
+
+Note that surveys are **not** delivered over the websocket. They are offered by creating a
+`SurveyResponse` row, which the client picks up from `GET /api/surveys/pending`:
+
 ```
+from management import surveys
 from management.models.user import User
-from chat.consumers.messages import PostCallSurvey
+from video.models import LivekitSession
+
 user = User.objects.get(email=...)
-PostCallSurvey(post_call_survey={"live_session_id": "Random-UUID"}).send(str(user.uuid))
+surveys.offer_post_call_survey(user, LivekitSession.objects.filter(u1=user).last())
 ```
 
-or trigger an incoming call:
+Trigger an incoming call:
 
 ```
    from management.models.user import User
