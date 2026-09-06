@@ -222,10 +222,18 @@ class AdminSurveyCampaignDetailSerializer(AdminSurveyCampaignSerializer):
         return campaign.scale_is_locked()
 
 
+def _choice_options(choices) -> list[dict]:
+    """A ``TextChoices`` set as the picker needs it, labels resolved from the lazy proxies."""
+    return [{"value": value, "label": str(label)} for value, label in choices]
+
+
 def _audience_options() -> dict:
+    """Everything the campaign form's dropdowns offer"""
     return {
         "companies": surveys.company_audience_values(),
         "filters": surveys.audience_filter_choices(),
+        "triggers": _choice_options(SurveyCampaign.Trigger.choices),
+        "eligible_after_events": _choice_options(SurveyCampaign.EligibleAfterEvent.choices),
     }
 
 
@@ -243,13 +251,7 @@ def _campaign_queryset():
 
 
 def _saved_campaign_response(serializer, status_code: int):
-    """Save, converting the model's own ValidationError into a 400 the form can render.
-
-    This one does surface the model's text, unlike the user-facing endpoints. It is behind
-    ``IsAdminOrMatchingUser``, and the message is the whole point — "Cannot activate with
-    copy missing: title (de)" is what tells the editor which field to fill. Genericising it
-    would leave them guessing.
-    """
+    """Save, converting the model's own ValidationError into a 400 the form can render."""
     try:
         campaign = serializer.save()
     except ValidationError as e:
