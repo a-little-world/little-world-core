@@ -1,11 +1,13 @@
 """Match Journey V5 — structural validation (no DB required for these checks)."""
 
 import inspect
+from uuid import uuid4
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
 from management.analytics.core.roles import CatalogRole
 from management.analytics.match_journey.catalog import CATALOG, DOMAIN_PREFIXES
+from management.analytics.match_journey.cohorts import MatchPartitionCohort
 from management.analytics.match_journey.partitions import MATCH_JOURNEY_V5
 from management.analytics.match_journey.queries import state
 from management.analytics.match_journey.queries.state import ENGAGEMENT_DAYS, FAILURE_CLIFF_DAYS
@@ -17,6 +19,8 @@ from management.analytics.registry import (
     partition_buckets_with_disallowed_roles,
 )
 from management.models.matches import Match
+from management.models.unconfirmed_matches import MatchType
+from management.models.user import User
 
 
 class MatchJourneyV5StructureTests(SimpleTestCase):
@@ -237,3 +241,81 @@ class CrossJourneyConsistencyTests(SimpleTestCase):
         from management.match_success.versions.v1_total_minutes import successful_matches as v1_successful
 
         self.assertIn("completed_off_plattform", inspect.getsource(v1_successful))
+
+
+class MatchPartitionCohortTypeTests(TestCase):
+    """Match type is a cohort segment, not a partition cell (conventions §17)."""
+
+    def _user(self, prefix):
+        return User.objects.create_user(
+            email=f"{prefix}-{uuid4()}@example.com",
+            password="Test123!",
+            first_name="Test",
+            last_name=prefix,
+        )
+
+    def _match(self, prefix, match_type, *, support=False):
+        return Match.objects.create(
+            user1=self._user(f"{prefix}-a"),
+            user2=self._user(f"{prefix}-b"),
+            match_type=match_type,
+            support_matching=support,
+            active=True,
+            confirmed=False,
+        )
+
+    def _ids(self, match_type=None):
+        return set(MatchPartitionCohort(match_type=match_type).apply(Match.objects.all()).values_list("id", flat=True))
+
+    def test_unfiltered_includes_standard_and_random_call_only(self):
+        standard = self._match("std", MatchType.STANDARD)
+        random_call = self._match("rc", MatchType.RANDOM_CALL)
+        self._match("tmp", MatchType.TEMPORARY)
+        self._match("sup", MatchType.STANDARD, support=True)
+        self.assertEqual(self._ids(), {standard.id, random_call.id})
+
+    def test_standard_cohort_excludes_random_calls(self):
+        standard = self._match("std", MatchType.STANDARD)
+        random_call = self._match("rc", MatchType.RANDOM_CALL)
+        ids = self._ids(MatchType.STANDARD)
+        self.assertIn(standard.id, ids)
+        self.assertNotIn(random_call.id, ids)
+
+    def test_random_call_cohort_excludes_standard(self):
+        standard = self._match("std", MatchType.STANDARD)
+        random_call = self._match("rc", MatchType.RANDOM_CALL)
+        ids = self._ids(MatchType.RANDOM_CALL)
+        self.assertIn(random_call.id, ids)
+        self.assertNotIn(standard.id, ids)
+
+    def test_temporary_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "match_type must be one of"):
+            MatchPartitionCohort(match_type=MatchType.TEMPORARY)
+
+    def test_cohort_declares_its_entity(self):
+        self.assertIs(MatchPartitionCohort().base_model, Match)
+
+
+class ParseMatchTypeInputTests(SimpleTestCase):
+    def test_blank_values_are_unfiltered(self):
+        from management.api.user_advanced_statistics import _parse_match_type_input
+
+        self.assertIsNone(_parse_match_type_input(None))
+        self.assertIsNone(_parse_match_type_input(""))
+        self.assertIsNone(_parse_match_type_input("  "))
+
+    def test_known_types_are_kept(self):
+        from management.api.user_advanced_statistics import _parse_match_type_input
+
+        self.assertEqual(_parse_match_type_input("standard"), MatchType.STANDARD)
+        self.assertEqual(_parse_match_type_input("random_call"), MatchType.RANDOM_CALL)
+
+    def test_temporary_and_unknown_types_are_rejected(self):
+        from management.api.user_advanced_statistics import _parse_match_type_input
+
+        with self.assertRaisesRegex(ValueError, "match_type must be"):
+            _parse_match_type_input("temporary")
+        with self.assertRaisesRegex(ValueError, "match_type must be"):
+            _parse_match_type_input("organic")
+        with self.assertRaisesRegex(ValueError, "match_type must be"):
+            _parse_match_type_input(True)

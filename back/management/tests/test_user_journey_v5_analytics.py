@@ -993,6 +993,31 @@ class JourneyV5PartitionBalanceTests(TestCase):
     def test_composite_is_not_itself_a_partition_cell(self):
         self.assertNotIn("state__first_search", USER_JOURNEY_V5.bucket_ids())
 
+    def _typed_cohort(self, user_type):
+        return PartitionCohort(
+            start_date="2000-01-01",
+            end_date=timezone.now().date(),
+            user_type=user_type,
+        ).apply(User.objects.all())
+
+    def test_volunteer_cohort_balances_and_excludes_learners(self):
+        cohort = self._typed_cohort(Profile.TypeChoices.VOLUNTEER)
+        assert_partition_balances_strict(USER_JOURNEY_V5, cohort)
+        self.assertFalse(cohort.filter(profile__user_type=Profile.TypeChoices.LEARNER).exists())
+        self.assertTrue(cohort.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER).exists())
+        result = compute_partition(USER_JOURNEY_V5, cohort)
+        self.assertEqual(result["baseline_count"], cohort.count())
+        self.assertEqual(result["counts"]["state__onboarding_ineligible"], 0)
+        self.assertEqual(result["counts"]["state__search_blocked"], 0)
+
+    def test_learner_cohort_balances_and_excludes_volunteers(self):
+        cohort = self._typed_cohort(Profile.TypeChoices.LEARNER)
+        assert_partition_balances_strict(USER_JOURNEY_V5, cohort)
+        self.assertFalse(cohort.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER).exists())
+        self.assertTrue(cohort.filter(profile__user_type=Profile.TypeChoices.LEARNER).exists())
+        result = compute_partition(USER_JOURNEY_V5, cohort)
+        self.assertEqual(result["baseline_count"], cohort.count())
+
 
 class PartitionImbalanceIsReportedNotRaisedTests(TestCase):
     """A broken partition must surface on a GET, not 500 the page (conventions §8)."""
@@ -1073,3 +1098,77 @@ class PartitionImbalanceIsReportedNotRaisedTests(TestCase):
         self.assertEqual(result["uncovered_count"], 1)
         with self.assertRaisesRegex(AssertionError, "does not balance"):
             assert_partition_balances_strict(incomplete, User.objects.all())
+
+
+class PartitionCohortUserTypeTests(TestCase):
+    """User type is a cohort segment, not a partition cell (conventions §17)."""
+
+    def _user(self, email, user_type):
+        user = User.objects.create_user(
+            email=email,
+            password="Test123!",
+            first_name="Test",
+            last_name=email.split("@")[0],
+        )
+        Profile.objects.filter(user=user).update(user_type=user_type)
+        return user
+
+    def _ids(self, user_type=None):
+        return set(
+            PartitionCohort(
+                start_date="2000-01-01",
+                end_date=timezone.now().date(),
+                user_type=user_type,
+            )
+            .apply(User.objects.all())
+            .values_list("id", flat=True)
+        )
+
+    def test_unfiltered_includes_both_types(self):
+        learner = self._user("learner@example.com", Profile.TypeChoices.LEARNER)
+        volunteer = self._user("volunteer@example.com", Profile.TypeChoices.VOLUNTEER)
+        self.assertEqual(self._ids(), {learner.id, volunteer.id})
+
+    def test_volunteer_cohort_excludes_learners(self):
+        learner = self._user("learner@example.com", Profile.TypeChoices.LEARNER)
+        volunteer = self._user("volunteer@example.com", Profile.TypeChoices.VOLUNTEER)
+        ids = self._ids(Profile.TypeChoices.VOLUNTEER)
+        self.assertIn(volunteer.id, ids)
+        self.assertNotIn(learner.id, ids)
+
+    def test_learner_cohort_excludes_volunteers(self):
+        learner = self._user("learner@example.com", Profile.TypeChoices.LEARNER)
+        volunteer = self._user("volunteer@example.com", Profile.TypeChoices.VOLUNTEER)
+        ids = self._ids(Profile.TypeChoices.LEARNER)
+        self.assertIn(learner.id, ids)
+        self.assertNotIn(volunteer.id, ids)
+
+    def test_unknown_user_type_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "user_type must be one of"):
+            PartitionCohort(start_date="2000-01-01", end_date="2000-01-02", user_type="staff")
+
+    def test_cohort_declares_its_entity(self):
+        self.assertIs(PartitionCohort(start_date="2000-01-01", end_date="2000-01-02").base_model, User)
+
+
+class ParseUserTypeInputTests(SimpleTestCase):
+    def test_blank_values_are_unfiltered(self):
+        from management.api.user_advanced_statistics import _parse_user_type_input
+
+        self.assertIsNone(_parse_user_type_input(None))
+        self.assertIsNone(_parse_user_type_input(""))
+        self.assertIsNone(_parse_user_type_input("  "))
+
+    def test_known_types_are_kept(self):
+        from management.api.user_advanced_statistics import _parse_user_type_input
+
+        self.assertEqual(_parse_user_type_input("learner"), Profile.TypeChoices.LEARNER)
+        self.assertEqual(_parse_user_type_input("volunteer"), Profile.TypeChoices.VOLUNTEER)
+
+    def test_unknown_types_are_rejected(self):
+        from management.api.user_advanced_statistics import _parse_user_type_input
+
+        with self.assertRaisesRegex(ValueError, "user_type must be"):
+            _parse_user_type_input("staff")
+        with self.assertRaisesRegex(ValueError, "user_type must be"):
+            _parse_user_type_input(True)

@@ -60,6 +60,45 @@ def _parse_date_input(value, default):
     return datetime.strptime(value, "%Y-%m-%d").date()
 
 
+def _parse_user_type_input(value):
+    """None / omitted / blank → unfiltered. Otherwise a ``Profile.TypeChoices`` value.
+
+    The view owns this parse; ``PartitionCohort`` applies the resulting filter
+    (conventions §11).
+    """
+    if value in (None, ""):
+        return None
+    if not isinstance(value, str):
+        raise ValueError("user_type must be 'learner', 'volunteer', or omitted.")
+    value = value.strip()
+    if not value:
+        return None
+    if value not in Profile.TypeChoices.values:
+        raise ValueError("user_type must be 'learner', 'volunteer', or omitted.")
+    return value
+
+
+def _parse_match_type_input(value):
+    """None / omitted / blank → unfiltered. Otherwise Standard or Random Call.
+
+    Temporary matches are outside the journey universe and are not a valid filter.
+    The view owns this parse; ``MatchPartitionCohort`` applies the resulting filter
+    (conventions §11).
+    """
+    from management.analytics.match_journey.cohorts import JOURNEY_MATCH_TYPES
+
+    if value in (None, ""):
+        return None
+    if not isinstance(value, str):
+        raise ValueError("match_type must be 'standard', 'random_call', or omitted.")
+    value = value.strip()
+    if not value:
+        return None
+    if value not in JOURNEY_MATCH_TYPES:
+        raise ValueError("match_type must be 'standard', 'random_call', or omitted.")
+    return value
+
+
 def _inclusive_datetime_range(start_date, end_date):
     """Closed date range in the analytics display timezone.
 
@@ -737,7 +776,12 @@ def bucket_statistics(request):
         fields={
             "start_date": serializers.DateField(default=date(2022, 1, 1), required=False),
             "end_date": serializers.DateField(default=date.today(), required=False),
-            "volunteers_only": serializers.BooleanField(default=False, required=False),
+            "user_type": serializers.ChoiceField(
+                choices=Profile.TypeChoices.choices,
+                required=False,
+                allow_null=True,
+                help_text="Cohort segment. Omit or null for all user types.",
+            ),
         },
     ),
     responses=inline_serializer(
@@ -816,10 +860,15 @@ def user_journey_v5_statistics(request):
     if start_date > end_date:
         return Response({"detail": "start_date must not be after end_date."}, status=400)
 
+    try:
+        user_type = _parse_user_type_input(request.data.get("user_type"))
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=400)
+
     cohort = PartitionCohort(
         start_date=start_date,
         end_date=end_date,
-        volunteers_only=request.data.get("volunteers_only", False),
+        user_type=user_type,
     )
     # One instant for every bucket, so a booking expiring mid-request cannot show up as a
     # partition overlap (conventions §10).
@@ -834,6 +883,7 @@ def user_journey_v5_statistics(request):
             "definition": partition.as_payload(ALL_CATALOG),
             "start_date": start_date,
             "end_date": end_date,
+            "user_type": user_type,
             **result,
         }
     )
@@ -869,6 +919,15 @@ def match_journey_v5_definition(request):
         fields={
             "start_date": serializers.DateField(required=False, allow_null=True),
             "end_date": serializers.DateField(required=False, allow_null=True),
+            "match_type": serializers.ChoiceField(
+                choices=[
+                    (MatchType.STANDARD, MatchType.STANDARD.label),
+                    (MatchType.RANDOM_CALL, MatchType.RANDOM_CALL.label),
+                ],
+                required=False,
+                allow_null=True,
+                help_text="Cohort segment. Omit or null for Standard and Random Call.",
+            ),
         },
     ),
 )
@@ -896,7 +955,12 @@ def match_journey_v5_statistics(request):
         if start_date > end_date:
             return Response({"detail": "start_date must not be after end_date."}, status=400)
 
-    cohort = MatchPartitionCohort(start_date=start_date, end_date=end_date)
+    try:
+        match_type = _parse_match_type_input(request.data.get("match_type"))
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=400)
+
+    cohort = MatchPartitionCohort(start_date=start_date, end_date=end_date, match_type=match_type)
     result = compute_partition(
         partition,
         cohort.apply(_get_accessible_matches(request.user)),
@@ -908,6 +972,7 @@ def match_journey_v5_statistics(request):
             "definition": partition.as_payload(ALL_CATALOG),
             "start_date": start_date,
             "end_date": end_date,
+            "match_type": match_type,
             **result,
         }
     )
