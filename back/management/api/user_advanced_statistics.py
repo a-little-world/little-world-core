@@ -20,6 +20,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from video.models import LivekitSession
 
+from management.analytics.match_journey.cohorts import JOURNEY_MATCH_TYPES
 from management.analytics.registry import ALL_CATALOG
 from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
 from management.api.user_advanced import get_match_waiting_time
@@ -60,42 +61,23 @@ def _parse_date_input(value, default):
     return datetime.strptime(value, "%Y-%m-%d").date()
 
 
-def _parse_user_type_input(value):
-    """None / omitted / blank → unfiltered. Otherwise a ``Profile.TypeChoices`` value.
+def _parse_choice_input(value, *, allowed, field_name):
+    """None / omitted / blank → unfiltered. Otherwise a member of ``allowed``.
 
-    The view owns this parse; ``PartitionCohort`` applies the resulting filter
-    (conventions §11).
+    Shared by every optional segment-gate field (``user_type``, ``match_type``, ...) so
+    the allowed set is quoted once, from its real source, instead of copied into a
+    hand-written message per field. The view owns this parse; the cohort dataclass
+    re-validates independently and owns the query semantics (conventions §11).
     """
     if value in (None, ""):
         return None
     if not isinstance(value, str):
-        raise ValueError("user_type must be 'learner', 'volunteer', or omitted.")
+        raise ValueError(f"{field_name} must be one of {sorted(allowed)}, or omitted.")
     value = value.strip()
     if not value:
         return None
-    if value not in Profile.TypeChoices.values:
-        raise ValueError("user_type must be 'learner', 'volunteer', or omitted.")
-    return value
-
-
-def _parse_match_type_input(value):
-    """None / omitted / blank → unfiltered. Otherwise Standard or Random Call.
-
-    Temporary matches are outside the journey universe and are not a valid filter.
-    The view owns this parse; ``MatchPartitionCohort`` applies the resulting filter
-    (conventions §11).
-    """
-    from management.analytics.match_journey.cohorts import JOURNEY_MATCH_TYPES
-
-    if value in (None, ""):
-        return None
-    if not isinstance(value, str):
-        raise ValueError("match_type must be 'standard', 'random_call', or omitted.")
-    value = value.strip()
-    if not value:
-        return None
-    if value not in JOURNEY_MATCH_TYPES:
-        raise ValueError("match_type must be 'standard', 'random_call', or omitted.")
+    if value not in allowed:
+        raise ValueError(f"{field_name} must be one of {sorted(allowed)}, or omitted.")
     return value
 
 
@@ -771,6 +753,32 @@ def bucket_statistics(request):
 
 
 @extend_schema(
+    responses=inline_serializer(
+        name="UserJourneyV5DefinitionResponse",
+        fields={"definition": serializers.DictField()},
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def user_journey_v5_definition(request):
+    """The journey shape — phases, bucket order, labels, descriptions. No database access.
+
+    Split out from the counts so the admin panel can paint the whole journey immediately
+    and fill each number in as it arrives, instead of holding a spinner for the length of
+    the slowest bucket. V4 felt faster only because it rendered from a client-side copy of
+    this; serving it as its own cheap call gets the same responsiveness while the server
+    keeps sole ownership of the definition (conventions §17).
+    """
+    from management.analytics.registry import ALL_CATALOG, get_partition
+
+    partition = get_partition(USER_JOURNEY_V5_ID)
+    if partition is None:
+        return Response({"detail": f"Unknown partition {USER_JOURNEY_V5_ID!r}."}, status=500)
+
+    return Response({"definition": partition.as_payload(ALL_CATALOG)})
+
+
+@extend_schema(
     request=inline_serializer(
         name="UserJourneyV5Request",
         fields={
@@ -805,32 +813,6 @@ def bucket_statistics(request):
         },
     ),
 )
-@extend_schema(
-    responses=inline_serializer(
-        name="UserJourneyV5DefinitionResponse",
-        fields={"definition": serializers.DictField()},
-    ),
-)
-@api_view(["GET"])
-@permission_classes([IsAdminOrMatchingUser])
-def user_journey_v5_definition(request):
-    """The journey shape — phases, bucket order, labels, descriptions. No database access.
-
-    Split out from the counts so the admin panel can paint the whole journey immediately
-    and fill each number in as it arrives, instead of holding a spinner for the length of
-    the slowest bucket. V4 felt faster only because it rendered from a client-side copy of
-    this; serving it as its own cheap call gets the same responsiveness while the server
-    keeps sole ownership of the definition (conventions §17).
-    """
-    from management.analytics.registry import ALL_CATALOG, get_partition
-
-    partition = get_partition(USER_JOURNEY_V5_ID)
-    if partition is None:
-        return Response({"detail": f"Unknown partition {USER_JOURNEY_V5_ID!r}."}, status=500)
-
-    return Response({"definition": partition.as_payload(ALL_CATALOG)})
-
-
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 def user_journey_v5_statistics(request):
@@ -861,7 +843,9 @@ def user_journey_v5_statistics(request):
         return Response({"detail": "start_date must not be after end_date."}, status=400)
 
     try:
-        user_type = _parse_user_type_input(request.data.get("user_type"))
+        user_type = _parse_choice_input(
+            request.data.get("user_type"), allowed=Profile.TypeChoices.values, field_name="user_type"
+        )
     except ValueError as exc:
         return Response({"detail": str(exc)}, status=400)
 
@@ -920,10 +904,7 @@ def match_journey_v5_definition(request):
             "start_date": serializers.DateField(required=False, allow_null=True),
             "end_date": serializers.DateField(required=False, allow_null=True),
             "match_type": serializers.ChoiceField(
-                choices=[
-                    (MatchType.STANDARD, MatchType.STANDARD.label),
-                    (MatchType.RANDOM_CALL, MatchType.RANDOM_CALL.label),
-                ],
+                choices=[(value, MatchType(value).label) for value in sorted(JOURNEY_MATCH_TYPES)],
                 required=False,
                 allow_null=True,
                 help_text="Cohort segment. Omit or null for Standard and Random Call.",
@@ -956,7 +937,9 @@ def match_journey_v5_statistics(request):
             return Response({"detail": "start_date must not be after end_date."}, status=400)
 
     try:
-        match_type = _parse_match_type_input(request.data.get("match_type"))
+        match_type = _parse_choice_input(
+            request.data.get("match_type"), allowed=JOURNEY_MATCH_TYPES, field_name="match_type"
+        )
     except ValueError as exc:
         return Response({"detail": str(exc)}, status=400)
 

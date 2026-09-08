@@ -1002,20 +1002,20 @@ class JourneyV5PartitionBalanceTests(TestCase):
 
     def test_volunteer_cohort_balances_and_excludes_learners(self):
         cohort = self._typed_cohort(Profile.TypeChoices.VOLUNTEER)
-        assert_partition_balances_strict(USER_JOURNEY_V5, cohort)
         self.assertFalse(cohort.filter(profile__user_type=Profile.TypeChoices.LEARNER).exists())
         self.assertTrue(cohort.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER).exists())
         result = compute_partition(USER_JOURNEY_V5, cohort)
+        self.assertTrue(result["balanced"], result)
         self.assertEqual(result["baseline_count"], cohort.count())
         self.assertEqual(result["counts"]["state__onboarding_ineligible"], 0)
         self.assertEqual(result["counts"]["state__search_blocked"], 0)
 
     def test_learner_cohort_balances_and_excludes_volunteers(self):
         cohort = self._typed_cohort(Profile.TypeChoices.LEARNER)
-        assert_partition_balances_strict(USER_JOURNEY_V5, cohort)
         self.assertFalse(cohort.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER).exists())
         self.assertTrue(cohort.filter(profile__user_type=Profile.TypeChoices.LEARNER).exists())
         result = compute_partition(USER_JOURNEY_V5, cohort)
+        self.assertTrue(result["balanced"], result)
         self.assertEqual(result["baseline_count"], cohort.count())
 
 
@@ -1152,23 +1152,26 @@ class PartitionCohortUserTypeTests(TestCase):
 
 
 class ParseUserTypeInputTests(SimpleTestCase):
-    def test_blank_values_are_unfiltered(self):
-        from management.api.user_advanced_statistics import _parse_user_type_input
+    """``_parse_choice_input`` as used for ``user_type`` — the shared helper's other use
+    (``match_type``) is covered by ``ParseMatchTypeInputTests`` in
+    ``test_match_journey_v5_analytics.py``."""
 
-        self.assertIsNone(_parse_user_type_input(None))
-        self.assertIsNone(_parse_user_type_input(""))
-        self.assertIsNone(_parse_user_type_input("  "))
+    def _parse(self, value):
+        from management.api.user_advanced_statistics import _parse_choice_input
+
+        return _parse_choice_input(value, allowed=Profile.TypeChoices.values, field_name="user_type")
+
+    def test_blank_values_are_unfiltered(self):
+        self.assertIsNone(self._parse(None))
+        self.assertIsNone(self._parse(""))
+        self.assertIsNone(self._parse("  "))
 
     def test_known_types_are_kept(self):
-        from management.api.user_advanced_statistics import _parse_user_type_input
-
-        self.assertEqual(_parse_user_type_input("learner"), Profile.TypeChoices.LEARNER)
-        self.assertEqual(_parse_user_type_input("volunteer"), Profile.TypeChoices.VOLUNTEER)
+        self.assertEqual(self._parse("learner"), Profile.TypeChoices.LEARNER)
+        self.assertEqual(self._parse("volunteer"), Profile.TypeChoices.VOLUNTEER)
 
     def test_unknown_types_are_rejected(self):
-        from management.api.user_advanced_statistics import _parse_user_type_input
-
         with self.assertRaisesRegex(ValueError, "user_type must be"):
-            _parse_user_type_input("staff")
+            self._parse("staff")
         with self.assertRaisesRegex(ValueError, "user_type must be"):
-            _parse_user_type_input(True)
+            self._parse(True)

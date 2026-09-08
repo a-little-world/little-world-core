@@ -55,11 +55,17 @@ class MatchJourneyV5StructureTests(SimpleTestCase):
             [
                 f"match_state__{kind}_{stage}"
                 for kind in ("reported", "unmatched", "account_deleted", "ghosted", "unrecorded")
-                for stage in ("successful", "before_success", "kickoff")
+                for stage in ("before_success", "kickoff")
             ],
         )
         failed = next(phase for phase in MATCH_JOURNEY_V5.phases if phase.id == "failed")
         self.assertNotIn("match_state__failed_reported", [b.list_id for b in failed.buckets])
+
+    def test_inactive_excludes_the_successful_stage(self):
+        """Matches that already succeeded before closing are grouped under Successful."""
+        inactive = next(phase for phase in MATCH_JOURNEY_V5.phases if phase.id == "inactive")
+        for kind in ("reported", "unmatched", "account_deleted", "ghosted", "unrecorded"):
+            self.assertNotIn(f"match_state__{kind}_successful", [b.list_id for b in inactive.buckets])
 
     def test_every_closing_kind_is_a_real_outcome_or_named_as_missing(self):
         """ "Removed" used to absorb ghosting, account deletion and *no record at all*."""
@@ -138,7 +144,7 @@ class MatchJourneyV5StructureTests(SimpleTestCase):
         """The partition and the served filter lists derive from these, not from copies."""
         self.assertEqual(
             [b.list_id for phase in MATCH_JOURNEY_V5.phases if phase.id == "inactive" for b in phase.buckets],
-            [f"match_state__{k}_{s}" for k in state.CLOSING_KINDS for s in state.STAGES],
+            [f"match_state__{k}_{s}" for k in state.CLOSING_KINDS for s in state.STAGES if s != "successful"],
         )
 
     def test_served_list_ids_are_the_catalog(self):
@@ -172,6 +178,11 @@ class MatchJourneyV5StructureTests(SimpleTestCase):
                 "match_state__success_engaged",
                 "match_state__success_dormant",
                 "match_state__success_off_platform",
+                "match_state__reported_successful",
+                "match_state__unmatched_successful",
+                "match_state__account_deleted_successful",
+                "match_state__ghosted_successful",
+                "match_state__unrecorded_successful",
             ],
         )
 
@@ -297,25 +308,29 @@ class MatchPartitionCohortTypeTests(TestCase):
 
 
 class ParseMatchTypeInputTests(SimpleTestCase):
-    def test_blank_values_are_unfiltered(self):
-        from management.api.user_advanced_statistics import _parse_match_type_input
+    """``_parse_choice_input`` as used for ``match_type`` — the shared helper's other use
+    (``user_type``) is covered by ``ParseUserTypeInputTests`` in
+    ``test_user_journey_v5_analytics.py``."""
 
-        self.assertIsNone(_parse_match_type_input(None))
-        self.assertIsNone(_parse_match_type_input(""))
-        self.assertIsNone(_parse_match_type_input("  "))
+    def _parse(self, value):
+        from management.analytics.match_journey.cohorts import JOURNEY_MATCH_TYPES
+        from management.api.user_advanced_statistics import _parse_choice_input
+
+        return _parse_choice_input(value, allowed=JOURNEY_MATCH_TYPES, field_name="match_type")
+
+    def test_blank_values_are_unfiltered(self):
+        self.assertIsNone(self._parse(None))
+        self.assertIsNone(self._parse(""))
+        self.assertIsNone(self._parse("  "))
 
     def test_known_types_are_kept(self):
-        from management.api.user_advanced_statistics import _parse_match_type_input
-
-        self.assertEqual(_parse_match_type_input("standard"), MatchType.STANDARD)
-        self.assertEqual(_parse_match_type_input("random_call"), MatchType.RANDOM_CALL)
+        self.assertEqual(self._parse("standard"), MatchType.STANDARD)
+        self.assertEqual(self._parse("random_call"), MatchType.RANDOM_CALL)
 
     def test_temporary_and_unknown_types_are_rejected(self):
-        from management.api.user_advanced_statistics import _parse_match_type_input
-
         with self.assertRaisesRegex(ValueError, "match_type must be"):
-            _parse_match_type_input("temporary")
+            self._parse("temporary")
         with self.assertRaisesRegex(ValueError, "match_type must be"):
-            _parse_match_type_input("organic")
+            self._parse("organic")
         with self.assertRaisesRegex(ValueError, "match_type must be"):
-            _parse_match_type_input(True)
+            self._parse(True)
