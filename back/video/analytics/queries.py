@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from datetime import timezone as datetime_timezone
 from typing import Literal
 
 from django.db.models import Min, Q
 from django.utils import timezone
+from management.models.profile import Profile
 
 from video.models import (
     LivekitSession,
@@ -21,6 +22,30 @@ from video.models import (
 ProposalCategory = Literal["accepted", "expired", "rejected", "dangling", "pending"]
 
 PROPOSAL_BUCKET_FIELDS = ("accepted", "rejected", "expired", "pending", "dangling")
+
+ProposalPairType = Literal["learner_learner", "learner_volunteer", "other"]
+
+PROPOSAL_PAIR_TYPES: tuple[ProposalPairType, ...] = ("learner_learner", "learner_volunteer", "other")
+
+# Buckets that carry a pair split. The open buckets (pending, dangling) describe proposals
+# nobody has answered yet, where who was paired says nothing about an outcome.
+PAIR_BREAKDOWN_BUCKETS = ("accepted", "rejected", "expired")
+
+
+def classify_proposal_pair(u1_user_type: str | None, u2_user_type: str | None) -> ProposalPairType:
+    """Who a proposal paired, as one of ``PROPOSAL_PAIR_TYPES``.
+
+    Mutually exclusive and exhaustive (§8): "other" absorbs volunteer-volunteer and any
+    profile with no type set. The matcher should not produce either, but a row that
+    matches nothing has to land somewhere visible rather than vanish from the split (§17).
+    """
+    types = {u1_user_type, u2_user_type}
+    if types == {Profile.TypeChoices.LEARNER}:
+        return "learner_learner"
+    if types == {Profile.TypeChoices.LEARNER, Profile.TypeChoices.VOLUNTEER}:
+        return "learner_volunteer"
+    return "other"
+
 
 _TERMINAL_EXPIRED_STATUSES = (
     RandomCallProposalUserStatus.EXPIRED,
@@ -209,8 +234,14 @@ def proposal_bucket_mismatch(
 
 
 def proposal_statistics_from_match_lists(match_proposals: dict[str, list]) -> dict[str, int]:
-    """Live operational counts derived from categorized proposal lists."""
-    return {
+    """Live operational counts derived from categorized proposal lists.
+
+    Each outcome bucket also carries a learner-learner / learner-volunteer / other split,
+    counted from the very same lists as the totals above it. Deriving both from one pass is
+    what stops a breakdown disagreeing with its own headline number, or with the proposal
+    list rendered beneath it (§7).
+    """
+    stats: dict[str, int] = {
         "total_matches": sum(len(matches) for matches in match_proposals.values()),
         "pending_count": len(match_proposals["pending"]),
         "accepted_count": len(match_proposals["accepted"]),
@@ -218,6 +249,16 @@ def proposal_statistics_from_match_lists(match_proposals: dict[str, list]) -> di
         "expired_count": len(match_proposals["expired"]),
         "dangling_count": len(match_proposals["dangling"]),
     }
+
+    for bucket in PAIR_BREAKDOWN_BUCKETS:
+        pair_counts = Counter(
+            classify_proposal_pair(proposal["u1_user_type"], proposal["u2_user_type"])
+            for proposal in match_proposals[bucket]
+        )
+        for pair_type in PROPOSAL_PAIR_TYPES:
+            stats[f"{bucket}_{pair_type}_count"] = pair_counts[pair_type]
+
+    return stats
 
 
 def serialize_proposal_for_api(proposal: RandomCallMatching) -> dict:

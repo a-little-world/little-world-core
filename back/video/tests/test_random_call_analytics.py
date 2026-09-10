@@ -14,11 +14,14 @@ from video.analytics.instance_detail import build_lobby_instance_detail
 from video.analytics.lobbies import annotate_lobby_metrics, apply_lobby_ordering, filtered_lobby_queryset
 from video.analytics.queries import (
     MIN_SUCCESSFUL_CALL_SECONDS,
+    PAIR_BREAKDOWN_BUCKETS,
     PROPOSAL_BUCKET_FIELDS,
+    PROPOSAL_PAIR_TYPES,
     batch_completed_call_durations,
     build_completed_call_durations,
     build_lobby_participants,
     classify_proposal_bucket,
+    classify_proposal_pair,
     compute_user_attendance_breakdown,
     proposal_stale_threshold_for_lobby,
 )
@@ -448,6 +451,96 @@ class RandomCallAnalyticsTests(TestCase):
         stats = detail["proposal_statistics"]
         self.assertEqual(stats["dangling_count"], len(detail["match_proposals"]["dangling"]))
         self.assertEqual(stats["expired_count"], len(detail["match_proposals"]["expired"]))
+
+    def test_proposal_statistics_pair_breakdown(self):
+        """Each outcome bucket splits by pair type, and the split sums back to the bucket."""
+        learner_a = self._create_user("pair_learner_a", Profile.TypeChoices.LEARNER)
+        learner_b = self._create_user("pair_learner_b", Profile.TypeChoices.LEARNER)
+        learner_c = self._create_user("pair_learner_c", Profile.TypeChoices.LEARNER)
+        volunteer_a = self._create_user("pair_volunteer_a", Profile.TypeChoices.VOLUNTEER)
+        volunteer_b = self._create_user("pair_volunteer_b", Profile.TypeChoices.VOLUNTEER)
+
+        lobby = self._create_lobby(
+            start_time=timezone.now() - timezone.timedelta(days=3),
+            end_time=timezone.now() - timezone.timedelta(days=3) + timezone.timedelta(hours=2),
+        )
+        for user in (learner_a, learner_b, learner_c, volunteer_a, volunteer_b):
+            RandomCallLobbyUser.objects.create(user=user, lobby=lobby, is_active=False)
+
+        # Accepted: one of each pairing.
+        RandomCallMatching.objects.create(lobby=lobby, u1=learner_a, u2=volunteer_a, accepted=True, completed=True)
+        RandomCallMatching.objects.create(lobby=lobby, u1=learner_b, u2=learner_c, accepted=True, completed=True)
+        # Rejected: two learner-learner, one learner-volunteer. `rejected_at` is required —
+        # the rejected bucket ignores a bare `rejected=True` with no timestamp, so a fixture
+        # without it lands in pending and tests nothing.
+        for u1, u2 in ((learner_a, learner_b), (learner_b, learner_c), (learner_c, volunteer_b)):
+            RandomCallMatching.objects.create(
+                lobby=lobby,
+                u1=u1,
+                u2=u2,
+                rejected=True,
+                rejected_at=lobby.start_time + timezone.timedelta(minutes=5),
+            )
+        # Expired: a volunteer-volunteer pair the matcher should never make, which must
+        # still land somewhere rather than disappear from the split (§17).
+        RandomCallMatching.objects.create(lobby=lobby, u1=volunteer_a, u2=volunteer_b, expired=True, rejected=True)
+
+        stats = build_lobby_instance_detail(lobby)["proposal_statistics"]
+
+        self.assertEqual(stats["accepted_learner_volunteer_count"], 1)
+        self.assertEqual(stats["accepted_learner_learner_count"], 1)
+        self.assertEqual(stats["accepted_other_count"], 0)
+
+        self.assertEqual(stats["rejected_learner_learner_count"], 2)
+        self.assertEqual(stats["rejected_learner_volunteer_count"], 1)
+        self.assertEqual(stats["rejected_other_count"], 0)
+
+        self.assertEqual(stats["expired_other_count"], 1)
+        self.assertEqual(stats["expired_learner_learner_count"], 0)
+        self.assertEqual(stats["expired_learner_volunteer_count"], 0)
+
+        # Exhaustive and mutually exclusive: every bucket's split reconciles with the
+        # headline the card shows above it (§6, §8).
+        for bucket in PAIR_BREAKDOWN_BUCKETS:
+            self.assertEqual(
+                sum(stats[f"{bucket}_{pair_type}_count"] for pair_type in PROPOSAL_PAIR_TYPES),
+                stats[f"{bucket}_count"],
+                bucket,
+            )
+
+    def test_proposal_pair_breakdown_follows_bucket_classification(self):
+        """A completed-but-never-accepted proposal is expired, so its pair counts there."""
+        learner = self._create_user("pairbucket_learner", Profile.TypeChoices.LEARNER)
+        volunteer = self._create_user("pairbucket_volunteer", Profile.TypeChoices.VOLUNTEER)
+        lobby = self._create_lobby(
+            start_time=timezone.now() - timezone.timedelta(days=3),
+            end_time=timezone.now() - timezone.timedelta(days=3) + timezone.timedelta(hours=2),
+        )
+        for user in (learner, volunteer):
+            RandomCallLobbyUser.objects.create(user=user, lobby=lobby, is_active=False)
+        RandomCallMatching.objects.create(lobby=lobby, u1=learner, u2=volunteer, accepted=False, completed=True)
+
+        detail = build_lobby_instance_detail(lobby)
+        stats = detail["proposal_statistics"]
+
+        self.assertEqual(stats["accepted_count"], 0)
+        self.assertEqual(stats["accepted_learner_volunteer_count"], 0)
+        self.assertEqual(stats["expired_count"], 1)
+        self.assertEqual(stats["expired_learner_volunteer_count"], 1)
+        # The split is counted off the same lists the page renders beneath the cards (§7).
+        self.assertEqual(stats["expired_count"], len(detail["match_proposals"]["expired"]))
+
+    def test_classify_proposal_pair_covers_every_combination(self):
+        learner = Profile.TypeChoices.LEARNER
+        volunteer = Profile.TypeChoices.VOLUNTEER
+
+        self.assertEqual(classify_proposal_pair(learner, learner), "learner_learner")
+        self.assertEqual(classify_proposal_pair(learner, volunteer), "learner_volunteer")
+        self.assertEqual(classify_proposal_pair(volunteer, learner), "learner_volunteer")
+        self.assertEqual(classify_proposal_pair(volunteer, volunteer), "other")
+        # An unset user_type has to land somewhere, not raise or vanish.
+        self.assertEqual(classify_proposal_pair(learner, None), "other")
+        self.assertEqual(classify_proposal_pair(None, None), "other")
 
     def test_completed_call_duration_scoped_to_lobby_and_proposal(self):
         learner = self._create_user("duration_learner")

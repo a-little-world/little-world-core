@@ -8,14 +8,13 @@ session she attended, which is attendance, not people.
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
 from uuid import UUID
 
-from management.models.profile import Profile
-
 from video.analytics.queries import (
     batch_completed_call_durations,
+    classify_proposal_pair,
     is_successful_call,
     rejected_proposal_bucket_q,
 )
@@ -57,29 +56,20 @@ def _rejected_pair_breakdown(lobby_ids: list[int]) -> tuple[int, int, int, int]:
     """(total, learner-learner, learner-volunteer, other) over the canonical rejected bucket.
 
     Uses ``rejected_proposal_bucket_q`` so the total reconciles with the
-    ``proposals_rejected`` column on every row in the same response (§6). "Other" covers
-    volunteer-volunteer and any profile whose type is unset — the matcher should not
-    produce those, and a bucket that is permanently zero is still worth showing rather
-    than letting an unclassified row vanish from the split (§17).
+    ``proposals_rejected`` column on every row in the same response (§6), and
+    ``classify_proposal_pair`` so the split means the same thing here as it does in the
+    per-lobby proposal statistics.
     """
-    learner_learner = 0
-    learner_volunteer = 0
-    other = 0
-
     rows = (
         RandomCallMatching.objects.filter(lobby_id__in=lobby_ids)
         .filter(rejected_proposal_bucket_q())
         .values_list("u1__profile__user_type", "u2__profile__user_type")
     )
-    for u1_type, u2_type in rows:
-        types = {u1_type, u2_type}
-        if types == {Profile.TypeChoices.LEARNER}:
-            learner_learner += 1
-        elif types == {Profile.TypeChoices.LEARNER, Profile.TypeChoices.VOLUNTEER}:
-            learner_volunteer += 1
-        else:
-            other += 1
+    counts = Counter(classify_proposal_pair(u1_type, u2_type) for u1_type, u2_type in rows)
 
+    learner_learner = counts["learner_learner"]
+    learner_volunteer = counts["learner_volunteer"]
+    other = counts["other"]
     return learner_learner + learner_volunteer + other, learner_learner, learner_volunteer, other
 
 
