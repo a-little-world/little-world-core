@@ -335,6 +335,9 @@ jobs:
             .ingress.host = "$STAGING_HOST"
             .registryAuth.token = "$GH_CR_AUTH"
             .registryAuth.use = true
+            .backend.celery.workerConcurrency = "1"
+            .backend.resources.requests.memory = "256Mi"
+            .backend.resources.limits.memory = "1Gi"
             .backend.env.REDIS_URL = "${{ steps.setup_emperial_env.outputs.REDIS_URL }}"
             .backend.env.DJ_REDIS_HOST = "${{ steps.setup_emperial_env.outputs.DJ_REDIS_HOST }}"
             .backend.env.DJ_REDIS_PORT = "${{ steps.setup_emperial_env.outputs.DJ_REDIS_PORT }}"

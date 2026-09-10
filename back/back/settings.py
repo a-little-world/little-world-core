@@ -632,6 +632,15 @@ CELERY_RESULT_EXTENDED = True
 CELERY_ENABLE_UTC = True
 
 """
+Worker concurrency: number of prefork child processes per celery worker.
+Defaults to the CPU count when unset. Ephemeral/test deployments should set
+DJ_CELERY_WORKER_CONCURRENCY (e.g. "1") to keep memory overhead low.
+"""
+_celery_worker_concurrency = os.environ.get("DJ_CELERY_WORKER_CONCURRENCY", "").strip()
+if _celery_worker_concurrency:
+    CELERY_WORKER_CONCURRENCY = int(_celery_worker_concurrency)
+
+"""
 django-rest-password reset config:
 Password reset tokens are only valid for 1h!
 This will nicely show all active tokens

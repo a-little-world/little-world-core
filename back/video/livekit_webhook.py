@@ -9,7 +9,6 @@ from django.urls import path
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from management.models.matches import Match
-from management.models.survey import QUALIFYING_CALL_MAX_DURATION
 from management.models.user import PushNotificationType, User
 from management.surveys import offer_post_call_survey
 from management.tasks import push_notification_background
@@ -190,6 +189,24 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
                 except Exception:
                     print("Cound't send call widged to first_active_user")
 
+                # Offer the post-call survey to *both* participants. Creating the rows is
+                # the whole job — each client's next poll of /api/surveys/pending finds
+                # them, so the survey does not depend on anyone holding an open WebSocket.
+                #
+                # Deliberately here rather than per `participant_left` event. `end_time` is
+                # assigned in this branch, and `offer_post_call_survey` returns early while
+                # it is still None — so the first person to leave was silently skipped and
+                # only the last one was ever asked. No error, no row, half the answers.
+                for participant in (session.u1, session.u2):
+                    try:
+                        offer_post_call_survey(participant, session)
+                    except Exception:
+                        logger.exception(
+                            "Could not offer the post call survey to user %s for session %s",
+                            participant.pk,
+                            session.uuid,
+                        )
+
             else:
                 # 2 - send 'MissedCall' event to the partner of the user that left
                 # check which user endered the call first
@@ -209,16 +226,6 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
                     )
                 except Exception:
                     print("Cound't send call widged to first_active_user")
-
-        # Offer the post-call survey to the user who just left. Creating the offer is the
-        # whole job — the client's next poll of /api/surveys/pending finds it, so the survey
-        # no longer depends on the user holding an open WebSocket at this exact moment.
-        call_duration = end_time - session.created_at
-        if session.both_have_been_active and call_duration < QUALIFYING_CALL_MAX_DURATION:
-            try:
-                offer_post_call_survey(user, session)
-            except Exception:
-                logger.exception("Could not offer the post call survey for session %s", session.uuid)
 
     if session is not None:
         session.webhook_events.add(event)
