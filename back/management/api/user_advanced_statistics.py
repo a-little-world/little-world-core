@@ -1778,7 +1778,7 @@ def kpi_dashboard_statistics_searching_users(request):
         first_search_learners,
         first_search_volunteers,
         get_user_involved,
-        user_searching_again,
+        user_searching,
     )
 
     pre_filtered_users = User.objects.all()
@@ -1791,7 +1791,7 @@ def kpi_dashboard_statistics_searching_users(request):
     first_search_learners = first_search_learners(pre_filtered_users).count()
 
     users_with_proposals = get_user_involved(matching_proposals(), pre_filtered_users)
-    searching_again = user_searching_again(pre_filtered_users).exclude(id__in=users_with_proposals)
+    searching_again = user_searching(pre_filtered_users).exclude(id__in=users_with_proposals)
     searching_again_volunteers = searching_again.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER).count()
     searching_again_learners = searching_again.filter(profile__user_type=Profile.TypeChoices.LEARNER).count()
 
