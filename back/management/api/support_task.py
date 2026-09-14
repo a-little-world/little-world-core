@@ -222,7 +222,7 @@ def support_task_list(request):
         tasks = tasks.order_by(f"{order_prefix}{sort_by}")
 
     paginator = DetailedPagination()
-    page_data = paginator.paginate_queryset(tasks.distinct(), request)
+    page_data = paginator.paginate_queryset(tasks, request)
     return paginator.get_paginated_response(SupportTaskListSerializer(page_data, many=True).data)
 
 
