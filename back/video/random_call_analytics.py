@@ -1,4 +1,7 @@
+from datetime import datetime, timedelta
+
 from django.urls import path
+from django.utils import timezone
 from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import DetailedPagination
@@ -18,15 +21,39 @@ from video.analytics.lobbies import (
     filtered_lobby_queryset,
 )
 from video.analytics.snapshots import build_snapshots, lobby_instance_snapshot_to_dict
+from video.analytics.totals import build_lobby_range_totals, lobby_range_totals_to_dict
 from video.lobby_resolution import InvalidLobbyUuid, resolve_lobby_instance
+
+# Bounds the unpaginated trends response. The FE asks for 90 days; a year is the widest
+# useful comparison and keeps an omitted or absurd range from returning every lobby ever.
+MAX_TRENDS_RANGE_DAYS = 366
+
+
+def clamp_trends_range(
+    from_dt: datetime | None,
+    to_dt: datetime | None,
+    *,
+    as_of: datetime,
+) -> tuple[datetime, datetime | None]:
+    """Bound the (open-ended) trends window to ``MAX_TRENDS_RANGE_DAYS``, anchored on its end."""
+    end = to_dt or as_of
+    earliest = end - timedelta(days=MAX_TRENDS_RANGE_DAYS)
+    if from_dt is None or from_dt < earliest:
+        return earliest, to_dt
+    return from_dt, to_dt
 
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAdminOrMatchingUser])
 def list_lobby_stats(request):
-    """Paginated lobby instance snapshots."""
-    lobby_name = request.query_params.get("lobby_name", "default")
+    """Paginated lobby instance snapshots.
+
+    Filters: ``lobby_name`` (unfiltered when absent), ``from``/``to`` — lobbies whose
+    ``start_time`` falls within the range — and ``ordering`` from the allow-list.
+    """
+    as_of = timezone.now()
+    lobby_name = request.query_params.get("lobby_name")
     from_dt = parse_analytics_datetime_bound(request.query_params.get("from"))
     to_dt = parse_analytics_datetime_bound(request.query_params.get("to"), end_of_day=True)
     ordering = request.query_params.get("ordering")
@@ -43,9 +70,48 @@ def list_lobby_stats(request):
     if page is None:
         return Response({"count": 0, "next": None, "previous": None, "results": []})
 
-    snapshots = build_snapshots(page)
+    snapshots = build_snapshots(page, as_of=as_of)
     results = [lobby_instance_snapshot_to_dict(snapshots[lobby.uuid]) for lobby in page if lobby.uuid in snapshots]
     return paginator.get_paginated_response(results)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAdminOrMatchingUser])
+def list_lobby_trends(request):
+    """Chronological lobby instance snapshots for trend charts.
+
+    Unpaginated by design — a trend line needs every point in the range at once.
+    ``{"count": int, "results": [snapshot, ...], "totals": {...}}``, where ``results``
+    carries the same snapshot shape as ``list_lobby_stats``, ordered oldest first, and
+    ``totals`` aggregates the whole range (see ``LobbyRangeTotals``).
+
+    Filters: ``lobby_name`` (unfiltered when absent) and ``from``/``to`` — lobbies whose
+    ``start_time`` falls within the range, capped at ``MAX_TRENDS_RANGE_DAYS``.
+    """
+    as_of = timezone.now()
+    lobby_name = request.query_params.get("lobby_name")
+    from_dt = parse_analytics_datetime_bound(request.query_params.get("from"))
+    to_dt = parse_analytics_datetime_bound(request.query_params.get("to"), end_of_day=True)
+
+    from_dt, to_dt = clamp_trends_range(from_dt, to_dt, as_of=as_of)
+
+    qs = filtered_lobby_queryset(lobby_name=lobby_name, from_dt=from_dt, to_dt=to_dt)
+    qs = annotate_lobby_metrics(qs)
+    qs = apply_lobby_ordering(qs, "start_time")
+
+    lobbies = list(qs)
+    snapshots = build_snapshots(lobbies, as_of=as_of)
+    results = [lobby_instance_snapshot_to_dict(snapshots[lobby.uuid]) for lobby in lobbies if lobby.uuid in snapshots]
+    totals = build_lobby_range_totals(lobbies, snapshots=snapshots)
+    return Response(
+        {
+            "count": len(results),
+            "results": results,
+            "totals": lobby_range_totals_to_dict(totals),
+        },
+        status=200,
+    )
 
 
 @api_view(["GET"])
@@ -74,6 +140,10 @@ api_urls = [
     path(
         "api/random_calls/analytics/lobbies",
         list_lobby_stats,
+    ),
+    path(
+        "api/random_calls/analytics/lobbies/trends",
+        list_lobby_trends,
     ),
     path(
         "api/random_calls/analytics/lobby/<str:lobby_name>/instance",
