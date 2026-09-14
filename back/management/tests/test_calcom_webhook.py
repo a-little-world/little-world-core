@@ -7,6 +7,7 @@ from management.api.calcom import (
     _extract_attendee_nested_response,
     _extract_query_param_from_url,
     _extract_user_field_value,
+    _triggering_identity,
 )
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.profile import Profile
@@ -71,6 +72,61 @@ class TestCalcomFieldExtraction(TestCase):
         }
         self.assertEqual(_extract_attendee_nested_response(payload, "bookingcode"), "booking-123")
 
+    def test_seated_event_does_not_inherit_top_level_uuid_and_bookingcode_for_new_seat(self):
+        # Top-level email correctly tracks the new seat's booker, but uuid/bookingcode are
+        # still the original booker's (the exact shape that hid learner bookings). With more
+        # than one attendee, the new seat's own (missing) uuid/bookingcode must not be
+        # backfilled from the top level.
+        payload = {
+            "responses": {
+                "email": {"value": "new-seat@example.com"},
+                "uuid": {"value": "original-booker-uuid"},
+                "bookingcode": {"value": "original-booker-code"},
+            },
+            "attendees": [
+                {
+                    "email": "original-booker@example.com",
+                    "bookingSeat": {
+                        "data": {
+                            "responses": {
+                                "email": "original-booker@example.com",
+                                "uuid": "original-booker-uuid",
+                                "bookingcode": "original-booker-code",
+                            }
+                        }
+                    },
+                },
+                {
+                    "email": "new-seat@example.com",
+                    "bookingSeat": {"data": {"responses": {"email": "new-seat@example.com"}}},
+                },
+            ],
+        }
+
+        identity, _ = _triggering_identity(payload)
+
+        self.assertEqual(identity["email"], "new-seat@example.com")
+        self.assertIsNone(identity["uuid"])
+        self.assertIsNone(identity["bookingcode"])
+
+    def test_single_attendee_booking_still_inherits_top_level_uuid_and_bookingcode(self):
+        # A normal, non-seated booking has exactly one attendee and no bookingSeat data of its
+        # own — the top-level custom fields are the only place uuid/bookingcode live.
+        payload = {
+            "responses": {
+                "email": {"value": "solo@example.com"},
+                "uuid": {"value": "solo-uuid"},
+                "bookingcode": {"value": "solo-code"},
+            },
+            "attendees": [{"email": "solo@example.com"}],
+        }
+
+        identity, _ = _triggering_identity(payload)
+
+        self.assertEqual(identity["email"], "solo@example.com")
+        self.assertEqual(identity["uuid"], "solo-uuid")
+        self.assertEqual(identity["bookingcode"], "solo-code")
+
 
 @override_settings(DJ_CALCOM_QUERY_ACCESS_PARAM="test-secret")
 class TestCalcomWebhookCallback(TestCase):
@@ -79,9 +135,9 @@ class TestCalcomWebhookCallback(TestCase):
         self.push_patch = patch("management.api.calcom.onboarding_call_reminder_push_notification")
         self.sms_patch = patch("management.api.calcom.send_sms_background")
         self.ws_patch = patch("chat.consumers.messages.PreMatchingAppointmentBooked")
-        self.message_patch.start()
-        self.push_patch.start()
-        self.sms_patch.start()
+        self.mock_message = self.message_patch.start()
+        self.mock_push = self.push_patch.start()
+        self.mock_sms = self.sms_patch.start()
         self.ws_patch.start()
         self.addCleanup(self.message_patch.stop)
         self.addCleanup(self.push_patch.stop)
@@ -218,3 +274,78 @@ class TestCalcomWebhookCallback(TestCase):
         self.assertEqual(response.status_code, 200)
         appointment = PreMatchingAppointment.objects.get(user=learner)
         self.assertEqual(appointment.start_time.hour, 17)
+
+    def test_later_seat_booking_does_not_reschedule_reminders_for_unchanged_attendee(self):
+        # A group slot's second seat booking re-sends the first attendee too. Their own slot
+        # hasn't moved, so their reminder tasks must not be rescheduled again.
+        first = self._create_user("first@example.com", Profile.TypeChoices.VOLUNTEER, "First")
+        second = self._create_user("second@example.com", Profile.TypeChoices.LEARNER, "Second")
+
+        first_payload = _booking_payload(
+            responses={"email": {"value": "first@example.com"}},
+            attendees=[{"email": "first@example.com"}],
+        )
+        response = self._post({"triggerEvent": "BOOKING_CREATED", "payload": first_payload})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.mock_push.apply_async.call_count, 1)
+
+        second_payload = _booking_payload(
+            responses={"email": {"value": "second@example.com"}},
+            attendees=[{"email": "first@example.com"}, {"email": "second@example.com"}],
+        )
+        response = self._post({"triggerEvent": "BOOKING_CREATED", "payload": second_payload})
+        self.assertEqual(response.status_code, 200)
+
+        # Only the new seat's reminder was scheduled; the first attendee's was left alone.
+        self.assertEqual(self.mock_push.apply_async.call_count, 2)
+        scheduled_user_pks = {call.args[0][0] for call in self.mock_push.apply_async.call_args_list}
+        self.assertEqual(scheduled_user_pks, {first.pk, second.pk})
+        self.assertTrue(PreMatchingAppointment.objects.filter(user=first).exists())
+        self.assertTrue(PreMatchingAppointment.objects.filter(user=second).exists())
+
+    def test_rebook_still_reschedules_reminder_for_same_user(self):
+        # A genuine rebook (the same user, new time) must still reschedule reminders.
+        user = self._create_user("rebooker@example.com", Profile.TypeChoices.LEARNER, "Rebooker")
+
+        payload = _booking_payload(
+            responses={"email": {"value": "rebooker@example.com"}},
+            attendees=[{"email": "rebooker@example.com"}],
+        )
+        self._post({"triggerEvent": "BOOKING_CREATED", "payload": payload})
+        self.assertEqual(self.mock_push.apply_async.call_count, 1)
+
+        rebooked_payload = _booking_payload(
+            start_time="2026-09-04T15:00:00Z",
+            end_time="2026-09-04T16:00:00Z",
+            responses={"email": {"value": "rebooker@example.com"}},
+            attendees=[{"email": "rebooker@example.com"}],
+        )
+        self._post({"triggerEvent": "BOOKING_CREATED", "payload": rebooked_payload})
+
+        self.assertEqual(self.mock_push.apply_async.call_count, 2)
+        appointment = PreMatchingAppointment.objects.get(user=user)
+        self.assertEqual(appointment.start_time.isoformat(), "2026-09-04T15:00:00+00:00")
+
+    def test_notifies_resolved_attendee_when_triggering_identity_fails_to_resolve(self):
+        # The merged/top-level identity can end up pointing at nobody (a stale uuid discarded
+        # by the cross-check, an unmatched top-level email) while an attendee's own identity
+        # still resolves cleanly. That attendee should still get the booked confirmation.
+        real_user = self._create_user("realuser@example.com", Profile.TypeChoices.LEARNER, "Real")
+
+        payload = {
+            "startTime": "2026-09-03T15:00:00Z",
+            "endTime": "2026-09-03T16:00:00Z",
+            "responses": {
+                "email": {"value": "ghost@example.com"},
+                "bookingcode": {"value": "bogus-code"},
+            },
+            "attendees": [
+                {"bookingSeat": {"data": {"responses": {"uuid": str(real_user.uuid)}}}},
+            ],
+        }
+
+        response = self._post({"triggerEvent": "BOOKING_CREATED", "payload": payload})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(PreMatchingAppointment.objects.filter(user=real_user).exists())
+        self.mock_message.assert_called_once()

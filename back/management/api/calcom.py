@@ -203,16 +203,26 @@ def _top_level_identity(payload):
     }
 
 
-def _merge_booker_identity(top, attendee):
-    """Prefer the seat's own fields. Top-level uuid/bookingcode often belong to the first booker."""
+def _merge_booker_identity(top, attendee, *, single_attendee):
+    """Prefer the seat's own fields.
+
+    Top-level uuid/bookingcode reliably describe the sole attendee on a normal
+    (non-seated) booking. On a seated event Cal.com's top-level email does track
+    whichever seat's confirmation triggered this webhook, but uuid/bookingcode
+    usually still belong to whoever created the booking originally — so
+    "top_email matches this attendee's email" is not, by itself, proof that the
+    top-level uuid/bookingcode are this attendee's. Only trust them when there
+    was exactly one attendee to begin with.
+    """
     attendee = attendee or {}
     attendee_email = attendee.get("email")
     top_email = top.get("email")
     emails_match = not attendee_email or not top_email or attendee_email.lower() == top_email.lower()
+    trust_top_identity = single_attendee and emails_match
     return {
         "email": attendee_email or top_email,
-        "uuid": attendee.get("uuid") or (top.get("uuid") if emails_match else None),
-        "bookingcode": attendee.get("bookingcode") or (top.get("bookingcode") if emails_match else None),
+        "uuid": attendee.get("uuid") or (top.get("uuid") if trust_top_identity else None),
+        "bookingcode": attendee.get("bookingcode") or (top.get("bookingcode") if trust_top_identity else None),
     }
 
 
@@ -236,7 +246,8 @@ def _triggering_identity(payload):
     if chosen is None and attendee_idents:
         # Cal.com appends the new seat; attendees[0] is the original booker.
         chosen = attendee_idents[-1]
-    return _merge_booker_identity(top, chosen), attendee_idents
+    identity = _merge_booker_identity(top, chosen, single_attendee=len(attendee_idents) <= 1)
+    return identity, attendee_idents
 
 
 def _emails_match(left, right):
@@ -272,21 +283,29 @@ def _upsert_prematching_appointment(user, start_time_parsed, end_time_parsed, *,
     created = appointment is None
     if appointment is None:
         appointment = PreMatchingAppointment(user=user, start_time=start_time_parsed, end_time=end_time_parsed)
+        needs_reschedule = True
     else:
+        needs_reschedule = appointment.start_time != start_time_parsed or appointment.end_time != end_time_parsed
         appointment.end_time = end_time_parsed
         appointment.start_time = start_time_parsed
-        end_task(task_id=appointment.sms_task)
 
-    if user.profile.notify_channel == "sms" and user.profile.phone_mobile != "":
-        async_result = send_sms_background.apply_async(
-            (str(user.uuid), get_translation("sms.onboarding_in_1h", lang="de").format(first_name=user.first_name)),
+    # A seated event re-sends every attendee on each new seat booking, so this can run for
+    # the same user/slot many times over. Only touch their reminder tasks when the slot
+    # actually changed for them — otherwise a busy group call schedules a growing pile of
+    # duplicate SMS/push reminders for people whose booking never moved.
+    if needs_reschedule:
+        if appointment.sms_task:
+            end_task(task_id=appointment.sms_task)
+        if user.profile.notify_channel == "sms" and user.profile.phone_mobile != "":
+            async_result = send_sms_background.apply_async(
+                (str(user.uuid), get_translation("sms.onboarding_in_1h", lang="de").format(first_name=user.first_name)),
+                eta=start_time_parsed - timedelta(hours=1),
+            )
+            appointment.sms_task = async_result.id
+        onboarding_call_reminder_push_notification.apply_async(
+            (user.pk,),
             eta=start_time_parsed - timedelta(hours=1),
         )
-        appointment.sms_task = async_result.id
-    onboarding_call_reminder_push_notification.apply_async(
-        (user.pk,),
-        eta=start_time_parsed - timedelta(hours=1),
-    )
     appointment.save()
 
     if notify:
@@ -356,14 +375,22 @@ def callcom_websocket_callback(request):
 
     # Seated events include every attendee. Create a row for each person we can resolve
     # so a later seat booking backfills anyone whose own webhook was dropped.
+    resolved_attendee_users = []
     for ident in attendee_idents:
         attendee_user = _resolve_user(
             user_uuid=ident.get("uuid"),
             user_email=ident.get("email"),
             booking_code=ident.get("bookingcode"),
         )
-        if attendee_user is not None and attendee_user not in users_to_upsert:
-            users_to_upsert.append(attendee_user)
+        if attendee_user is not None:
+            resolved_attendee_users.append(attendee_user)
+            if attendee_user not in users_to_upsert:
+                users_to_upsert.append(attendee_user)
+
+    # Normally the triggering identity resolves to a real account and is the one we notify.
+    # If it doesn't (e.g. its merged fields didn't match anyone) but an attendee did resolve,
+    # notify the most-recently-listed attendee instead of leaving the actual booker unnotified.
+    notify_target = triggering_user or (resolved_attendee_users[-1] if resolved_attendee_users else None)
 
     if not users_to_upsert:
         print(
@@ -397,7 +424,7 @@ def callcom_websocket_callback(request):
             user,
             start_time_parsed,
             end_time_parsed,
-            notify=user == triggering_user,
+            notify=user == notify_target,
             start_time_normalized=start_time_normalized,
         )
 
