@@ -65,9 +65,10 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.response import Response
 from translations import get_translation
 
-from management.controller import UserNotFoundErr, get_user_by_email, get_user_by_uuid
+from management.controller import UserNotFoundErr, get_user_by_uuid
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.state import State
+from management.models.user import User
 from management.tasks import onboarding_call_reminder_push_notification, send_sms_background
 
 
@@ -88,32 +89,46 @@ def translate_to_german_date(date_str, target_timezone="Europe/Berlin"):
     return german_date_string
 
 
+def _normalize_response_value(value):
+    """Cal.com sends custom fields as `{value: ...}` objects or as raw strings (seated events)."""
+    if value is None or value is False:
+        return None
+    if isinstance(value, dict):
+        return _normalize_response_value(value.get("value"))
+    if isinstance(value, str):
+        stripped = value.strip()
+        return stripped or None
+    if isinstance(value, (int, float)):
+        return str(value)
+    return None
+
+
 def _extract_user_field_value(payload, field_name):
     user_fields_responses = payload.get("userFieldsResponses", {}) or {}
     if isinstance(user_fields_responses, dict):
-        value = user_fields_responses.get(field_name, {}).get("value")
+        value = _normalize_response_value(user_fields_responses.get(field_name))
         if value:
             return value
 
     responses = payload.get("responses", {}) or {}
     if isinstance(responses, dict):
-        value = responses.get(field_name, {}).get("value")
+        value = _normalize_response_value(responses.get(field_name))
         if value:
             return value
 
     custom_inputs = payload.get("customInputs", {}) or {}
     if isinstance(custom_inputs, dict):
-        value = custom_inputs.get(field_name)
+        value = _normalize_response_value(custom_inputs.get(field_name))
         if value:
             return value
 
     metadata = payload.get("metadata", {}) or {}
     if isinstance(metadata, dict):
-        value = metadata.get(field_name)
+        value = _normalize_response_value(metadata.get(field_name))
         if value:
             return value
 
-    value = payload.get(field_name)
+    value = _normalize_response_value(payload.get(field_name))
     if value:
         return value
 
@@ -128,26 +143,185 @@ def _extract_query_param_from_url(url, field_name):
     return values[0] if values else None
 
 
+def _attendee_seat_responses(attendee):
+    if not isinstance(attendee, dict):
+        return {}
+    booking_seat = attendee.get("bookingSeat", {}) or {}
+    if not isinstance(booking_seat, dict):
+        return {}
+    data = booking_seat.get("data", {}) or {}
+    if not isinstance(data, dict):
+        return {}
+    responses = data.get("responses", {}) or {}
+    return responses if isinstance(responses, dict) else {}
+
+
 def _extract_attendee_nested_response(payload, field_name):
     attendees = payload.get("attendees", []) or []
     if not isinstance(attendees, list):
         return None
     for attendee in attendees:
-        if not isinstance(attendee, dict):
-            continue
-        booking_seat = attendee.get("bookingSeat", {}) or {}
-        if not isinstance(booking_seat, dict):
-            continue
-        data = booking_seat.get("data", {}) or {}
-        if not isinstance(data, dict):
-            continue
-        responses = data.get("responses", {}) or {}
-        if not isinstance(responses, dict):
-            continue
-        value = responses.get(field_name)
+        value = _normalize_response_value(_attendee_seat_responses(attendee).get(field_name))
         if value:
             return value
     return None
+
+
+def _identity_from_attendee(attendee):
+    if not isinstance(attendee, dict):
+        return None
+    responses = _attendee_seat_responses(attendee)
+    email = _normalize_response_value(responses.get("email")) or attendee.get("email")
+    return {
+        "email": _normalize_response_value(email) if email else None,
+        "uuid": _normalize_response_value(responses.get("uuid")) or _normalize_response_value(responses.get("hash")),
+        "bookingcode": _normalize_response_value(responses.get("bookingcode")),
+    }
+
+
+def _top_level_identity(payload):
+    user_uuid = _extract_user_field_value(payload, "uuid") or _extract_user_field_value(payload, "hash")
+    booking_code = _extract_user_field_value(payload, "bookingcode")
+    if not user_uuid:
+        for url_field_name in ("bookerUrl", "bookingUrl", "rescheduleUrl", "cancelUrl"):
+            url_value = payload.get(url_field_name)
+            user_uuid = _extract_query_param_from_url(url_value, "uuid") or _extract_query_param_from_url(
+                url_value, "hash"
+            )
+            if user_uuid:
+                break
+    if not booking_code:
+        for url_field_name in ("bookerUrl", "bookingUrl", "rescheduleUrl", "cancelUrl"):
+            url_value = payload.get(url_field_name)
+            booking_code = _extract_query_param_from_url(url_value, "bookingcode")
+            if booking_code:
+                break
+    return {
+        "email": _extract_user_field_value(payload, "email"),
+        "uuid": user_uuid,
+        "bookingcode": booking_code,
+    }
+
+
+def _merge_booker_identity(top, attendee, *, single_attendee):
+    """Prefer the seat's own fields.
+
+    Top-level uuid/bookingcode reliably describe the sole attendee on a normal
+    (non-seated) booking. On a seated event Cal.com's top-level email does track
+    whichever seat's confirmation triggered this webhook, but uuid/bookingcode
+    usually still belong to whoever created the booking originally — so
+    "top_email matches this attendee's email" is not, by itself, proof that the
+    top-level uuid/bookingcode are this attendee's. Only trust them when there
+    was exactly one attendee to begin with.
+    """
+    attendee = attendee or {}
+    attendee_email = attendee.get("email")
+    top_email = top.get("email")
+    emails_match = not attendee_email or not top_email or attendee_email.lower() == top_email.lower()
+    trust_top_identity = single_attendee and emails_match
+    return {
+        "email": attendee_email or top_email,
+        "uuid": attendee.get("uuid") or (top.get("uuid") if trust_top_identity else None),
+        "bookingcode": attendee.get("bookingcode") or (top.get("bookingcode") if trust_top_identity else None),
+    }
+
+
+def _triggering_identity(payload):
+    top = _top_level_identity(payload)
+    attendees = payload.get("attendees", []) or []
+    attendee_idents = []
+    if isinstance(attendees, list):
+        for attendee in attendees:
+            ident = _identity_from_attendee(attendee)
+            if ident and (ident.get("email") or ident.get("uuid") or ident.get("bookingcode")):
+                attendee_idents.append(ident)
+
+    booker_email = (top.get("email") or "").lower()
+    chosen = None
+    if booker_email:
+        for ident in reversed(attendee_idents):
+            if (ident.get("email") or "").lower() == booker_email:
+                chosen = ident
+                break
+    if chosen is None and attendee_idents:
+        # Cal.com appends the new seat; attendees[0] is the original booker.
+        chosen = attendee_idents[-1]
+    identity = _merge_booker_identity(top, chosen, single_attendee=len(attendee_idents) <= 1)
+    return identity, attendee_idents
+
+
+def _emails_match(left, right):
+    if not left or not right:
+        return False
+    return str(left).strip().lower() == str(right).strip().lower()
+
+
+def _resolve_user(user_uuid=None, user_email=None, booking_code=None):
+    user = None
+    if user_uuid:
+        try:
+            user = get_user_by_uuid(user_uuid)
+        except (ValueError, LookupError, UserNotFoundErr):
+            user = None
+        if user is not None and user_email and not _emails_match(user.email, user_email):
+            print(
+                "CALCOM: uuid does not match booker email, ignoring uuid",
+                {"user_uuid": str(user.uuid), "user_email": user_email, "account_email": user.email},
+            )
+            user = None
+    if user is None and user_email:
+        user = User.objects.filter(email__iexact=str(user_email).strip()).first()
+    if user is None and booking_code:
+        user_state = State.objects.select_related("user").filter(prematch_booking_code=str(booking_code)).first()
+        if user_state is not None:
+            user = user_state.user
+    return user
+
+
+def _upsert_prematching_appointment(user, start_time_parsed, end_time_parsed, *, notify, start_time_normalized):
+    appointment = PreMatchingAppointment.objects.filter(user=user).first()
+    created = appointment is None
+    if appointment is None:
+        appointment = PreMatchingAppointment(user=user, start_time=start_time_parsed, end_time=end_time_parsed)
+        needs_reschedule = True
+    else:
+        needs_reschedule = appointment.start_time != start_time_parsed or appointment.end_time != end_time_parsed
+        appointment.end_time = end_time_parsed
+        appointment.start_time = start_time_parsed
+
+    # A seated event re-sends every attendee on each new seat booking, so this can run for
+    # the same user/slot many times over. Only touch their reminder tasks when the slot
+    # actually changed for them — otherwise a busy group call schedules a growing pile of
+    # duplicate SMS/push reminders for people whose booking never moved.
+    if needs_reschedule:
+        if appointment.sms_task:
+            end_task(task_id=appointment.sms_task)
+        if user.profile.notify_channel == "sms" and user.profile.phone_mobile != "":
+            async_result = send_sms_background.apply_async(
+                (str(user.uuid), get_translation("sms.onboarding_in_1h", lang="de").format(first_name=user.first_name)),
+                eta=start_time_parsed - timedelta(hours=1),
+            )
+            appointment.sms_task = async_result.id
+        onboarding_call_reminder_push_notification.apply_async(
+            (user.pk,),
+            eta=start_time_parsed - timedelta(hours=1),
+        )
+    appointment.save()
+
+    if notify:
+        user.message(
+            get_translation("auto_messages.appointment_booked", lang="de").format(
+                appointment_time=start_time_normalized
+            ),
+            auto_mark_read=True,
+            send_message_incoming=True,
+        )
+        from chat.consumers.messages import PreMatchingAppointmentBooked
+
+        PreMatchingAppointmentBooked(appointment=PreMatchingAppointmentSerializer(appointment).data).send(
+            str(user.uuid)
+        )
+    return created, appointment
 
 
 @api_view(["POST"])
@@ -170,36 +344,13 @@ def callcom_websocket_callback(request):
 
     start_time = payload.get("startTime")
     end_time = payload.get("endTime")
-    user_uuid = _extract_user_field_value(payload, "uuid")
-    if not user_uuid:
-        # Legacy fallback for old booking forms.
-        user_uuid = _extract_user_field_value(payload, "hash")
-    booking_code = _extract_user_field_value(payload, "bookingcode")
-    if not user_uuid:
-        for url_field_name in ("bookerUrl", "bookingUrl", "rescheduleUrl", "cancelUrl"):
-            url_value = payload.get(url_field_name)
-            user_uuid = _extract_query_param_from_url(url_value, "uuid") or _extract_query_param_from_url(
-                url_value, "hash"
-            )
-            if user_uuid:
-                break
+    triggering_identity, attendee_idents = _triggering_identity(payload)
+    user_uuid = triggering_identity.get("uuid")
+    booking_code = triggering_identity.get("bookingcode")
+    user_email = triggering_identity.get("email")
 
-    if not booking_code:
-        for url_field_name in ("bookerUrl", "bookingUrl", "rescheduleUrl", "cancelUrl"):
-            url_value = payload.get(url_field_name)
-            booking_code = _extract_query_param_from_url(url_value, "bookingcode")
-            if booking_code:
-                break
-    if not booking_code:
-        booking_code = _extract_attendee_nested_response(payload, "bookingcode")
-
-    user_email = _extract_user_field_value(payload, "email")
-    if not user_email:
-        attendees = payload.get("attendees", []) or []
-        if isinstance(attendees, list) and len(attendees) > 0 and isinstance(attendees[0], dict):
-            user_email = attendees[0].get("email")
-
-    if not start_time or not end_time or (not user_uuid and not user_email):
+    has_identity = user_uuid or user_email or booking_code or attendee_idents
+    if not start_time or not end_time or not has_identity:
         print(
             "CALCOM: missing required fields",
             {
@@ -211,97 +362,70 @@ def callcom_websocket_callback(request):
         )
         return Response("ok")
 
+    start_time_parsed = parse_datetime(start_time)
+    end_time_parsed = parse_datetime(end_time)
+    if not start_time_parsed or not end_time_parsed:
+        return Response("ok")
     start_time_normalized = translate_to_german_date(start_time)
-    # end_time = translate_to_german_date(payload["endTime"])
-    # organizer_email = payload["organizer"]["email"]
 
-    user = None
-    if user_uuid:
-        try:
-            user = get_user_by_uuid(user_uuid)
-        except (ValueError, LookupError, UserNotFoundErr):
-            user = None
-    if user is None and user_email:
-        try:
-            user = get_user_by_email(user_email)
-        except UserNotFoundErr:
-            user = None
-    if user is None and booking_code:
-        user_state = State.objects.select_related("user").filter(prematch_booking_code=str(booking_code)).first()
-        if user_state is not None:
-            user = user_state.user
-    if user is None:
+    triggering_user = _resolve_user(user_uuid=user_uuid, user_email=user_email, booking_code=booking_code)
+    users_to_upsert = []
+    if triggering_user is not None:
+        users_to_upsert.append(triggering_user)
+
+    # Seated events include every attendee. Create a row for each person we can resolve
+    # so a later seat booking backfills anyone whose own webhook was dropped.
+    resolved_attendee_users = []
+    for ident in attendee_idents:
+        attendee_user = _resolve_user(
+            user_uuid=ident.get("uuid"),
+            user_email=ident.get("email"),
+            booking_code=ident.get("bookingcode"),
+        )
+        if attendee_user is not None:
+            resolved_attendee_users.append(attendee_user)
+            if attendee_user not in users_to_upsert:
+                users_to_upsert.append(attendee_user)
+
+    # Normally the triggering identity resolves to a real account and is the one we notify.
+    # If it doesn't (e.g. its merged fields didn't match anyone) but an attendee did resolve,
+    # notify the most-recently-listed attendee instead of leaving the actual booker unnotified.
+    notify_target = triggering_user or (resolved_attendee_users[-1] if resolved_attendee_users else None)
+
+    if not users_to_upsert:
         print(
             "CALCOM: unable to resolve user",
             {"user_uuid": user_uuid, "user_email": user_email, "booking_code": booking_code},
         )
         return Response("ok")
 
-    print("CALCOM: booking created", {"user": str(user.uuid), "booking_code": booking_code, "start_time": start_time})
-
-    if event_type == "BOOKING_CREATED":
-        expected_booking_code = str(user.state.prematch_booking_code)
-        if booking_code and str(booking_code) != expected_booking_code:
+    if booking_code and triggering_user is not None:
+        expected_booking_code = str(triggering_user.state.prematch_booking_code)
+        if str(booking_code) != expected_booking_code:
+            # Additional seats often inherit the first attendee's bookingcode. Email/uuid
+            # already identified this booker; dropping here is what hid learner bookings.
             print(
-                "CALCOM: booking code mismatch",
-                {"user_uuid": str(user.uuid), "expected": expected_booking_code, "received": str(booking_code)},
+                "CALCOM: booking code mismatch, proceeding with resolved user",
+                {
+                    "user_uuid": str(triggering_user.uuid),
+                    "expected": expected_booking_code,
+                    "received": str(booking_code),
+                },
             )
-            return Response("ok")
-        if not booking_code:
-            print("CALCOM: booking code missing, proceeding with uuid", {"user_uuid": str(user.uuid)})
+    elif triggering_user is not None and not booking_code:
+        print("CALCOM: booking code missing, proceeding with resolved user", {"user_uuid": str(triggering_user.uuid)})
 
-        user.message(
-            get_translation("auto_messages.appointment_booked", lang="de").format(
-                appointment_time=start_time_normalized
-            ),
-            auto_mark_read=True,
-            send_message_incoming=True,
+    for user in users_to_upsert:
+        print(
+            "CALCOM: booking created",
+            {"user": str(user.uuid), "booking_code": booking_code, "start_time": start_time},
         )
-
-        appointment = PreMatchingAppointment.objects.filter(user=user)
-        start_time_parsed = parse_datetime(start_time)
-        end_time_parsed = parse_datetime(end_time)
-        if not start_time_parsed or not end_time_parsed:
-            return Response("ok")
-        if appointment.exists():
-            appointment = appointment.first()
-            appointment.end_time = end_time_parsed
-            appointment.start_time = start_time_parsed
-            end_task(task_id=appointment.sms_task)
-
-            # First check if that user should even receive SMS! Otherwise this flods the queue with shduled tasks that in the end don't do anything!
-            if user.profile.notify_channel == "sms" and user.profile.phone_mobile != "":
-                new_async_result = send_sms_background.apply_async(
-                    (user_uuid, get_translation("sms.onboarding_in_1h", lang="de").format(first_name=user.first_name)),
-                    eta=start_time_parsed - timedelta(hours=1),
-                )
-                appointment.sms_task = new_async_result.id
-            onboarding_call_reminder_push_notification.apply_async(
-                (user.pk),
-                eta=start_time_parsed - timedelta(hours=1),
-            )
-            appointment.save()
-        else:
-            appointment = PreMatchingAppointment(user=user, start_time=start_time_parsed, end_time=end_time_parsed)
-            if user.profile.notify_channel == "sms" and user.profile.phone_mobile != "":
-                async_result = send_sms_background.apply_async(
-                    (user_uuid, get_translation("sms.onboarding_in_1h", lang="de").format(first_name=user.first_name)),
-                    eta=start_time_parsed - timedelta(hours=1),
-                )
-                appointment.sms_task = async_result.id
-            onboarding_call_reminder_push_notification.apply_async(
-                (user.pk),
-                eta=start_time_parsed - timedelta(hours=1),
-            )
-            appointment.save()
-
-        from chat.consumers.messages import PreMatchingAppointmentBooked
-
-        PreMatchingAppointmentBooked(appointment=PreMatchingAppointmentSerializer(appointment).data).send(
-            str(user.uuid)
+        _upsert_prematching_appointment(
+            user,
+            start_time_parsed,
+            end_time_parsed,
+            notify=user == notify_target,
+            start_time_normalized=start_time_normalized,
         )
-
-        # Comment Oliver: we don't need to send this you already see it in the app & you get an email.
-        # user.sms(get_base_management_user(), get_translation("sms.appointment_booked", lang="de").format(appointment_time=start_time_normalized))
 
     return Response("ok")

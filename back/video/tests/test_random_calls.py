@@ -11,6 +11,7 @@ from management.models.unconfirmed_matches import MatchType
 from management.models.user import User
 from management.tests.helpers import register_user
 from rest_framework.test import APIClient
+
 from video.models import (
     LivekitSession,
     RandomCallLobby,
@@ -25,6 +26,17 @@ class RandomCallsTests(TestCase):
         self.client = APIClient()
         app.conf.task_always_eager = True
 
+        # Eager Celery ignores `countdown`, so the `cleanup_if_not_accepted` timer that
+        # production gives users `match_proposal_timeout` seconds to answer fires the
+        # instant a proposal is created. Every proposal then expires before anyone can
+        # react, both users go free, and the next join re-proposes them — which is why
+        # seven joins produced six sequentially-expired proposals instead of three live
+        # ones. Suppress the *scheduled* call only; the timeout tests below invoke
+        # `cleanup_if_not_accepted` directly, which is the honest way to test expiry.
+        expiry_patcher = patch("video.tasks.cleanup_if_not_accepted.apply_async")
+        self.scheduled_expiry = expiry_patcher.start()
+        self.addCleanup(expiry_patcher.stop)
+
         # Create users
         self.user1 = register_user(
             {
@@ -34,6 +46,7 @@ class RandomCallsTests(TestCase):
                 "first_name": "User",
                 "second_name": "One",
                 "birth_year": 1990,
+                "user_type": Profile.TypeChoices.LEARNER,
             }
         )
         self.user2 = register_user(
@@ -44,6 +57,7 @@ class RandomCallsTests(TestCase):
                 "first_name": "User",
                 "second_name": "Two",
                 "birth_year": 1992,
+                "user_type": Profile.TypeChoices.LEARNER,
             }
         )
 
@@ -85,13 +99,22 @@ class RandomCallsTests(TestCase):
         return users
 
     def _create_admin_user(self, suffix: str = "admin") -> User:
-        return User.objects.create_user(
+        """A user that is genuinely staff, so `IsAdminOrMatchingUser` lets them in.
+
+        `UserManager.create_user` hard-sets `kwargs["is_staff"] = False`, so the
+        `is_staff=True` this used to pass was silently discarded and every management
+        endpoint here returned 403. Set it with a follow-up write instead.
+        """
+        user = User.objects.create_user(
             email=f"rc_mgmt_admin_{suffix}@example.com",
             password="Test123!",
             first_name=f"Admin{suffix}",
             last_name="Test",
-            is_staff=True,
         )
+        User.objects.filter(pk=user.pk).update(is_staff=True)
+        user.refresh_from_db()
+        assert user.is_staff, "admin fixture must be staff or every endpoint test 403s"
+        return user
 
     def test_setup(self):
         """Verify that users and lobby are created correctly."""
@@ -160,6 +183,7 @@ class RandomCallsTests(TestCase):
                 "first_name": "User",
                 "second_name": "Three",
                 "birth_year": 1995,
+                "user_type": Profile.TypeChoices.LEARNER,
             }
         )
 
@@ -292,6 +316,7 @@ class RandomCallsTests(TestCase):
                 "first_name": "User",
                 "second_name": "Three",
                 "birth_year": 1995,
+                "user_type": Profile.TypeChoices.LEARNER,
             }
         )
 
@@ -334,20 +359,20 @@ class RandomCallsTests(TestCase):
             # Frontend step: handleJoinComplete -> joinLobby() for each user.
             for user in [self.user1, self.user2, user3]:
                 self.client.force_authenticate(user=user)
-                response = self.client.post("/api/random_calls/lobby/default/join")
+                response = self.client.post(f"{self.lobby_api_url}/join")
                 self.assertEqual(response.status_code, 200)
                 self.assertFalse(response.data["already_joined"])
 
             # Run one explicit matching cycle to emulate the background matcher.
             from video.tasks import random_call_lobby_perform_matching
 
-            random_call_lobby_perform_matching("default")
+            random_call_lobby_perform_matching(str(self.lobby.uuid))
 
             # Frontend step: useSWR polling GET /status.
             status_by_user = {}
             for user in [self.user1, self.user2, user3]:
                 self.client.force_authenticate(user=user)
-                status = self.client.get("/api/random_calls/lobby/default/status")
+                status = self.client.get(f"{self.lobby_api_url}/status")
                 self.assertEqual(status.status_code, 200)
                 status_by_user[user.id] = status.data
 
@@ -367,7 +392,7 @@ class RandomCallsTests(TestCase):
             # Frontend step: PartnerProposal.handleAccept -> acceptMatch() by both users.
             for user in matched_users:
                 self.client.force_authenticate(user=user)
-                accept_response = self.client.post(f"/api/random_calls/lobby/default/match/{match_uuid}/accept")
+                accept_response = self.client.post(f"{self.lobby_api_url}/match/{match_uuid}/accept")
                 self.assertEqual(accept_response.status_code, 200)
 
             matching = RandomCallMatching.objects.get(uuid=match_uuid)
@@ -378,9 +403,7 @@ class RandomCallsTests(TestCase):
             # Frontend step: handleBothAccepted -> authenticateRoom() by both users.
             for user in matched_users:
                 self.client.force_authenticate(user=user)
-                auth_response = self.client.post(
-                    f"/api/random_calls/lobby/default/match/{match_uuid}/room_authenticate"
-                )
+                auth_response = self.client.post(f"{self.lobby_api_url}/match/{match_uuid}/room_authenticate")
                 self.assertEqual(auth_response.status_code, 200)
                 self.assertIn("token", auth_response.data)
                 self.assertEqual(auth_response.data["token"], "test-livekit-jwt")
@@ -392,13 +415,13 @@ class RandomCallsTests(TestCase):
             # once both users requested room token, the proposal no longer appears in /status.
             for user in matched_users:
                 self.client.force_authenticate(user=user)
-                status_after_auth = self.client.get("/api/random_calls/lobby/default/status")
+                status_after_auth = self.client.get(f"{self.lobby_api_url}/status")
                 self.assertEqual(status_after_auth.status_code, 200)
                 self.assertIsNone(status_after_auth.data["matching"])
 
             # The third user remains unmatched in this basic scenario.
             self.client.force_authenticate(user=unmatched_users[0])
-            unmatched_status = self.client.get("/api/random_calls/lobby/default/status")
+            unmatched_status = self.client.get(f"{self.lobby_api_url}/status")
             self.assertEqual(unmatched_status.status_code, 200)
             self.assertIsNone(unmatched_status.data["matching"])
 
@@ -444,6 +467,7 @@ class RandomCallsTests(TestCase):
         in this lobby. A third user should still be matchable with either of them.
         """
         from management.models.profile import Profile
+
         from video.tasks import random_call_lobby_perform_matching
 
         user3 = self.create_multiple_users(1)[0]
@@ -491,6 +515,7 @@ class RandomCallsTests(TestCase):
         System timeout rejections must not permanently block the pair.
         """
         from management.models.profile import Profile
+
         from video.tasks import cleanup_if_not_accepted, random_call_lobby_perform_matching
 
         for user in (self.user1, self.user2):
@@ -554,6 +579,7 @@ class RandomCallsTests(TestCase):
         Leaving the lobby closes the proposal but must not block rematching the same pair.
         """
         from management.models.profile import Profile
+
         from video.tasks import random_call_lobby_perform_matching
 
         for user in (self.user1, self.user2):
@@ -579,10 +605,15 @@ class RandomCallsTests(TestCase):
             RandomCallProposalUserStatus.PENDING,
         )
 
-        self.client.force_authenticate(user=leaver)
-        self.client.post(f"{self.lobby_api_url}/join")
-        self.client.force_authenticate(user=matching.u2 if leaver == matching.u1 else matching.u1)
-        self.client.post(f"{self.lobby_api_url}/join")
+        # /join fires the matcher via apply_async, which eager Celery runs inline — the
+        # rejoin would rematch the pair before the explicit cycle below, leaving it
+        # nothing to do. Suppress the triggered run so the assertion measures the cycle
+        # under test rather than a side effect of the second join.
+        with patch("video.random_calls.random_call_lobby_perform_matching.apply_async"):
+            self.client.force_authenticate(user=leaver)
+            self.client.post(f"{self.lobby_api_url}/join")
+            self.client.force_authenticate(user=matching.u2 if leaver == matching.u1 else matching.u1)
+            self.client.post(f"{self.lobby_api_url}/join")
 
         result = random_call_lobby_perform_matching(str(self.lobby.uuid))
         self.assertEqual(len(result["matchings"]), 1)
@@ -792,15 +823,26 @@ class RandomCallsTests(TestCase):
 
         # Verify individual user states for accepted match
         self.client.force_authenticate(user=match1.u1)
-        u1_status = self.client.get(f"{self.lobby_api_url}/status")
-        # After both accepted, status should show in_session or no matching (processed)
-        # Based on the implementation, accepted matches are filtered out (in_session=False filter)
+        # An accepted proposal stays in the status payload — `open_pending_random_call_match_q`
+        # filters on rejected/completed/in_session but never on `accepted`, because the client
+        # still needs the row to join the call. (The old comment here claimed the opposite and
+        # asserted nothing.)
+        accepted_status = self.client.get(f"{self.lobby_api_url}/status")
+        self.assertIsNotNone(accepted_status.data["matching"], "Accepted match should still be offered to join")
+        self.assertTrue(accepted_status.data["matching"]["both_accepted"])
 
         # Verify individual user states for rejected match
         self.client.force_authenticate(user=match2.u1)
-        u1_status = self.client.get(f"{self.lobby_api_url}/status")
-        # Rejected match should not appear in status
-        self.assertIsNone(u1_status.data["matching"], "Rejected match should not appear in user status")
+        # A rejected proposal surfaces exactly once, as a rejection notification for the
+        # partner who did not reject; building that response sets `both_confirmed_rejection`,
+        # so the next poll is clean. Assert both halves — "never appears" predates the
+        # notification feature and would pass again if the consume-once step regressed.
+        first_poll = self.client.get(f"{self.lobby_api_url}/status")
+        self.assertIsNotNone(first_poll.data["matching"], "Partner's rejection should be notified once")
+        self.assertTrue(first_poll.data["matching"]["partner_rejected"])
+
+        second_poll = self.client.get(f"{self.lobby_api_url}/status")
+        self.assertIsNone(second_poll.data["matching"], "Rejection notification must not repeat")
 
         # Verify individual user state for pending match
         self.client.force_authenticate(user=match3.u1)
@@ -1003,11 +1045,16 @@ class RandomCallsTests(TestCase):
             completed=True,
             created_at=timezone.now(),
         )
+        # Mirror what `reject_random_call_match` actually writes. A bare `rejected=True`
+        # with no `rejected_at` and no user status is the admin-clear / legacy shape, which
+        # `_proposal_is_rejected_bucket` deliberately does not count as a rejection.
         RandomCallMatching.objects.create(
             lobby=self.lobby,
             u1=users[0],
             u2=users[2],
             rejected=True,
+            rejected_at=timezone.now(),
+            u1_status=RandomCallProposalUserStatus.REJECTED,
             created_at=timezone.now(),
         )
         RandomCallMatching.objects.create(
@@ -1019,15 +1066,17 @@ class RandomCallsTests(TestCase):
         )
 
         session_start = timezone.now() - timezone.timedelta(minutes=10)
-        LivekitSession.objects.create(
+        session = LivekitSession.objects.create(
             u1=users[0],
             u2=users[1],
             random_call_session=True,
             both_have_been_active=True,
-            created_at=session_start,
             end_time=session_start + timezone.timedelta(seconds=330),
             is_active=False,
         )
+        # `created_at` is auto_now_add, so passing it to create() is silently ignored and
+        # the call measures as 0 seconds. It has to be written back afterwards.
+        LivekitSession.objects.filter(pk=session.pk).update(created_at=session_start)
 
         self.client.force_authenticate(user=self._create_admin_user("participant_stats"))
         response = self.client.get("/api/random_calls/analytics/lobby/default/instance")
