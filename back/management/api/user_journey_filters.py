@@ -359,10 +359,6 @@ def user_searching(qs=User.objects.all()):
     )
 
 
-def user_searching_again(qs=User.objects.all()):
-    return user_searching(qs).filter(num_matches__gt=1)
-
-
 def pre_matching(qs=User.objects.all()):
     """
     (Active-User) User has an open proposed match

@@ -20,8 +20,9 @@ MATCH_JOURNEY_V5 = PartitionDefinition(
         "counted in exactly one bucket. Success is 8+ tokens (or off-platform) while still "
         f"active. Two clocks then split those outcomes: a successful match is dormant after "
         f"{_ENGAGEMENT_WEEKS} weeks without a message or call, and a still-active match that "
-        f"never reached success is failed after {_FAILURE_WEEKS} weeks without activity. "
-        "Inactive matches are reported/removed by stage."
+        f"never reached success is failed after {_FAILURE_WEEKS} weeks without activity. A "
+        "closed match that had already reached success counts as Successful, not Unmatched "
+        "or Removed — that phase is reported/removed matches that never got there."
     ),
     base_model=Match,
     baseline_list_id="match_funnel__all",
@@ -45,10 +46,14 @@ MATCH_JOURNEY_V5 = PartitionDefinition(
         PartitionPhase(
             id="successful",
             title="Successful",
+            # Still-active successes, plus matches that had already reached success before
+            # they were reported/unmatched/deleted/ghosted or closed with no record — every
+            # match that ever succeeded belongs here, not split off by what happened after.
             buckets=(
                 PartitionBucket(list_id="match_state__success_engaged"),
                 PartitionBucket(list_id="match_state__success_dormant"),
                 PartitionBucket(list_id="match_state__success_off_platform"),
+                *tuple(PartitionBucket(list_id=f"match_state__{kind}_successful") for kind in CLOSING_KINDS),
             ),
         ),
         PartitionPhase(
@@ -66,11 +71,16 @@ MATCH_JOURNEY_V5 = PartitionDefinition(
         PartitionPhase(
             id="inactive",
             title="Unmatched or Removed",
-            # Closing kind × stage reached. "Removed" used to absorb every non-report
-            # ending, including 168 matches with no closing record at all - which read as
-            # a deliberate removal nobody actually performed.
+            # Closing kind × stage reached, excluding the "successful" stage — those sit in
+            # the Successful phase above instead (a match that already succeeded belongs
+            # with every other success, not with the ones that never got there). "Removed"
+            # used to absorb every non-report ending, including 168 matches with no closing
+            # record at all - which read as a deliberate removal nobody actually performed.
             buckets=tuple(
-                PartitionBucket(list_id=f"match_state__{kind}_{stage}") for kind in CLOSING_KINDS for stage in STAGES
+                PartitionBucket(list_id=f"match_state__{kind}_{stage}")
+                for kind in CLOSING_KINDS
+                for stage in STAGES
+                if stage != "successful"
             ),
         ),
         PartitionPhase(

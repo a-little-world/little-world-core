@@ -25,7 +25,6 @@ from management.api.user_advanced_filter import (
     needs_matching,
     needs_matching_volunteers,
     only_hd_test_user,
-    searching_users,
     users_in_registration,
     users_require_prematching_call_not_booked,
     users_with_booked_prematching_call,
@@ -263,7 +262,6 @@ class FilterListEntry:
 
 PANEL_V1_FILTER_LISTS = [
     FilterListEntry("all", None, all_users),
-    FilterListEntry("searching", None, searching_users),
     FilterListEntry("needs_matching", None, needs_matching),
     FilterListEntry("in_registration", None, users_in_registration),
     FilterListEntry("active_match", None, get_active_match_query_set),

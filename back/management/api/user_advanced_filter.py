@@ -113,18 +113,6 @@ def needs_matching_volunteers(qs=User.objects.all()):
     return needs_matching(qs).filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
 
 
-def searching_users(qs=User.objects.all()):
-    """
-    Users who are currently searching for a match
-    """
-    return qs.filter(
-        state__user_form_state=State.UserFormStateChoices.FILLED,
-        state__email_authenticated=True,
-        state__is_onboarded=False,
-        state__searching_state=State.SearchingStateChoices.SEARCHING,
-    ).order_by("-date_joined")
-
-
 def eligible_for_random_calls(qs=User.objects.all()):
     """
     Onboarded users with completed user form and German level above A1/A2 (not LEVEL_0).
