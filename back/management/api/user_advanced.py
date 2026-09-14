@@ -438,6 +438,8 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             RandomCallLobbyUser.objects.filter(user=instance).values("lobby_id").distinct().count()
         )
 
+        representation["open_support_task_count"] = instance.open_related_support_task_count
+
         if determine_bucket or all_buckets:
             bucket_map = self.context.get("bucket_map")
             if bucket_map is not None and not all_buckets:
