@@ -221,6 +221,18 @@ class User(AbstractUser):
 
         return settings.Settings.objects.get(user=self)
 
+    @property
+    def open_assigned_support_task_count(self) -> int:
+        from .support_task import SupportTask
+
+        return self.assigned_support_tasks.exclude(status=SupportTask.Status.COMPLETED).count()
+
+    @property
+    def open_related_support_task_count(self) -> int:
+        from .support_task import SupportTask
+
+        return self.related_support_tasks.exclude(status=SupportTask.Status.COMPLETED).count()
+
     # Not only having but also displaying the full identifier is not necessary
     def _abr_hash(self):
         return str(self.uuid)[:8]

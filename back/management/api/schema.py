@@ -42,3 +42,7 @@ class SupportAssigneeUserEntrySerializer(serializers.Serializer):
     email = serializers.EmailField()
     first_name = serializers.CharField()
     last_name = serializers.CharField()
+
+
+class SupportTaskOpenCountSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
