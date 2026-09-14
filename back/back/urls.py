@@ -7,6 +7,8 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 from management.urls import public_routes_wildcard
 from rest_framework import status
 
+from back.build_types import BuildType
+
 """
 We are adding all app urls under `'/'` their paths should be set under `<app>/urls.py`
 Admin paths registered last
@@ -37,7 +39,7 @@ urlpatterns += [
     path("cookies/", include("cookie_consent.urls")),
     path("hijack/", include("hijack.urls")),
     # In staging and production we are serving statics from an aws bucket!
-    *(statics if settings.IS_DEV else []),
+    *(statics if settings.BUILD_TYPE == BuildType.DEVELOPMENT else []),
 ]
 
 if settings.DEBUG and settings.USE_DEBUG_TOOLBAR:

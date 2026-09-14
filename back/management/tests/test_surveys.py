@@ -6,8 +6,18 @@ from django.utils import timezone
 from video.models import LiveKitRoom, LivekitSession
 
 from management import surveys
-from management.models.survey import SurveyCampaign, SurveyResponse, localized
+from management.models.survey import (
+    QUALIFYING_CALL_MIN_DURATION,
+    SurveyCampaign,
+    SurveyResponse,
+    localized,
+)
 from management.tests.helpers import register_user
+
+
+def _minutes(duration) -> int:
+    """Whole minutes of a rule constant, so the tests move when the rule does."""
+    return int(duration.total_seconds() // 60)
 
 
 def _campaign(**overrides) -> SurveyCampaign:
@@ -312,21 +322,29 @@ class SurveyOfferTests(TestCase):
         )
         self.assertFalse(surveys.user_is_eligible(campaign, self.user))
 
-        _finished_session(self.user, self.partner, minutes=5)
+        _finished_session(self.user, self.partner, minutes=_minutes(QUALIFYING_CALL_MIN_DURATION))
         self.assertTrue(surveys.user_is_eligible(campaign, self.user))
 
-    def test_long_calls_do_not_qualify(self):
+    def test_a_longer_call_still_qualifies(self):
+        """The rule is a floor. A long conversation is more evidence of a call, not less."""
         campaign = _campaign(
             eligible_after_event=SurveyCampaign.EligibleAfterEvent.FIRST_QUALIFYING_CALL,
         )
-        _finished_session(self.user, self.partner, minutes=10)
+        _finished_session(self.user, self.partner, minutes=_minutes(QUALIFYING_CALL_MIN_DURATION) * 4)
+        self.assertTrue(surveys.user_is_eligible(campaign, self.user))
+
+    def test_short_calls_do_not_qualify(self):
+        campaign = _campaign(
+            eligible_after_event=SurveyCampaign.EligibleAfterEvent.FIRST_QUALIFYING_CALL,
+        )
+        _finished_session(self.user, self.partner, minutes=_minutes(QUALIFYING_CALL_MIN_DURATION) - 1)
         self.assertFalse(surveys.user_is_eligible(campaign, self.user))
 
     def test_random_calls_do_not_count_as_qualifying(self):
         campaign = _campaign(
             eligible_after_event=SurveyCampaign.EligibleAfterEvent.FIRST_QUALIFYING_CALL,
         )
-        session = _finished_session(self.user, self.partner, minutes=5)
+        session = _finished_session(self.user, self.partner, minutes=_minutes(QUALIFYING_CALL_MIN_DURATION))
         LivekitSession.objects.filter(pk=session.pk).update(random_call_session=True)
         self.assertFalse(surveys.user_is_eligible(campaign, self.user))
 
@@ -437,7 +455,7 @@ class SurveyOfferTests(TestCase):
     def test_post_call_survey_is_offered_once_per_session(self):
         campaign = _campaign(
             slug=surveys.POST_CALL_SLUG,
-            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            trigger=SurveyCampaign.Trigger.NON_QUALIFYING_CALL_ENDED,
             repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
             context_type=SurveyCampaign.ContextType.LIVE_SESSION,
         )
@@ -457,7 +475,7 @@ class SurveyOfferTests(TestCase):
         """The admin panel offers this trigger to any campaign, so any campaign must get it."""
         _campaign(
             slug=surveys.POST_CALL_SLUG,
-            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            trigger=SurveyCampaign.Trigger.NON_QUALIFYING_CALL_ENDED,
             repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
             context_type=SurveyCampaign.ContextType.LIVE_SESSION,
         )
@@ -465,7 +483,7 @@ class SurveyOfferTests(TestCase):
         second = _campaign(
             slug="call-followup",
             name="Call follow-up",
-            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            trigger=SurveyCampaign.Trigger.NON_QUALIFYING_CALL_ENDED,
         )
 
         surveys.offer_post_call_survey(self.user, _finished_session(self.user, self.partner))
@@ -476,7 +494,7 @@ class SurveyOfferTests(TestCase):
     def test_post_call_survey_skips_random_call_sessions(self):
         _campaign(
             slug=surveys.POST_CALL_SLUG,
-            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            trigger=SurveyCampaign.Trigger.NON_QUALIFYING_CALL_ENDED,
             repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
             context_type=SurveyCampaign.ContextType.LIVE_SESSION,
         )
@@ -490,7 +508,7 @@ class SurveyOfferTests(TestCase):
     def test_post_call_survey_skips_calls_of_ten_minutes_or_more(self):
         _campaign(
             slug=surveys.POST_CALL_SLUG,
-            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            trigger=SurveyCampaign.Trigger.NON_QUALIFYING_CALL_ENDED,
             repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
             context_type=SurveyCampaign.ContextType.LIVE_SESSION,
         )
@@ -501,7 +519,7 @@ class SurveyOfferTests(TestCase):
 
     def test_context_scoped_campaign_refuses_an_empty_context_key(self):
         campaign = _campaign(
-            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            trigger=SurveyCampaign.Trigger.NON_QUALIFYING_CALL_ENDED,
             repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
             context_type=SurveyCampaign.ContextType.LIVE_SESSION,
         )
@@ -562,7 +580,7 @@ class PendingSurveyTests(TestCase):
     def test_context_scoped_campaign_is_skipped_not_raised(self):
         """A row written around the model must not take delivery down for everyone."""
         campaign = _campaign(
-            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            trigger=SurveyCampaign.Trigger.NON_QUALIFYING_CALL_ENDED,
             repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
             context_type=SurveyCampaign.ContextType.LIVE_SESSION,
         )
@@ -600,7 +618,7 @@ class PendingSurveyTests(TestCase):
         session_campaign = _campaign(slug="session-campaign")
         post_call = _campaign(
             slug=surveys.POST_CALL_SLUG,
-            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            trigger=SurveyCampaign.Trigger.NON_QUALIFYING_CALL_ENDED,
             repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
             context_type=SurveyCampaign.ContextType.LIVE_SESSION,
         )
@@ -632,7 +650,7 @@ class PendingSurveyTests(TestCase):
         session_campaign = _campaign(slug="session-campaign")
         post_call = _campaign(
             slug=surveys.POST_CALL_SLUG,
-            trigger=SurveyCampaign.Trigger.CALL_ENDED,
+            trigger=SurveyCampaign.Trigger.NON_QUALIFYING_CALL_ENDED,
             repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
             context_type=SurveyCampaign.ContextType.LIVE_SESSION,
         )
@@ -788,6 +806,21 @@ class AdminSurveyApiTests(TestCase):
         campaign = _campaign()
         self.assertEqual(self.client.delete(f"{self.ENDPOINT}{campaign.pk}/").status_code, 204)
         self.assertFalse(SurveyCampaign.objects.filter(pk=campaign.pk).exists())
+
+    def test_options_serves_the_trigger_and_eligibility_enums(self):
+        """The form's dropdowns are served, not restated in the frontend.
+
+        They were duplicated once and drifted: a whole trigger was missing from the admin
+        panel, so a campaign type the backend supported could not be created.
+        """
+        payload = self.client.get(f"{self.ENDPOINT}options/").json()
+
+        for key, choices in (
+            ("triggers", SurveyCampaign.Trigger.choices),
+            ("eligible_after_events", SurveyCampaign.EligibleAfterEvent.choices),
+        ):
+            served = [(option["value"], option["label"]) for option in payload[key]]
+            self.assertEqual(served, [(value, str(label)) for value, label in choices])
 
     def test_options_lists_companies_and_filters(self):
         self.staff.state.company = "lingoda"

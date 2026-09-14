@@ -64,10 +64,20 @@ def resolve_localized(value, language: str) -> str:
     return value.get(language) or value.get(PRIMARY_COPY_LANGUAGE) or ""
 
 
-#: A call counts as "qualifying" for the post-call trigger and for ``first_qualifying_call``.
-#: Standard calls only (not random calls), both active, shorter than 10 minutes — one
-#: definition everywhere.
-QUALIFYING_CALL_MAX_DURATION = timedelta(minutes=10)
+#: How long a standard call (both people active, not a random call) has to run to count as a
+#: real conversation. One threshold, one meaning, used three ways:
+#:
+#: * at or above it, the call *qualifies* — it triggers the qualifying-call survey, and it
+#:   satisfies the ``first_qualifying_call`` journey condition;
+#: * below it, the call did not qualify — it triggers the non-qualifying-call survey, which
+#:   exists to ask what went wrong.
+#:
+#: Previously two constants pulled in opposite directions and a user's *longest* calls stopped
+#: counting as calls at all. Keep it one number.
+QUALIFYING_CALL_MIN_DURATION = timedelta(minutes=10)
+
+#: Whole minutes, for the choice labels below, so they cannot drift from the rule.
+_QUALIFYING_MINUTES = int(QUALIFYING_CALL_MIN_DURATION.total_seconds() // 60)
 
 
 class QuestionType(models.TextChoices):
@@ -91,14 +101,26 @@ class SurveyCampaign(models.Model):
 
     class Trigger(models.TextChoices):
         ON_SESSION = "on_session", _("Next time the user is in the app")
-        CALL_ENDED = "event:call_ended", _("After a qualifying call (under 10 min; excludes random calls)")
+        #: Value kept as ``event:call_ended``: this is the trigger the existing post-call
+        #: campaign already carries, and renaming it would orphan that row.
+        NON_QUALIFYING_CALL_ENDED = (
+            "event:call_ended",
+            _("After a non-qualifying call (under %(minutes)s min; excludes random calls)")
+            % {"minutes": _QUALIFYING_MINUTES},
+        )
+        QUALIFYING_CALL_ENDED = (
+            "event:qualifying_call_ended",
+            _("After a qualifying call (%(minutes)s min or longer; excludes random calls)")
+            % {"minutes": _QUALIFYING_MINUTES},
+        )
 
     class EligibleAfterEvent(models.TextChoices):
         NONE = "", _("Immediately")
         ONBOARDED = "onboarded", _("Onboarded")
         FIRST_QUALIFYING_CALL = (
             "first_qualifying_call",
-            _("First qualifying call (under 10 min; excludes random calls)"),
+            _("First qualifying call (%(minutes)s min or longer; excludes random calls)")
+            % {"minutes": _QUALIFYING_MINUTES},
         )
         MATCH_CREATED = "match_created", _("Match created")
         MATCH_SUCCESS = "match_success", _("Match success")
