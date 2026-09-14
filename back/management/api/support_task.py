@@ -1,4 +1,5 @@
-from django.db.models import Case, Count, IntegerField, Q, Value, When
+from django.db.models import Case, CharField, Count, IntegerField, Q, Value, When
+from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.urls import path
 from django.utils import timezone
@@ -137,6 +138,25 @@ class SupportTaskListQuerySerializer(serializers.Serializer):
     search = serializers.CharField(required=False, allow_blank=True)
 
 
+def apply_support_task_search(tasks, search: str):
+    """Filter tasks by title/ID or the related user's full name ("First Second")."""
+    search = search.strip()
+    if not search:
+        return tasks
+    tasks = tasks.annotate(
+        _related_user_full_name=Concat(
+            "related_user__profile__first_name",
+            Value(" "),
+            "related_user__profile__second_name",
+            output_field=CharField(),
+        )
+    )
+    q = Q(title__icontains=search) | Q(_related_user_full_name__icontains=search)
+    if search.isdigit():
+        q |= Q(id=int(search))
+    return tasks.filter(q)
+
+
 @extend_schema(responses={200: PaginatedSupportTaskResponse})
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
@@ -185,11 +205,7 @@ def support_task_list(request):
             pass
 
     search = query.get("search", "").strip()
-    if search:
-        q = Q(title__icontains=search)
-        if search.isdigit():
-            q |= Q(id=int(search))
-        tasks = tasks.filter(q)
+    tasks = apply_support_task_search(tasks, search)
 
     sort_by = query["sort_by"]
     sort_order = query["sort_order"]
