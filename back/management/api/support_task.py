@@ -23,6 +23,7 @@ from management.models.support_task import (
     SupportTask,
     SupportTaskAction,
     SupportTaskActionSerializer,
+    SupportTaskListSerializer,
     SupportTaskNote,
     SupportTaskNoteSerializer,
     SupportTaskSerializer,
@@ -163,11 +164,7 @@ def apply_support_task_search(tasks, search: str):
 def support_task_list(request):
     tasks = (
         SupportTask.objects.select_related("action", "related_user__profile", "created_by__profile")
-        .prefetch_related(
-            "assignees__profile",
-            "notes__completed_by__profile",
-            "notes__history__changed_by__profile",
-        )
+        .prefetch_related("assignees__profile")
         .all()
     )
 
@@ -226,7 +223,7 @@ def support_task_list(request):
 
     paginator = DetailedPagination()
     page_data = paginator.paginate_queryset(tasks.distinct(), request)
-    return paginator.get_paginated_response(SupportTaskSerializer(page_data, many=True).data)
+    return paginator.get_paginated_response(SupportTaskListSerializer(page_data, many=True).data)
 
 
 @api_view(["POST"])

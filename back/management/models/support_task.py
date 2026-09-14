@@ -418,3 +418,35 @@ class SupportTaskSerializer(serializers.ModelSerializer):
             "updated_at",
             "created_by_id",
         ]
+
+
+class SupportTaskListSerializer(serializers.ModelSerializer):
+    action_type = serializers.CharField(source="action.action_type", read_only=True)
+    related_user_profile = serializers.SerializerMethodField()
+    assignee_profiles = serializers.SerializerMethodField()
+    created_by_profile = serializers.SerializerMethodField()
+
+    def get_related_user_profile(self, obj):
+        return _serialize_user_profile(obj.related_user)
+
+    def get_assignee_profiles(self, obj):
+        return [profile for user in obj.assignees.all() if (profile := _serialize_user_profile(user)) is not None]
+
+    def get_created_by_profile(self, obj):
+        return _serialize_user_profile(obj.created_by)
+
+    class Meta:
+        model = SupportTask
+        fields = [
+            "id",
+            "title",
+            "description",
+            "status",
+            "priority",
+            "action_type",
+            "related_user_profile",
+            "assignee_profiles",
+            "created_by_profile",
+            "created_at",
+            "updated_at",
+        ]
