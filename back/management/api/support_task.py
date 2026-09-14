@@ -139,10 +139,12 @@ class SupportTaskListQuerySerializer(serializers.Serializer):
 
 
 def apply_support_task_search(tasks, search: str):
-    """Filter tasks by title/ID or the related user's full name ("First Second")."""
+    """Match by exact ID if numeric, else by title or the related user's full name ("First Second")."""
     search = search.strip()
     if not search:
         return tasks
+    if search.isdigit():
+        return tasks.filter(id=int(search))
     tasks = tasks.annotate(
         _related_user_full_name=Concat(
             "related_user__profile__first_name",
@@ -151,10 +153,7 @@ def apply_support_task_search(tasks, search: str):
             output_field=CharField(),
         )
     )
-    q = Q(title__icontains=search) | Q(_related_user_full_name__icontains=search)
-    if search.isdigit():
-        q |= Q(id=int(search))
-    return tasks.filter(q)
+    return tasks.filter(Q(title__icontains=search) | Q(_related_user_full_name__icontains=search))
 
 
 @extend_schema(responses={200: PaginatedSupportTaskResponse})
