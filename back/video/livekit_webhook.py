@@ -83,7 +83,7 @@ def _notify_incoming_call(caller, partner, session):
     title = get_translation("push_notification.incoming_call.title", partner.profile.display_language)
     description = get_translation(
         "push_notification.incoming_call.description", partner.profile.display_language
-    ).format(name=f"{caller.first_name} {caller.last_name}")
+    ).format(name=caller.first_name)
 
     push_notification_background.delay(
         partner.pk,

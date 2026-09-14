@@ -20,6 +20,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from video.models import LivekitSession
 
+from management.analytics.match_journey.cohorts import JOURNEY_MATCH_TYPES
 from management.analytics.registry import ALL_CATALOG
 from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
 from management.api.user_advanced import get_match_waiting_time
@@ -58,6 +59,26 @@ def _parse_date_input(value, default):
     if not value:
         return default
     return datetime.strptime(value, "%Y-%m-%d").date()
+
+
+def _parse_choice_input(value, *, allowed, field_name):
+    """None / omitted / blank → unfiltered. Otherwise a member of ``allowed``.
+
+    Shared by every optional segment-gate field (``user_type``, ``match_type``, ...) so
+    the allowed set is quoted once, from its real source, instead of copied into a
+    hand-written message per field. The view owns this parse; the cohort dataclass
+    re-validates independently and owns the query semantics (conventions §11).
+    """
+    if value in (None, ""):
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be one of {sorted(allowed)}, or omitted.")
+    value = value.strip()
+    if not value:
+        return None
+    if value not in allowed:
+        raise ValueError(f"{field_name} must be one of {sorted(allowed)}, or omitted.")
+    return value
 
 
 def _inclusive_datetime_range(start_date, end_date):
@@ -732,36 +753,6 @@ def bucket_statistics(request):
 
 
 @extend_schema(
-    request=inline_serializer(
-        name="UserJourneyV5Request",
-        fields={
-            "start_date": serializers.DateField(default=date(2022, 1, 1), required=False),
-            "end_date": serializers.DateField(default=date.today(), required=False),
-            "volunteers_only": serializers.BooleanField(default=False, required=False),
-        },
-    ),
-    responses=inline_serializer(
-        name="UserJourneyV5Response",
-        fields={
-            "definition": serializers.DictField(
-                help_text="Phases, bucket order, labels and descriptions, owned by the server."
-            ),
-            "counts": serializers.DictField(child=serializers.IntegerField()),
-            "rollup_counts": serializers.DictField(
-                child=serializers.IntegerField(),
-                help_text="Subtotals for COMPOSITE catalog entries whose members are all cells.",
-            ),
-            "baseline_count": serializers.IntegerField(),
-            "summed_count": serializers.IntegerField(),
-            "balanced": serializers.BooleanField(
-                help_text="False when buckets overlap or leave baseline users unclaimed."
-            ),
-            "uncovered_count": serializers.IntegerField(),
-            "overlap_counts": serializers.DictField(child=serializers.IntegerField()),
-        },
-    ),
-)
-@extend_schema(
     responses=inline_serializer(
         name="UserJourneyV5DefinitionResponse",
         fields={"definition": serializers.DictField()},
@@ -787,6 +778,41 @@ def user_journey_v5_definition(request):
     return Response({"definition": partition.as_payload(ALL_CATALOG)})
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="UserJourneyV5Request",
+        fields={
+            "start_date": serializers.DateField(default=date(2022, 1, 1), required=False),
+            "end_date": serializers.DateField(default=date.today(), required=False),
+            "user_type": serializers.ChoiceField(
+                choices=Profile.TypeChoices.choices,
+                required=False,
+                allow_null=True,
+                help_text="Cohort segment. Omit or null for all user types.",
+            ),
+        },
+    ),
+    responses=inline_serializer(
+        name="UserJourneyV5Response",
+        fields={
+            "definition": serializers.DictField(
+                help_text="Phases, bucket order, labels and descriptions, owned by the server."
+            ),
+            "counts": serializers.DictField(child=serializers.IntegerField()),
+            "rollup_counts": serializers.DictField(
+                child=serializers.IntegerField(),
+                help_text="Subtotals for COMPOSITE catalog entries whose members are all cells.",
+            ),
+            "baseline_count": serializers.IntegerField(),
+            "summed_count": serializers.IntegerField(),
+            "balanced": serializers.BooleanField(
+                help_text="False when buckets overlap or leave baseline users unclaimed."
+            ),
+            "uncovered_count": serializers.IntegerField(),
+            "overlap_counts": serializers.DictField(child=serializers.IntegerField()),
+        },
+    ),
+)
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 def user_journey_v5_statistics(request):
@@ -816,10 +842,17 @@ def user_journey_v5_statistics(request):
     if start_date > end_date:
         return Response({"detail": "start_date must not be after end_date."}, status=400)
 
+    try:
+        user_type = _parse_choice_input(
+            request.data.get("user_type"), allowed=Profile.TypeChoices.values, field_name="user_type"
+        )
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=400)
+
     cohort = PartitionCohort(
         start_date=start_date,
         end_date=end_date,
-        volunteers_only=request.data.get("volunteers_only", False),
+        user_type=user_type,
     )
     # One instant for every bucket, so a booking expiring mid-request cannot show up as a
     # partition overlap (conventions §10).
@@ -834,6 +867,7 @@ def user_journey_v5_statistics(request):
             "definition": partition.as_payload(ALL_CATALOG),
             "start_date": start_date,
             "end_date": end_date,
+            "user_type": user_type,
             **result,
         }
     )
@@ -869,6 +903,12 @@ def match_journey_v5_definition(request):
         fields={
             "start_date": serializers.DateField(required=False, allow_null=True),
             "end_date": serializers.DateField(required=False, allow_null=True),
+            "match_type": serializers.ChoiceField(
+                choices=[(value, MatchType(value).label) for value in sorted(JOURNEY_MATCH_TYPES)],
+                required=False,
+                allow_null=True,
+                help_text="Cohort segment. Omit or null for Standard and Random Call.",
+            ),
         },
     ),
 )
@@ -896,7 +936,14 @@ def match_journey_v5_statistics(request):
         if start_date > end_date:
             return Response({"detail": "start_date must not be after end_date."}, status=400)
 
-    cohort = MatchPartitionCohort(start_date=start_date, end_date=end_date)
+    try:
+        match_type = _parse_choice_input(
+            request.data.get("match_type"), allowed=JOURNEY_MATCH_TYPES, field_name="match_type"
+        )
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=400)
+
+    cohort = MatchPartitionCohort(start_date=start_date, end_date=end_date, match_type=match_type)
     result = compute_partition(
         partition,
         cohort.apply(_get_accessible_matches(request.user)),
@@ -908,6 +955,7 @@ def match_journey_v5_statistics(request):
             "definition": partition.as_payload(ALL_CATALOG),
             "start_date": start_date,
             "end_date": end_date,
+            "match_type": match_type,
             **result,
         }
     )
@@ -1730,7 +1778,7 @@ def kpi_dashboard_statistics_searching_users(request):
         first_search_learners,
         first_search_volunteers,
         get_user_involved,
-        user_searching_again,
+        user_searching,
     )
 
     pre_filtered_users = User.objects.all()
@@ -1743,7 +1791,7 @@ def kpi_dashboard_statistics_searching_users(request):
     first_search_learners = first_search_learners(pre_filtered_users).count()
 
     users_with_proposals = get_user_involved(matching_proposals(), pre_filtered_users)
-    searching_again = user_searching_again(pre_filtered_users).exclude(id__in=users_with_proposals)
+    searching_again = user_searching(pre_filtered_users).exclude(id__in=users_with_proposals)
     searching_again_volunteers = searching_again.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER).count()
     searching_again_learners = searching_again.filter(profile__user_type=Profile.TypeChoices.LEARNER).count()
 

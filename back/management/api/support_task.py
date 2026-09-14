@@ -1,4 +1,5 @@
 from django.db.models import Case, Count, IntegerField, Q, Value, When
+from django.shortcuts import get_object_or_404
 from django.urls import path
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, inline_serializer
@@ -11,6 +12,7 @@ from management.actions.registry import execute
 from management.api.schema import (
     PaginatedSupportTaskResponse,
     SupportAssigneeUserEntrySerializer,
+    SupportTaskOpenCountSerializer,
     SupportTaskStatsSerializer,
     SupportTaskUserSearchEntrySerializer,
 )
@@ -355,6 +357,15 @@ def support_task_stats(request):
     )
 
 
+@extend_schema(responses={200: SupportTaskOpenCountSerializer})
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAdminOrMatchingUser])
+def open_assigned_support_task_count(request, user_pk=None):
+    user = request.user if user_pk is None else get_object_or_404(User, pk=user_pk)
+    return Response({"count": user.open_assigned_support_task_count})
+
+
 @extend_schema(responses={200: SupportAssigneeUserEntrySerializer(many=True)})
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
@@ -482,6 +493,8 @@ api_urls = [
     path("api/support_task/create/", support_task_create),
     path("api/support_task/create_manual/", support_task_create_manual),
     path("api/support_task/stats/", support_task_stats),
+    path("api/support_task/open_assigned_count/", open_assigned_support_task_count),
+    path("api/support_task/open_assigned_count/<int:user_pk>/", open_assigned_support_task_count),
     path("api/support_task/assignee_users/", assignee_users),
     path("api/support_task/user_search/", user_search),
     path("api/support_task/<int:pk>/", support_task_detail),
