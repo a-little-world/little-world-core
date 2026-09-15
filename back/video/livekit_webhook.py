@@ -3,6 +3,7 @@ import logging
 
 from chat.consumers.messages import InBlockIncomingCall, NewActiveCallRoom
 from chat.models import Chat, ChatConnections
+from django.db import IntegrityError, transaction
 from django.db.models import F, Q
 from django.http import JsonResponse
 from django.urls import path
@@ -36,6 +37,68 @@ def _mark_session_participant_active(session, room, user):
         session.both_have_been_active = session.both_have_been_active or session.u1_active
 
 
+_ACTIVE_SESSION_PARTICIPANT_FIELDS = (
+    "u1_active",
+    "u2_active",
+    "u1_was_active",
+    "u2_was_active",
+    "both_have_been_active",
+)
+
+
+def _lock_room(room):
+    LiveKitRoom.objects.select_for_update().get(pk=room.pk)
+
+
+def _active_sessions(room):
+    return LivekitSession.objects.filter(room=room, is_active=True).order_by("created_at", "pk")
+
+
+def _create_join_session(room, user, *, random_call_session):
+    return LivekitSession.objects.create(
+        room=room,
+        u1=room.u1,
+        u2=room.u2,
+        u1_active=(user == room.u1),
+        u2_active=(user == room.u2),
+        u1_was_active=(user == room.u1),
+        u2_was_active=(user == room.u2),
+        first_active_user=user,
+        random_call_session=random_call_session,
+    )
+
+
+def _attach_participant_and_save(session, room, user):
+    _mark_session_participant_active(session, room, user)
+    session.save(update_fields=_ACTIVE_SESSION_PARTICIPANT_FIELDS)
+
+
+def _get_or_create_active_session(room, user, *, random_call_session):
+    """One active session per room, even when both participants join at once.
+
+    LiveKit can deliver the two `participant_joined` webhooks to different workers.
+    Without locking, both see no active session and each creates a one-sided row, so a
+    successful call is stored twice with `both_have_been_active=False`.
+    """
+    with transaction.atomic():
+        _lock_room(room)
+        session = _active_sessions(room).first()
+        already_mutual = bool(session and session.both_have_been_active)
+        if session is None:
+            try:
+                with transaction.atomic():
+                    session = _create_join_session(room, user, random_call_session=random_call_session)
+            except IntegrityError:
+                session = _active_sessions(room).first()
+                if session is None:
+                    raise
+                already_mutual = session.both_have_been_active
+                _attach_participant_and_save(session, room, user)
+        else:
+            _attach_participant_and_save(session, room, user)
+        return session, already_mutual
+
+
 def _bump_match_mutual_video_call_counter(room):
     """Count a mutual video call as soon as both participants have joined."""
     match = Match.get_match(room.u1, room.u2).first()
@@ -47,32 +110,8 @@ def _bump_match_mutual_video_call_counter(room):
 
 
 def process_webhook_random_call__participant_joined(data, event, participant_id, user, room_id, room):
-    # 4 - we determine if a session is already active for that room
-    active_session = LivekitSession.objects.filter(room=room, is_active=True)
-    session = None
-    if active_session.exists():
-        session = active_session.first()
-        _mark_session_participant_active(session, room, user)
-    else:
-        # TODO: Here we additionally want to create a 'RandomCallSession' DB Object!
-        session = LivekitSession.objects.create(
-            room=room,
-            u1=room.u1,
-            u2=room.u2,
-            u1_active=(user == room.u1),
-            u2_active=(user == room.u2),
-            u1_was_active=(user == room.u1),
-            u2_was_active=(user == room.u2),
-            first_active_user=user,
-            random_call_session=True,
-        )
-    if session is not None:
-        session.webhook_events.add(event)
-        session.save()
-    else:
-        raise Exception(
-            "Edge-Case Detected (@tbscode) random call participant joined: session not found for room:", room.uuid
-        )
+    session, _ = _get_or_create_active_session(room, user, random_call_session=True)
+    session.webhook_events.add(event)
 
 
 def _notify_incoming_call(caller, partner, session):
@@ -96,45 +135,18 @@ def _notify_incoming_call(caller, partner, session):
 
 
 def process_webhook_classic_call__participant_joined(data, event, participant_id, user, room_id, room):
-    # 4 - we determine if a session is already active for that room
-    active_session = LivekitSession.objects.filter(room=room, is_active=True)
-    session = None
-    already_mutual = False
-    if active_session.exists():
-        session = active_session.first()
-        already_mutual = session.both_have_been_active
-        _mark_session_participant_active(session, room, user)
-    else:
-        session = LivekitSession.objects.create(
-            room=room,
-            u1=room.u1,
-            u2=room.u2,
-            u1_active=(user == room.u1),
-            u2_active=(user == room.u2),
-            u1_was_active=(user == room.u1),
-            u2_was_active=(user == room.u2),
-            first_active_user=user,
-            random_call_session=False,
-        )
-
-    if session is not None:
-        session.webhook_events.add(event)
-        session.save()
-        if session.both_have_been_active and not already_mutual:
-            _bump_match_mutual_video_call_counter(room)
-        # 5 - send 'NewActiveCall' event to the partner of the user that joined
-        partner = room.u1 if user == room.u2 else room.u2
-        NewActiveCallRoom(call_room=SerializeLivekitSession(session, context={"user": partner}).data).send(
-            str(partner.uuid)
-        )
-        try:
-            _notify_incoming_call(user, partner, session)
-        except Exception:
-            pass
-    else:
-        raise Exception(
-            "Edge-Case Detected (@tbscode) classic call participant joined: session not found for room:", room.uuid
-        )
+    session, already_mutual = _get_or_create_active_session(room, user, random_call_session=False)
+    session.webhook_events.add(event)
+    if session.both_have_been_active and not already_mutual:
+        _bump_match_mutual_video_call_counter(room)
+    partner = room.u1 if user == room.u2 else room.u2
+    NewActiveCallRoom(call_room=SerializeLivekitSession(session, context={"user": partner}).data).send(
+        str(partner.uuid)
+    )
+    try:
+        _notify_incoming_call(user, partner, session)
+    except Exception:
+        pass
 
 
 def process_webhook_classic_call__participant_left(data, event, participant_id, user, room_id, room):

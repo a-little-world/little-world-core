@@ -75,6 +75,17 @@ class LivekitSession(models.Model):
 
     webhook_events = models.ManyToManyField("video.LivekitWebhookEvent", related_name="livekit_session")
 
+    class Meta:
+        constraints = [
+            # Two participant_joined webhooks can race and otherwise create two active
+            # rows for the same room, splitting one successful call into two one-sided ones.
+            models.UniqueConstraint(
+                fields=["room"],
+                condition=models.Q(is_active=True, room__isnull=False),
+                name="unique_active_livekit_session_per_room",
+            )
+        ]
+
 
 class SerializeLivekitSession(ModelSerializer):
     room_uuid = serializers.CharField(source="room.uuid", read_only=True, allow_null=True)
