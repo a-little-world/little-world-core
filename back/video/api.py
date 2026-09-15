@@ -1,5 +1,4 @@
 import asyncio
-import uuid
 
 from chat.consumers.messages import NewActiveCallRoom, OutgoingCallRejected
 from chat.models import Chat, ChatSerializer
@@ -8,7 +7,6 @@ from django.db.models import Exists, OuterRef, Q
 from django.urls import path
 from drf_spectacular.utils import extend_schema
 from livekit import api as livekit_api
-from management import surveys
 from management.authentication import NativeOnlyJWTAuthentication
 from management.models.matches import Match
 from management.models.unconfirmed_matches import MatchType
@@ -86,54 +84,6 @@ def authenticate_live_kit_room(request):
     )
 
     return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": chat})
-
-
-class PostCallReviewParams(serializers.Serializer):
-    live_session_id = serializers.UUIDField(required=False, allow_null=True)
-    rating = serializers.IntegerField(required=True)
-    review = serializers.CharField(required=False, allow_blank=True)
-    review_id = serializers.IntegerField(required=False, allow_null=True)
-
-    def to_internal_value(self, data):
-        if "live_session_id" in data:
-            try:
-                # If a non parsable uuid is sent, we set it to None
-                uuid.UUID(str(data["live_session_id"]))
-            except (ValueError, TypeError, AttributeError):
-                data["live_session_id"] = None
-
-        return super().to_internal_value(data)
-
-
-@extend_schema(request=PostCallReviewParams(many=False), responses={200: {"status": "ok"}})
-@api_view(["POST"])
-@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def post_call_review(request):
-    """Deprecated: use ``POST /api/surveys/<id>/submit``.
-
-    Kept while clients that predate the survey endpoints are still in use. Feedback lands in
-    ``SurveyResponse`` on the ``post-call`` campaign either way.
-    """
-    serializer = PostCallReviewParams(data=request.data)
-    if not serializer.is_valid():
-        return Response({"status": "error", "message": "Invalid Review Data"}, status=400)
-    validated_data = serializer.validated_data
-
-    live_session = None
-    if validated_data.get("live_session_id"):
-        # An unresolvable session is not an error — the user still gets to leave feedback.
-        live_session = LivekitSession.objects.filter(uuid=validated_data["live_session_id"]).first()
-
-    response = surveys.submit_post_call_review(
-        request.user,
-        live_session=live_session,
-        rating=validated_data["rating"],
-        review=validated_data.get("review", ""),
-        response_id=validated_data.get("review_id", None),
-    )
-
-    return Response({"status": "ok", "review_id": response.pk})
 
 
 @api_view(["GET"])
@@ -232,7 +182,6 @@ def call_rejected(request):
 
 
 api_urls = [
-    path("api/livekit/review", post_call_review),
     path("api/call_rooms", active_call_rooms, name="active_call_rooms_api"),
     path("api/call_rejected", call_rejected),
     path("api/call_retrigger", call_retrigger),

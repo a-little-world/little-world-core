@@ -179,7 +179,7 @@ def create_and_deliver_message(
     if send_push_notification:
         push_notification_background.delay(
             recipient.pk,
-            title=f"{sender.first_name} {sender.last_name}",
+            title=sender.first_name,
             description=message.text,
             notification_type=PushNotificationType.CHAT,
             path=f"/app/chat/{str(chat.uuid)}",

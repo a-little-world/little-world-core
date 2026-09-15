@@ -11,7 +11,6 @@ next poll finds it — which also removes the "only if the user is connected" li
 
 import logging
 from datetime import datetime, time, timedelta
-from uuid import uuid4
 
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
@@ -334,18 +333,13 @@ def offer_survey(campaign: SurveyCampaign, user, *, context_key: str = "", live_
 
 
 def _post_call_context_key(campaign: SurveyCampaign, live_session) -> str:
-    """Context key for a review the legacy endpoint is about to record.
+    """Context key for an offer made after a call.
 
-    The old endpoint accepted a review with no live session at all, and there is no context
-    to key such a row on. Rather than drop the feedback or collapse every session-less review
-    of one user onto a single row, each gets its own ``legacy:<uuid>`` key: the uniqueness
-    rule stays intact and the key says plainly where the row came from.
+    A user-scoped campaign takes an empty key — it is asked once ever, not once per call.
     """
     if not campaign.is_context_scoped:
         return ""
-    if live_session is not None:
-        return build_context_key(SurveyCampaign.ContextType.LIVE_SESSION, live_session.uuid)
-    return build_context_key("legacy", uuid4())
+    return build_context_key(SurveyCampaign.ContextType.LIVE_SESSION, live_session.uuid)
 
 
 def offer_post_call_survey(user, live_session) -> SurveyResponse | None:
@@ -526,60 +520,6 @@ def submit_survey(response: SurveyResponse, answers, *, allow_resubmit: bool = F
         raise ValidationError("This survey has already been answered.")
     response.submit(validate_answers(response.campaign, answers))
     return response
-
-
-def submit_post_call_review(user, *, live_session, rating, review, response_id=None) -> SurveyResponse:
-    """Back-compatible entry point for ``POST /api/livekit/review``.
-
-    Exists only while older clients are still in the wild; they post a rating against a live
-    session rather than against a survey id. Resolving that to the right offer belongs here
-    with the rest of the survey rules, not in the video app.
-    """
-    campaign = get_campaign(POST_CALL_SLUG)
-    if campaign is None:
-        raise ValidationError("The post-call survey campaign does not exist.")
-
-    answers = {"rating": rating, "comment": review}
-
-    if response_id is not None:
-        # Scoped to the post-call campaign on purpose. ``review_id`` is client-supplied, and
-        # before the migration it was a PostCallReview pk — unrelated to SurveyResponse pks —
-        # so an id that lands on another campaign's row is stale or crafted either way. Fall
-        # through to session resolution rather than write a call rating over an unrelated
-        # survey's answers.
-        response = (
-            SurveyResponse.objects.filter(pk=response_id, user=user, campaign=campaign)
-            .select_related("campaign")
-            .first()
-        )
-        if response is not None:
-            # The old endpoint let a client overwrite its own review, so the shim keeps that.
-            return submit_survey(response, answers, allow_resubmit=True)
-
-    open_offers = SurveyResponse.objects.filter(
-        campaign=campaign, user=user, status=SurveyResponse.Status.SHOWN
-    ).order_by("-created_at")
-    response = (
-        open_offers.filter(live_session=live_session).first() if live_session is not None else open_offers.first()
-    )
-
-    if response is None:
-        # Nothing open to answer, so this would be a brand new offer. A retired campaign
-        # should not gain those; while it is live the old endpoint's promise holds and the
-        # feedback is recorded rather than rejected.
-        if not campaign.is_live():
-            raise ValidationError("The post-call survey is no longer active.")
-        response = offer_survey(
-            campaign,
-            user,
-            context_key=_post_call_context_key(campaign, live_session),
-            live_session=live_session,
-        )
-
-    if response is None:
-        raise ValidationError("This call has already been reviewed.")
-    response.campaign = campaign
-    return submit_survey(response, answers)
 
 
 def dismiss_survey(response: SurveyResponse) -> SurveyResponse:

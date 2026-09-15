@@ -43,8 +43,16 @@ def close_db_connections_after_task(**kwargs):
     This prevents connection exhaustion by ensuring connections don't stay
     open for CONN_MAX_AGE (600s) after task completion.
     Whilist A high connection time out is desirable for the API endpoints, as then the backend re-uses connections.
+
+    Eager tasks are the exception. They run inline in the caller's process, which under
+    test is inside the ``TestCase`` transaction — closing here severs the connection the
+    test itself is using and every query after it raises ``InterfaceError: connection
+    already closed``. There is no pooled connection to reclaim in that case anyway.
     """
     from django import db
+
+    if app.conf.task_always_eager:
+        return
 
     db.connections.close_all()
 

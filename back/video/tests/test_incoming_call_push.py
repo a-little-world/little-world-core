@@ -3,6 +3,7 @@ from unittest.mock import patch
 from chat.models import ChatConnections
 from django.test import TestCase
 from management.models.user import User
+
 from video.livekit_webhook import process_webhook_classic_call__participant_joined
 from video.models import LiveKitRoom, LivekitWebhookEvent
 
