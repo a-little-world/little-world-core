@@ -22,7 +22,9 @@ jobs:
       bot_user: ${{ vars.OPEN_CHAT_BOT_GITHUB_USER }}
       allowed_author: ${{ vars.OPEN_CHAT_ALLOWED_AUTHOR }}
       host: ${{ vars.OPEN_CHAT_HOST }}
-      plan_bot: ${{ vars.OPEN_CHAT_PLAN_BOT }}
+      # plan_bot is omitted by design: the reusable workflow resolves it to
+      # '<repo>-plan-bot' (little-world-backend-plan-bot), which must exist on
+      # the Open-Chat server. See docs/open-chat-ci.md / dev/docs/open_chat_ci.md.
     secrets:
       OPEN_CHAT_API_TOKEN: ${{ secrets.OPEN_CHAT_API_TOKEN }}
       BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
