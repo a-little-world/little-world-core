@@ -2182,6 +2182,37 @@ class TestAutomaticEmailsIncludeRandomCallMatches(TestCase):
                 == settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER
             )
 
+    @patch("management.tasks.send_email_background")
+    def test_m045_sends_video_call_survey_url_as_completed_match_poll(self, mock_send_email):
+        user1, user2, match = self._create_pair(
+            "m045-rc",
+            MatchType.RANDOM_CALL,
+            confirmed=True,
+            auto_email_m043_send=True,
+            auto_email_m044_send=True,
+            auto_email_m045_send=False,
+            latest_counter_sync=dj_timezone.now() - timedelta(days=2),
+            latest_interaction_at=dj_timezone.now() - timedelta(days=1),
+        )
+        for _ in range(10):
+            LivekitSession.objects.create(
+                u1=user1,
+                u2=user2,
+                both_have_been_active=True,
+                is_active=False,
+            )
+
+        automatic_emails_m043_m044_m045()
+
+        calls = mock_send_email.delay.call_args_list
+        assert {call.kwargs["user_id"] for call in calls} == {user1.id, user2.id}
+        for call in calls:
+            assert call.kwargs["context"]["completed_match_poll_url"] in (
+                settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER,
+                settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER,
+            )
+            assert "completed_match_poll_url" in call.kwargs["context"]
+
     def test_fm021_includes_random_call_and_excludes_temporary(self):
         _u1, _u2, rc_match = self._create_pair(
             "fm021-rc",

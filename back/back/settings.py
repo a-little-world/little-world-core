@@ -1021,11 +1021,13 @@ GOOGLE_FORM_MATCH_REMOVED_GHOSTED = (
     "https://docs.google.com/forms/d/e/1FAIpQLSck918AL9dST6Dqp9DtOvtBC0-3BWJfB2pPZc31DUjCSWEOyg/viewform"
 )
 GOOGLE_FORM_STILL_IN_CONTACT_MATCH_FORM1 = "https://docs.google.com/forms/d/e/1FAIpQLScZpHVBkd9oXMTXGwH6aIUS8-Ep3LGbmHzx0wKYTA0fDpzJtQ/viewform?entry.1868418501={user_uuid}&entry.1064841735={match_uuid}"
-GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER = (
+GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER = (
+    # form named '2026 Impact Umfrage - Deutschlernende'
     "https://docs.google.com/forms/d/e/1FAIpQLSeRiEUt9ZHNsPWeHlRMJSrR6jAagGO-u8jKZlJdJ3SvQqKgpA/viewform"
 )
-GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER = (
-    "https://docs.google.com/forms/d/e/1FAIpQLScLdpyDzaf_JS9hWE6ok6_xENc34RbPv7Wg--Qb1NhqFl8cjQ/viewform?usp=header"
+GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER = (
+    # form named '2026 Impact Umfrage - Volunteers'
+    "https://docs.google.com/forms/d/e/1FAIpQLScLdpyDzaf_JS9hWE6ok6_xENc34RbPv7Wg--Qb1NhqFl8cjQ/viewform"
 )
 GOOGLE_FORM_SHARE_STORY_URL = (
     "https://docs.google.com/forms/d/e/1FAIpQLSct9CPNv-8wjV1WMg9tPfm7RyqBeZgkFOAz0qABIqu4uRdSTg/viewform"
