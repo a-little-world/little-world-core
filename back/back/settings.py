@@ -119,7 +119,6 @@ REDIS_PROTOCOL = os.environ.get(
 )
 REDIS_PASSWORD = os.environ.get("DJ_REDIS_PASSWORD", None)
 
-USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
 REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
 REDIS_URL = os.environ.get(
     "REDIS_URL", f"{REDIS_PROTOCOL}://{REDIS_HOST}:{REDIS_PORT}"
@@ -256,7 +255,6 @@ INSTALLED_APPS = [
     "drf_spectacular",  # for api shema generation
     "drf_spectacular_sidecar",  # statics for redoc and swagger
     *(["django_spaghetti"] if ENABLE_SPAGHETTI else []),
-    *(["debug_toolbar"] if USE_DEBUG_TOOLBAR else []),
     "webpack_loader",  # Load bundled webpack files, check `./run.py front`
     "storages",  # django storages managing s3 bucket files!
     "django.contrib.admin",
@@ -290,7 +288,6 @@ MIDDLEWARE = [
         if (BUILD_TYPE == BuildType.DEVELOPMENT or DOCS_BUILD or USE_WHITENOISE)
         else []
     ),
-    *(["debug_toolbar.middleware.DebugToolbarMiddleware"] if USE_DEBUG_TOOLBAR else []),
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet",
@@ -314,26 +311,6 @@ MIDDLEWARE_CLASSES = [
 if DEBUG:
     SECURE_CROSS_ORIGIN_OPENER_POLICY = None
     X_FRAME_OPTIONS = "ALLOWALL"
-
-    # Debug Toolbar settings
-    INTERNAL_IPS = [
-        "127.0.0.1",
-        "172.17.0.1",  # Docker host IP
-        "172.18.0.1",
-        "172.19.0.1",
-        "172.20.0.1",
-        "172.21.0.1",
-        "172.22.0.1",
-    ]
-
-    if USE_DEBUG_TOOLBAR:
-        DEBUG_TOOLBAR_CONFIG = {
-            "SHOW_TOOLBAR_CALLBACK": lambda request: USE_DEBUG_TOOLBAR,
-        }
-    else:
-        DEBUG_TOOLBAR_CONFIG = {
-            "SHOW_TOOLBAR_CALLBACK": lambda request: False,
-        }
 
 COOKIE_CONSENT_ENABLED = True
 COOKIE_CONSENT_DOMAIN = (
