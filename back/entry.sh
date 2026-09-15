@@ -50,7 +50,7 @@ python3 manage.py shell --command 'from django.apps import apps; from django.con
 
 
 if [ "$BUILD_TYPE" = "development" ]; then
-    if [ "$DJ_DEBUG" = "1" ]; then
+    if [ "$DJ_DEBUG" = "1" ] && python3 -c "import debugpy" 2>/dev/null; then
         python3 -Xfrozen_modules=off -m debugpy --listen 0.0.0.0:5678 -m uvicorn back.asgi:application --reload --port 8000 --host 0.0.0.0
     else
         uvicorn back.asgi:application --reload --port 8000 --host 0.0.0.0
