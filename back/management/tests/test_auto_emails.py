@@ -2240,6 +2240,183 @@ class TestAutomaticEmailsIncludeRandomCallMatches(TestCase):
         assert rc_match.is_ghosted_match is False
 
 
+class TestAutomaticEmails_m043_m044_m045_EmailContent(TestCase):
+    """Regression tests for the match-milestone impact-survey emails (issue #1154).
+
+    M043 was sent without ``match_id`` even though its template renders
+    ``partner_first_name``, so the lookup raised a ``TypeError`` and the task died
+    before an ``EmailLog`` row could be written. M044 relied on the
+    ``share_story_url`` lookup fallback, which only recognised the literal string
+    "Not set" and therefore rendered ``href="None"``.
+    """
+
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+
+    def _create_pair(self, seed):
+        learner = User.objects.create_user(
+            email=f"milestone-content-{seed}-learner@test.de",
+            password="Test123!",
+            first_name="Learner",
+            last_name="Test",
+        )
+        volunteer = User.objects.create_user(
+            email=f"milestone-content-{seed}-volunteer@test.de",
+            password="Test123!",
+            first_name="Volunteer",
+            last_name="Test",
+        )
+        learner.profile.first_name = "Learner"
+        volunteer.profile.first_name = "Volunteer"
+        learner.profile.user_type = Profile.TypeChoices.LEARNER
+        volunteer.profile.user_type = Profile.TypeChoices.VOLUNTEER
+        learner.profile.save()
+        volunteer.profile.save()
+        match = Match.objects.create(
+            user1=learner,
+            user2=volunteer,
+            active=True,
+            confirmed=True,
+            auto_email_m043_send=False,
+            auto_email_m044_send=False,
+            auto_email_m045_send=False,
+            latest_counter_sync=dj_timezone.now() - timedelta(days=2),
+            latest_interaction_at=dj_timezone.now() - timedelta(days=1),
+        )
+        return learner, volunteer, match
+
+    def _create_sessions(self, user1, user2, amount):
+        for _ in range(amount):
+            LivekitSession.objects.create(
+                u1=user1,
+                u2=user2,
+                both_have_been_active=True,
+                is_active=False,
+            )
+
+    def _render(self, template_name, user, match, context=None):
+        from emails.api.send_email import send_template_email
+        from emails.models import EmailLog
+
+        send_template_email(
+            template_name,
+            user_id=user.id,
+            match_id=match.pk,
+            emulated_send=True,
+            context=context or {},
+        )
+        return EmailLog.objects.filter(template=template_name, receiver=user).order_by("-time").first()
+
+    def _assert_no_broken_links(self, html):
+        assert 'href="None"' not in html, 'Rendered email contains a literal href="None"'
+        assert "href='None'" not in html, "Rendered email contains a literal href='None'"
+
+    def test_share_story_url_lookup_falls_back_for_none_and_not_set(self):
+        from emails.api.template_lookup import share_story_url
+
+        assert share_story_url(user=None, match=None, context={"share_story_url": None}) == (
+            settings.GOOGLE_FORM_SHARE_STORY_URL
+        )
+        assert share_story_url(user=None, match=None, context={"share_story_url": "Not set"}) == (
+            settings.GOOGLE_FORM_SHARE_STORY_URL
+        )
+        assert (
+            share_story_url(user=None, match=None, context={"share_story_url": "https://example.com/story"})
+            == "https://example.com/story"
+        )
+
+    @patch("management.tasks.send_email_background")
+    def test_m043_sends_with_match_id_and_renders_survey(self, mock_send_email):
+        learner, volunteer, match = self._create_pair("m043")
+        self._create_sessions(learner, volunteer, 5)
+
+        automatic_emails_m043_m044_m045()
+
+        calls = [call for call in mock_send_email.delay.call_args_list if call.args[0] == "automatic-emails-m043"]
+        assert len(calls) == 2
+        assert {call.kwargs["user_id"] for call in calls} == {learner.id, volunteer.id}
+        for call in calls:
+            assert call.kwargs["match_id"] == match.pk, "M043 must carry match_id or partner_first_name crashes"
+
+        for call in calls:
+            log = self._render(
+                call.args[0],
+                User.objects.get(pk=call.kwargs["user_id"]),
+                match,
+                call.kwargs["context"],
+            )
+            assert log is not None and log.sucess is True
+            self._assert_no_broken_links(log.data["html"])
+
+        learner_log = self._render(
+            "automatic-emails-m043",
+            learner,
+            match,
+            {"post_videocall_survey_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER},
+        )
+        volunteer_log = self._render(
+            "automatic-emails-m043",
+            volunteer,
+            match,
+            {"post_videocall_survey_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER},
+        )
+        assert settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER in learner_log.data["html"]
+        assert settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER in volunteer_log.data["html"]
+
+    def test_m044_renders_share_story_fallback(self):
+        learner, _volunteer, match = self._create_pair("m044")
+
+        log = self._render("automatic-emails-m044", learner, match)
+
+        assert log is not None and log.sucess is True
+        assert settings.GOOGLE_FORM_SHARE_STORY_URL in log.data["html"]
+        self._assert_no_broken_links(log.data["html"])
+
+    def test_m045_renders_completed_match_poll_url(self):
+        learner, _volunteer, match = self._create_pair("m045")
+
+        log = self._render(
+            "automatic-emails-m045",
+            learner,
+            match,
+            {"completed_match_poll_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER},
+        )
+
+        assert log is not None and log.sucess is True
+        assert settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER in log.data["html"]
+        self._assert_no_broken_links(log.data["html"])
+
+    def test_m053_m055_keep_still_in_contact_redirect(self):
+        from emails.api.template_lookup import still_in_contact_yes_url
+
+        learner, _volunteer, match = self._create_pair("m053-m055")
+        redirect_slugs = {"redirect_slug_no": "info-screen", "redirect_slug_yes": "match-form1"}
+
+        m053_log = self._render(
+            "automatic-emails-m053",
+            learner,
+            match,
+            {
+                **redirect_slugs,
+                "five_week_survey_url": still_in_contact_yes_url(learner, match, redirect_slugs),
+            },
+        )
+        m055_log = self._render(
+            "automatic-emails-m055",
+            learner,
+            match,
+            {
+                **redirect_slugs,
+                "completed_match_poll_url": still_in_contact_yes_url(learner, match, redirect_slugs),
+            },
+        )
+
+        for log in (m053_log, m055_log):
+            assert log is not None and log.sucess is True
+            assert "redirect_slug=match-form1" in log.data["html"]
+            self._assert_no_broken_links(log.data["html"])
+
+
 class TestAutomaticEmails_fm021_fm022(TestCase):
     def setUp(self):
         settings.DJANGO_TESTING = True

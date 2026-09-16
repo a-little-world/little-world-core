@@ -68,9 +68,10 @@ def link_url(user=None, match=None, context={"link_url": "Not set"}):
     return context["link_url"]
 
 
-def share_story_url(user=None, match=None, context={"share_story_url": "Not set"}):
-    if context.get("share_story_url") != "Not set":
-        return context["share_story_url"]
+def share_story_url(user=None, match=None, context={"share_story_url": None}):
+    value = context.get("share_story_url")
+    if value not in (None, "Not set"):
+        return value
     return settings.GOOGLE_FORM_SHARE_STORY_URL
 
 
