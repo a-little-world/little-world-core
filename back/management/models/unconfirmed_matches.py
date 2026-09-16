@@ -139,11 +139,11 @@ def serialize_proposed_matches(matching_proposals, user):
 
 
 class ProposedMatch(models.Model):
-    """One object stored for every jet unconfirmed match"""
+    """One object stored for every yet unconfirmed match"""
 
     hash = models.UUIDField(default=uuid4, editable=False, unique=True)
 
-    # (monitor for bugs!) are there? potential side effect here? if users decide to change their user type after they recieved a matching suggestion!?
+    # (monitor for bugs!) are there? potential side effect here? if users decide to change their user type after they received a matching suggestion!?
     # Maybe we should later save the users here as volunteer / learner and not perform any lookups on the current profile since it could have changed?
     user1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="unconfirmed_match_user1")
 
