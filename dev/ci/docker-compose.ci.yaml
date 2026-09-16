@@ -21,7 +21,7 @@ services:
       DJ_REDIS_HOST: "${DJ_REDIS_HOST:-redis}"
       DJ_REDIS_PORT: "${DJ_REDIS_PORT:-6379}"
       EMPHIRIAL: "1"
-      DJ_DEBUG: 1
+      DJ_DEBUG: 0
       DJ_SECRET_KEY: "bla bla"
       DJ_ALLOWED_HOSTS: "*"
       DJ_TIME_ZONE: UTC

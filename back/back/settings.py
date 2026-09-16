@@ -119,7 +119,6 @@ REDIS_PROTOCOL = os.environ.get(
 )
 REDIS_PASSWORD = os.environ.get("DJ_REDIS_PASSWORD", None)
 
-USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
 REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
 REDIS_URL = os.environ.get(
     "REDIS_URL", f"{REDIS_PROTOCOL}://{REDIS_HOST}:{REDIS_PORT}"
@@ -256,7 +255,6 @@ INSTALLED_APPS = [
     "drf_spectacular",  # for api shema generation
     "drf_spectacular_sidecar",  # statics for redoc and swagger
     *(["django_spaghetti"] if ENABLE_SPAGHETTI else []),
-    *(["debug_toolbar"] if USE_DEBUG_TOOLBAR else []),
     "webpack_loader",  # Load bundled webpack files, check `./run.py front`
     "storages",  # django storages managing s3 bucket files!
     "django.contrib.admin",
@@ -290,7 +288,6 @@ MIDDLEWARE = [
         if (BUILD_TYPE == BuildType.DEVELOPMENT or DOCS_BUILD or USE_WHITENOISE)
         else []
     ),
-    *(["debug_toolbar.middleware.DebugToolbarMiddleware"] if USE_DEBUG_TOOLBAR else []),
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet",
@@ -314,26 +311,6 @@ MIDDLEWARE_CLASSES = [
 if DEBUG:
     SECURE_CROSS_ORIGIN_OPENER_POLICY = None
     X_FRAME_OPTIONS = "ALLOWALL"
-
-    # Debug Toolbar settings
-    INTERNAL_IPS = [
-        "127.0.0.1",
-        "172.17.0.1",  # Docker host IP
-        "172.18.0.1",
-        "172.19.0.1",
-        "172.20.0.1",
-        "172.21.0.1",
-        "172.22.0.1",
-    ]
-
-    if USE_DEBUG_TOOLBAR:
-        DEBUG_TOOLBAR_CONFIG = {
-            "SHOW_TOOLBAR_CALLBACK": lambda request: USE_DEBUG_TOOLBAR,
-        }
-    else:
-        DEBUG_TOOLBAR_CONFIG = {
-            "SHOW_TOOLBAR_CALLBACK": lambda request: False,
-        }
 
 COOKIE_CONSENT_ENABLED = True
 COOKIE_CONSENT_DOMAIN = (
@@ -1044,11 +1021,13 @@ GOOGLE_FORM_MATCH_REMOVED_GHOSTED = (
     "https://docs.google.com/forms/d/e/1FAIpQLSck918AL9dST6Dqp9DtOvtBC0-3BWJfB2pPZc31DUjCSWEOyg/viewform"
 )
 GOOGLE_FORM_STILL_IN_CONTACT_MATCH_FORM1 = "https://docs.google.com/forms/d/e/1FAIpQLScZpHVBkd9oXMTXGwH6aIUS8-Ep3LGbmHzx0wKYTA0fDpzJtQ/viewform?entry.1868418501={user_uuid}&entry.1064841735={match_uuid}"
-GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER = (
+GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER = (
+    # form named '2026 Impact Umfrage - Deutschlernende'
     "https://docs.google.com/forms/d/e/1FAIpQLSeRiEUt9ZHNsPWeHlRMJSrR6jAagGO-u8jKZlJdJ3SvQqKgpA/viewform"
 )
-GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER = (
-    "https://docs.google.com/forms/d/e/1FAIpQLScLdpyDzaf_JS9hWE6ok6_xENc34RbPv7Wg--Qb1NhqFl8cjQ/viewform?usp=header"
+GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER = (
+    # form named '2026 Impact Umfrage - Volunteers'
+    "https://docs.google.com/forms/d/e/1FAIpQLScLdpyDzaf_JS9hWE6ok6_xENc34RbPv7Wg--Qb1NhqFl8cjQ/viewform"
 )
 GOOGLE_FORM_SHARE_STORY_URL = (
     "https://docs.google.com/forms/d/e/1FAIpQLSct9CPNv-8wjV1WMg9tPfm7RyqBeZgkFOAz0qABIqu4uRdSTg/viewform"
