@@ -811,7 +811,7 @@ For loading webpack static files
 - in production we instead copy the `./front` files to `/front`
 """
 WEBPACK_LOADER = {
-    app: {  # Configure seperate loaders for every app!
+    app: {  # Configure separate loaders for every app!
         "CACHE": not DEBUG,
         "STATS_FILE": f"/front/webpack-stats/{app}/webpack-stats.json",
         "BUNDLE_DIR_NAME": f"/front/dist/{app}",
@@ -825,8 +825,8 @@ WEBPACK_LOADER = {
 Default language code of the application
 this reflects which language the translation of the app are written in
 so as long the default the incode translations are english **dont change this**
-as default language the user will always have a fallback langugae
-english no matter if frontent translation failes
+as default language the user will always have a fallback language
+english no matter if frontend translations fail
 """
 LANGUAGE_CODE = "en"
 TIME_ZONE = os.environ.get("DJ_TIME_ZONE", "UTC")
