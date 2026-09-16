@@ -9,7 +9,15 @@
             "request": "launch",
             "type": "chrome",
             "url": "http://localhost:8000/",
-            "webRoot": "${workspaceRoot}/front/apps/main_frontend",
+            "webRoot": "${workspaceFolder}/front",
+            "sourceMaps": true
+        },
+        {
+            "name": "Debug (Chrome Admin Panel)",
+            "request": "launch",
+            "type": "chrome",
+            "url": "http://localhost:8000/matching/",
+            "webRoot": "${workspaceFolder}/front",
             "sourceMaps": true
         },
         {
