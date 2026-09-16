@@ -1,5 +1,6 @@
 """Concurrent LiveKit joins must share one session, not split a successful call."""
 
+from datetime import timedelta
 from unittest.mock import Mock, patch
 
 from django.db import IntegrityError
@@ -67,6 +68,51 @@ class SequentialJoinTests(TestCase):
         self.assertTrue(sessions[1].is_active)
         self.assertTrue(sessions[0].both_have_been_active)
         self.assertFalse(sessions[1].both_have_been_active)
+
+    def test_session_closes_only_after_both_have_left(self):
+        self._classic_join(self.u1)
+        self._classic_join(self.u2)
+        self._classic_leave(self.u1)
+
+        session = LivekitSession.objects.get(room=self.room)
+        self.assertTrue(session.is_active)
+        self.assertFalse(session.u1_active)
+        self.assertTrue(session.u2_active)
+
+        self._classic_leave(self.u2)
+        session.refresh_from_db()
+        self.assertFalse(session.is_active)
+        self.assertFalse(session.u1_active)
+        self.assertFalse(session.u2_active)
+        self.assertIsNotNone(session.end_time)
+
+    def test_a_leave_after_the_session_is_already_closed_is_a_noop(self):
+        self._classic_join(self.u1)
+        self._classic_join(self.u2)
+        self._classic_leave(self.u1)
+        self._classic_leave(self.u2)
+        closed_end = LivekitSession.objects.get(room=self.room).end_time
+
+        self._classic_leave(self.u1)
+
+        session = LivekitSession.objects.get(room=self.room)
+        self.assertFalse(session.is_active)
+        self.assertEqual(session.end_time, closed_end)
+
+    def test_a_leave_does_not_overwrite_an_unusual_length_end(self):
+        self._classic_join(self.u1)
+        self._classic_join(self.u2)
+        session = LivekitSession.objects.get(room=self.room)
+        capped_end = session.created_at + timedelta(minutes=45)
+        LivekitSession.objects.filter(pk=session.pk).update(unusual_length=True, end_time=capped_end)
+
+        self._classic_leave(self.u1)
+        self._classic_leave(self.u2)
+
+        session.refresh_from_db()
+        self.assertFalse(session.is_active)
+        self.assertEqual(session.end_time, capped_end)
+        self.assertTrue(session.unusual_length)
 
     def test_room_cannot_have_two_active_sessions(self):
         LivekitSession.objects.create(room=self.room, u1=self.u1, u2=self.u2, is_active=True)

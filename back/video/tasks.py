@@ -6,22 +6,22 @@ from django.db.models import Q
 from django.utils import timezone
 
 from video.models import RandomCallLobby, RandomCallLobbyUser, RandomCallMatching, RandomCallProposalUserStatus
-from video.services.livekit_session_correction import process_unusually_long_sessions
+from video.services.livekit_session_correction import UNUSUAL_LENGTH_CUTOFF, process_unusually_long_sessions
 
 
 @shared_task(name="video.tasks.daily_fix_unusually_long_livekit_sessions")
-def daily_fix_unusually_long_livekit_sessions(cutoff_hours: float = 4.0):
+def daily_fix_unusually_long_livekit_sessions(**_kwargs):
+    """Close stuck sessions older than 24h and stamp them at 45 minutes.
+
+    No upper age bound: zombies older than a week were previously skipped and could stay
+    open for days. Finished calls that already have a real hang-up are not recapped.
     """
-    Runs daily to cap unusually long sessions for records aged between 24 and 60 hours.
-    """
-    # 24h <= age < 1week window
-    result = process_unusually_long_sessions(
-        cutoff_hours=cutoff_hours,
+    return process_unusually_long_sessions(
+        cutoff=UNUSUAL_LENGTH_CUTOFF,
         min_age_hours=24.0,
-        max_age_hours=7.0 * 24.0,
+        max_age_hours=None,
         dry_run=False,
     )
-    return result
 
 
 @shared_task(name="video.tasks.random_call_lobby_perform_matching")

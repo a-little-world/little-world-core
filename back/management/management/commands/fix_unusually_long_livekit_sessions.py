@@ -1,11 +1,15 @@
+from datetime import timedelta
+
 from django.core.management.base import BaseCommand
-from video.services.livekit_session_correction import process_unusually_long_sessions
+from video.services.livekit_session_correction import UNUSUAL_LENGTH_CUTOFF, process_unusually_long_sessions
 
 
 class Command(BaseCommand):
     help = (
-        "Scan LivekitSession rows longer than 4 hours, mark as unusual, "
-        "store original start/end in start_end_before_correction, and cap end_time to start + 4h."
+        "Close stuck LivekitSession rows (still open, or already unusual with an end beyond "
+        "the cutoff), mark unusual_length, store the previous end in start_end_before_correction "
+        "if empty, and stamp end_time to created_at + cutoff (default 45 minutes). "
+        "Does not recap finished calls that closed normally."
     )
 
     def add_arguments(self, parser):
@@ -16,20 +20,29 @@ class Command(BaseCommand):
             help="Only report what would change without writing to the database.",
         )
         parser.add_argument(
+            "--cutoff-minutes",
+            type=float,
+            default=UNUSUAL_LENGTH_CUTOFF.total_seconds() / 60.0,
+            dest="cutoff_minutes",
+            help="Cutoff duration in minutes (default: 45). Stuck sessions are stamped to this.",
+        )
+        parser.add_argument(
             "--cutoff-hours",
             type=float,
-            default=4.0,
+            default=None,
             dest="cutoff_hours",
-            help="Cutoff duration in hours (default: 4). Sessions longer than this are capped.",
+            help="Override cutoff in hours. If set, takes precedence over --cutoff-minutes.",
         )
 
     def handle(self, *args, **options):
         dry_run = options.get("dry_run", False)
-
-        cutoff_hours = float(options.get("cutoff_hours", 4.0))
+        if options.get("cutoff_hours") is not None:
+            cutoff = timedelta(hours=float(options["cutoff_hours"]))
+        else:
+            cutoff = timedelta(minutes=float(options["cutoff_minutes"]))
 
         result = process_unusually_long_sessions(
-            cutoff_hours=cutoff_hours,
+            cutoff=cutoff,
             min_age_hours=None,
             max_age_hours=None,
             dry_run=dry_run,
