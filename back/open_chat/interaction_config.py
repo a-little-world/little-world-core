@@ -10,6 +10,14 @@ DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS = 1024
 DEFAULT_OPEN_CHAT_BASIC_TEMPERATURE = 0.2
 DEFAULT_OPEN_CHAT_SUGGESTION_TEMPERATURE = 0.1
 
+# Reply-suggestion context bounds. The conversation transcript and the support
+# handbook/templates are injected into the system prompt, so both are capped to
+# keep prompt size (and cost) predictable.
+DEFAULT_OPEN_CHAT_SUGGESTION_HISTORY_LIMIT = 12
+DEFAULT_OPEN_CHAT_SUGGESTION_HISTORY_MAX_CHARS = 8000
+DEFAULT_OPEN_CHAT_SUGGESTION_HISTORY_MESSAGE_MAX_CHARS = 2000
+DEFAULT_OPEN_CHAT_SUPPORT_CONTEXT_MAX_CHARS = 12000
+
 
 def build_interaction_overrides(
     *,
