@@ -73,21 +73,6 @@ class MainFrontendRouter(View):
             else settings.LANDINGPAGE_REDIRECT_URL
         )
 
-        # The cookie settings page is public and independent of the auth journey, so it works
-        # both anonymous and logged in. The banner is hidden to avoid a modal over the page,
-        # while its consent-gated scripts are still loaded.
-        if path == "cookies":
-            cookie_context = get_cookie_banner_template_data(request, hidden_cookie_banner=True)
-            return render(
-                request,
-                "main_frontend.html",
-                {
-                    "user": json.dumps({}),
-                    "api_options": json.dumps({"profile": get_cached_data_options()}),
-                    **cookie_context,
-                },
-            )
-
         if not request.user.is_authenticated:
             if any([path.startswith(p) for p in self.PUBLIC_PATHS]):
                 cookie_context = get_cookie_banner_template_data(request)
