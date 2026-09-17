@@ -11,6 +11,7 @@ from management.permissions import ManagementPermission
 from open_chat.helpers import (
     FALLBACK_USER_MESSAGE,
     build_chat_text_markup_hint,
+    build_chat_transcript,
     build_open_chat_client,
     build_session_tool_init_payload,
     build_tool_session_context,
@@ -20,11 +21,15 @@ from open_chat.helpers import (
 )
 from open_chat.interaction_config import (
     DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT,
+    DEFAULT_OPEN_CHAT_SUGGESTION_HISTORY_LIMIT,
+    DEFAULT_OPEN_CHAT_SUGGESTION_HISTORY_MAX_CHARS,
     DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS,
     DEFAULT_OPEN_CHAT_SUGGESTION_TEMPERATURE,
+    DEFAULT_OPEN_CHAT_SUPPORT_CONTEXT_MAX_CHARS,
     build_interaction_overrides,
 )
 from open_chat.models import OpenChatConfiguration
+from open_chat.support_context import build_support_context_prompt_section
 from open_chat.tool_definitions import (
     MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
     RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
@@ -40,11 +45,21 @@ SUGGESTION_BOT = "little_world_reply_suggestion"
 MESSAGE_REPLY_SUGGESTION_CONTEXT = DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT
 
 
-def build_message_reply_suggestion_system_prompt() -> str:
+def build_message_reply_suggestion_system_prompt(
+    *,
+    support_context: str | None = None,
+    conversation_context: str | None = None,
+) -> str:
+    if support_context is None:
+        support_context = build_support_context_prompt_section()
+    support_context_section = f"\n\n{support_context}" if support_context else ""
+    conversation_context_section = (
+        f"\n\nConversation context (oldest → newest):\n{conversation_context}" if conversation_context else ""
+    )
     return f"""
 You are a Little World support assistant helping staff draft replies to user messages.
 
-This Open Chat thread is an internal workspace only. Text you write here is NOT saved as a support reply suggestion.
+This Open Chat thread is an internal workspace only. Text you write here is NOT saved as a support reply suggestion.{support_context_section}
 
 Your tools:
 - `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}` — load earlier messages in the current conversation for context.
@@ -63,15 +78,22 @@ Rules:
 - If you already used `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}`, still call `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` afterward.
 - When the draft includes admin panel or external links, use the Little World chat markup described below.
 
-{build_chat_text_markup_hint()}
+{build_chat_text_markup_hint()}{conversation_context_section}
 
 Reminder: your last action must be `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` with the draft in `parameters.message`.
 """.strip()
 
 
-def _message_reply_suggestion_overrides() -> dict[str, object]:
+def _message_reply_suggestion_overrides(
+    *,
+    support_context: str | None = None,
+    conversation_context: str | None = None,
+) -> dict[str, object]:
     return build_interaction_overrides(
-        system_prompt=build_message_reply_suggestion_system_prompt(),
+        system_prompt=build_message_reply_suggestion_system_prompt(
+            support_context=support_context,
+            conversation_context=conversation_context,
+        ),
         context=MESSAGE_REPLY_SUGGESTION_CONTEXT,
         max_tokens=DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS,
         temperature=DEFAULT_OPEN_CHAT_SUGGESTION_TEMPERATURE,
@@ -354,11 +376,23 @@ def open_chat_run_message_reply_suggestion_interaction(
             csrf_token=csrf_token,
         )
         message = (user_message_text or "").strip() or FALLBACK_USER_MESSAGE
+        conversation_context = build_chat_transcript(
+            chat_uuid,
+            support_user_id=recipient.pk,
+            limit=DEFAULT_OPEN_CHAT_SUGGESTION_HISTORY_LIMIT,
+            max_chars=DEFAULT_OPEN_CHAT_SUGGESTION_HISTORY_MAX_CHARS,
+        )
+        support_context = build_support_context_prompt_section(
+            max_chars=DEFAULT_OPEN_CHAT_SUPPORT_CONTEXT_MAX_CHARS,
+        )
         interaction = client.interact(
             bot=SUGGESTION_BOT,
             message=message,
             share=True,
-            overrides=_message_reply_suggestion_overrides(),
+            overrides=_message_reply_suggestion_overrides(
+                support_context=support_context,
+                conversation_context=conversation_context,
+            ),
             tool_init={
                 MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME: {
                     **session_init,
