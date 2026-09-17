@@ -138,16 +138,45 @@ def _retarget_other_live_session_fks(drop: LivekitSession, keeper: LivekitSessio
         rel.related_model.objects.filter(live_session=drop).update(live_session=keeper)
 
 
+def drop_session_into(drop: LivekitSession, keeper: LivekitSession) -> None:
+    """Move ``drop``'s webhook events and other FKs onto ``keeper``, then delete ``drop``.
+
+    ``keeper``'s own fields are left untouched — use this when ``keeper`` already
+    correctly represents the real call and ``drop`` is a pure duplicate/leftover.
+    """
+    with transaction.atomic():
+        _retarget_survey_responses(drop, keeper)
+        _retarget_other_live_session_fks(drop, keeper)
+        keeper.webhook_events.add(*drop.webhook_events.all())
+        drop.delete()
+
+
+def find_nearby_successful_sibling(session: LivekitSession, window: timedelta) -> LivekitSession | None:
+    """The closest finished, real (non-invented) mutual call in this room within ``window``."""
+    if session.room_id is None or session.created_at is None:
+        return None
+    return (
+        LivekitSession.objects.filter(
+            room_id=session.room_id,
+            both_have_been_active=True,
+            unusual_length=False,
+            end_time__isnull=False,
+            created_at__gte=session.created_at - window,
+            created_at__lte=session.created_at + window,
+        )
+        .exclude(pk=session.pk)
+        .order_by("created_at")
+        .first()
+    )
+
+
 def merge_split_session_pair(a: LivekitSession, b: LivekitSession) -> LivekitSession:
     keeper, drop = choose_keeper(a, b)
     earlier = a if a.created_at <= b.created_at else b
     real_end = _real_end_time(a, b)
 
     with transaction.atomic():
-        _retarget_survey_responses(drop, keeper)
-        _retarget_other_live_session_fks(drop, keeper)
-        keeper.webhook_events.add(*drop.webhook_events.all())
-        drop.delete()
+        drop_session_into(drop, keeper)
         LivekitSession.objects.filter(pk=keeper.pk).update(
             created_at=earlier.created_at,
             end_time=real_end,

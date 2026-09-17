@@ -12,7 +12,9 @@ from video.services.livekit_session_correction import UNUSUAL_LENGTH_CUTOFF
 from management.models.user import User
 
 
-class BackfillUnusualLivekitDurationsTests(TestCase):
+class _DurationBackfillHelpers:
+    """Shared fixtures/helpers, not itself a TestCase so it contributes no test methods."""
+
     def setUp(self):
         self.u1 = User.objects.create_user(email="dur-u1@test.de", password="x", first_name="One", last_name="A")
         self.u2 = User.objects.create_user(email="dur-u2@test.de", password="x", first_name="Two", last_name="B")
@@ -35,12 +37,17 @@ class BackfillUnusualLivekitDurationsTests(TestCase):
         session.refresh_from_db()
         return session
 
-    def _event(self, at, event_type):
-        event = LivekitWebhookEvent.objects.create(data={"event": event_type})
+    def _event(self, at, event_type, user=None):
+        data = {"event": event_type}
+        if user is not None:
+            data["participant"] = {"identity": str(user.uuid)}
+        event = LivekitWebhookEvent.objects.create(data=data)
         LivekitWebhookEvent.objects.filter(pk=event.pk).update(created_at=at)
         event.refresh_from_db()
         return event
 
+
+class BackfillUnusualLivekitDurationsTests(_DurationBackfillHelpers, TestCase):
     def test_dry_run_does_not_write(self):
         start = timezone.now() - timedelta(days=2)
         session = self._session(start=start, end=start + timedelta(hours=4))
@@ -293,3 +300,120 @@ class BackfillUnusualLivekitDurationsTests(TestCase):
         leftover.refresh_from_db()
         self.assertTrue(leftover.unusual_length)
         self.assertEqual(leftover.end_time, start + timedelta(hours=4))
+
+
+class LaterSittingReconstructionTests(_DurationBackfillHelpers, TestCase):
+    """A row reused before the join-lock fix can carry a real, later call's webhooks
+    glued onto the same session. Those should become their own visible session."""
+
+    def test_a_glued_mutual_call_with_a_hangup_becomes_its_own_row(self):
+        start = timezone.now() - timedelta(days=10)
+        session = self._session(start=start, end=start + timedelta(hours=4))
+        session.webhook_events.add(self._event(start + timedelta(minutes=34), "participant_left", self.u1))
+
+        later_start = start + timedelta(days=7)
+        later_leave = later_start + timedelta(minutes=12)
+        session.webhook_events.add(self._event(later_start, "participant_joined", self.u1))
+        session.webhook_events.add(self._event(later_start + timedelta(seconds=2), "participant_joined", self.u2))
+        session.webhook_events.add(self._event(later_leave, "participant_left", self.u2))
+
+        call_command("backfill_unusual_livekit_durations", "--apply")
+
+        session.refresh_from_db()
+        self.assertEqual(session.end_time, start + timedelta(minutes=34))
+        self.assertFalse(session.unusual_length)
+
+        later = LivekitSession.objects.exclude(pk=session.pk).get(room=self.room)
+        self.assertEqual(later.created_at, later_start)
+        self.assertEqual(later.end_time, later_leave)
+        self.assertTrue(later.both_have_been_active)
+        self.assertFalse(later.unusual_length)
+        self.assertEqual(later.u1_id, self.u1.pk)
+        self.assertEqual(later.u2_id, self.u2.pk)
+        self.assertEqual(later.webhook_events.count(), 3)
+        self.assertEqual(
+            {e.data.get("event") for e in session.webhook_events.all()},
+            {"participant_left"},
+        )
+
+    def test_a_glued_mutual_call_with_no_hangup_is_stamped_and_clipped(self):
+        start = timezone.now() - timedelta(days=10)
+        session = self._session(start=start, end=start + timedelta(hours=4))
+        session.webhook_events.add(self._event(start + timedelta(minutes=34), "participant_left", self.u1))
+
+        later_start = start + timedelta(days=7)
+        session.webhook_events.add(self._event(later_start, "participant_joined", self.u1))
+        session.webhook_events.add(self._event(later_start + timedelta(seconds=2), "participant_joined", self.u2))
+
+        call_command("backfill_unusual_livekit_durations", "--apply")
+
+        later = LivekitSession.objects.exclude(pk=session.pk).get(room=self.room)
+        self.assertEqual(later.created_at, later_start)
+        self.assertEqual(later.end_time, later_start + UNUSUAL_LENGTH_CUTOFF)
+        self.assertTrue(later.both_have_been_active)
+        self.assertTrue(later.unusual_length)
+
+    def test_a_glued_one_sided_join_becomes_a_zero_length_row(self):
+        start = timezone.now() - timedelta(days=10)
+        session = self._session(start=start, end=start + timedelta(hours=4))
+        session.webhook_events.add(self._event(start + timedelta(minutes=34), "participant_left", self.u1))
+
+        later_join = start + timedelta(days=7)
+        session.webhook_events.add(self._event(later_join, "participant_joined", self.u1))
+
+        call_command("backfill_unusual_livekit_durations", "--apply")
+
+        later = LivekitSession.objects.exclude(pk=session.pk).get(room=self.room)
+        self.assertEqual(later.created_at, later_join)
+        self.assertEqual(later.end_time, later_join)
+        self.assertFalse(later.both_have_been_active)
+        self.assertFalse(later.unusual_length)
+
+    def test_two_later_sittings_each_become_their_own_row(self):
+        start = timezone.now() - timedelta(days=20)
+        session = self._session(start=start, end=start + timedelta(hours=4))
+        session.webhook_events.add(self._event(start + timedelta(minutes=34), "participant_left", self.u1))
+
+        week1 = start + timedelta(days=7)
+        session.webhook_events.add(self._event(week1, "participant_joined", self.u1))
+        session.webhook_events.add(self._event(week1 + timedelta(minutes=10), "participant_left", self.u1))
+
+        week2 = start + timedelta(days=14)
+        session.webhook_events.add(self._event(week2, "participant_joined", self.u2))
+        session.webhook_events.add(self._event(week2 + timedelta(minutes=5), "participant_left", self.u2))
+
+        call_command("backfill_unusual_livekit_durations", "--apply")
+
+        later_rows = LivekitSession.objects.exclude(pk=session.pk).filter(room=self.room).order_by("created_at")
+        self.assertEqual(later_rows.count(), 2)
+        self.assertEqual(later_rows[0].created_at, week1)
+        self.assertEqual(later_rows[0].end_time, week1 + timedelta(minutes=10))
+        self.assertEqual(later_rows[1].created_at, week2)
+        self.assertEqual(later_rows[1].end_time, week2 + timedelta(minutes=5))
+
+    def test_dry_run_does_not_create_a_row(self):
+        start = timezone.now() - timedelta(days=10)
+        session = self._session(start=start, end=start + timedelta(hours=4))
+        session.webhook_events.add(self._event(start + timedelta(minutes=34), "participant_left", self.u1))
+        later_start = start + timedelta(days=7)
+        session.webhook_events.add(self._event(later_start, "participant_joined", self.u1))
+        session.webhook_events.add(self._event(later_start + timedelta(seconds=2), "participant_joined", self.u2))
+
+        out = StringIO()
+        call_command("backfill_unusual_livekit_durations", stdout=out)
+
+        self.assertEqual(LivekitSession.objects.filter(room=self.room).count(), 1)
+        self.assertIn("later sittings recovered as new rows 1", out.getvalue())
+
+    def test_an_unattributable_later_event_is_not_reconstructed(self):
+        start = timezone.now() - timedelta(days=10)
+        session = self._session(start=start, end=start + timedelta(hours=4))
+        session.webhook_events.add(self._event(start + timedelta(minutes=34), "participant_left", self.u1))
+
+        stranger = User.objects.create_user(email="stranger@test.de", password="x", first_name="Stray", last_name="C")
+        later_start = start + timedelta(days=7)
+        session.webhook_events.add(self._event(later_start, "participant_joined", stranger))
+
+        call_command("backfill_unusual_livekit_durations", "--apply")
+
+        self.assertEqual(LivekitSession.objects.filter(room=self.room).count(), 1)

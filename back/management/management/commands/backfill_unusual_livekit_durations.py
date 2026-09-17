@@ -16,7 +16,10 @@ class Command(BaseCommand):
         "in the original sitting. With no leave: 45 minutes if this row (or a sibling in "
         "the same room within 45 minutes) is a successful call, clipped to the next session "
         "start if that is sooner; last join (~0s) only when the row is definitely one-sided. "
-        "Always deactivates the row. Skips split-pair leftovers. Dry run unless --apply."
+        "Always deactivates the row. Skips split-pair leftovers. Also recovers any later call "
+        "glued onto a row by the old stuck-open reuse bug: events after the first sitting are "
+        "split off into their own new session(s), attributed by participant. "
+        "Dry run unless --apply."
     )
 
     def add_arguments(self, parser):
@@ -62,6 +65,7 @@ class Command(BaseCommand):
         self.stdout.write(f"  recovered from a hang-up ........... {result['recovered']}")
         self.stdout.write(f"  stamped at 45 min (success, no end)  {result['capped']}")
         self.stdout.write(f"  one-sided last join (~0s) .......... {result['one_sided_join']}")
+        self.stdout.write(f"  later sittings recovered as new rows {result['reconstructed_later_sittings']}")
         if apply_changes:
             self.stdout.write(self.style.SUCCESS(f"  updated ............................ {result['updated']}"))
         else:

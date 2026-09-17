@@ -3,36 +3,56 @@ from datetime import timedelta
 from django.db import models, transaction
 from django.utils import timezone
 from video.models import LivekitSession
+from video.services.livekit_session_split import drop_session_into, find_nearby_successful_sibling
 
-# Stamp for sessions we have to invent an end for (still open, or already marked unusual
-# with a fake 4h/multi-day end). Finished calls with a real hang-up are not recapped,
-# even when they lasted longer than this.
+# Fallback stamp when we invent an end and have no better evidence. Not a detection
+# threshold — real calls regularly run longer than this (the longest self-reported is
+# ~7 hours).
 UNUSUAL_LENGTH_CUTOFF = timedelta(minutes=45)
+
+# How long a session must sit open before we treat it as a clear error rather than a
+# real long call. Kept well above the longest call anyone has actually reported.
+STUCK_SESSION_DETECTION_CUTOFF = timedelta(hours=10)
 
 
 def process_unusually_long_sessions(
-    cutoff: timedelta | None = None,
+    *,
+    stamp_cutoff: timedelta | None = None,
+    detection_cutoff: timedelta | None = None,
+    sibling_window: timedelta | None = None,
     min_age_hours: float | None = None,
     max_age_hours: float | None = None,
     dry_run: bool = False,
     stdout=None,
-    cutoff_hours: float | None = None,
 ):
-    """Close stuck LivekitSession rows and stamp them at ``cutoff``.
+    """Resolve stuck LivekitSession rows: drop them into a real sibling if one exists,
+    otherwise stamp them at ``stamp_cutoff``.
 
     A session is stuck when it is still open (``is_active`` / a participant flag / no
-    ``end_time``) past ``cutoff``, or already ``unusual_length`` with an end beyond
-    ``cutoff`` (the old 4h cap, or a later hang-up that overwrote it).
+    ``end_time``) past ``detection_cutoff``, or already ``unusual_length`` with an end
+    beyond ``stamp_cutoff`` (the old 4h cap, or a later hang-up that overwrote it).
+
+    ``detection_cutoff`` only decides when an open session counts as an error — it is
+    set far above any real call length so long real conversations are never touched
+    while still open. ``stamp_cutoff`` is the invented duration written when a session
+    is a genuine error and no sibling explains what really happened.
+
+    For each stuck row, first check for a finished, real mutual call in the same room
+    within ``sibling_window`` (default: ``stamp_cutoff``). If one exists, this row is a
+    leftover of that real call — its webhook events and FKs move onto the sibling and
+    the row is deleted, rather than inventing a stamped duration for a call that is
+    already on record elsewhere.
 
     Completed calls that closed normally are left alone, including ones longer than
-    ``cutoff``. The daily job waits ``min_age_hours`` (24h) so a live call is not
-    clipped while people are still in the room.
+    ``detection_cutoff``. The daily job also waits ``min_age_hours`` (24h) so a live
+    call is not touched while people are still in the room.
 
-    On update: ``end_time = created_at + cutoff``, ``unusual_length=True``, and the
+    On stamp: ``end_time = created_at + stamp_cutoff``, ``unusual_length=True``, and the
     session is deactivated so a later join cannot reuse the row and overwrite the cap.
     """
-    if cutoff is None:
-        cutoff = timedelta(hours=float(cutoff_hours)) if cutoff_hours is not None else UNUSUAL_LENGTH_CUTOFF
+    stamp_cutoff = stamp_cutoff if stamp_cutoff is not None else UNUSUAL_LENGTH_CUTOFF
+    detection_cutoff = detection_cutoff if detection_cutoff is not None else STUCK_SESSION_DETECTION_CUTOFF
+    sibling_window = sibling_window if sibling_window is not None else stamp_cutoff
 
     now = timezone.now()
 
@@ -45,12 +65,12 @@ def process_unusually_long_sessions(
     still_open = (
         models.Q(end_time__isnull=True) | models.Q(is_active=True) | models.Q(u1_active=True) | models.Q(u2_active=True)
     )
-    stuck_open = LivekitSession.objects.filter(still_open, created_at__lt=now - cutoff)
+    stuck_open = LivekitSession.objects.filter(still_open, created_at__lt=now - detection_cutoff)
     if age_filters:
         stuck_open = stuck_open.filter(age_filters)
 
     unusual_beyond_cutoff = LivekitSession.objects.filter(unusual_length=True).filter(
-        models.Q(end_time__isnull=True) | models.Q(end_time__gt=models.F("created_at") + cutoff)
+        models.Q(end_time__isnull=True) | models.Q(end_time__gt=models.F("created_at") + stamp_cutoff)
     )
     if age_filters:
         unusual_beyond_cutoff = unusual_beyond_cutoff.filter(age_filters)
@@ -67,17 +87,33 @@ def process_unusually_long_sessions(
     if not to_fix_ids:
         if stdout:
             stdout.write("No unusually long sessions found for selection.")
-        return {"found": 0, "updated": 0}
+        return {"found": 0, "updated": 0, "dropped": 0}
 
     if stdout:
-        stdout.write(f"Found {len(to_fix_ids)} session(s) to inspect (cutoff={cutoff})")
+        stdout.write(
+            f"Found {len(to_fix_ids)} session(s) to inspect "
+            f"(detection_cutoff={detection_cutoff}, stamp_cutoff={stamp_cutoff})"
+        )
 
     sessions = LivekitSession.objects.filter(id__in=to_fix_ids)
 
     updated_count = 0
+    dropped_count = 0
     with transaction.atomic():
         for session in sessions:
-            new_end_time = session.created_at + cutoff
+            sibling = find_nearby_successful_sibling(session, window=sibling_window)
+            if sibling is not None:
+                if stdout:
+                    stdout.write(
+                        f"Session {session.uuid} -> dropping into sibling {sibling.uuid} "
+                        "(that call is already on record)"
+                    )
+                if not dry_run:
+                    drop_session_into(session, sibling)
+                dropped_count += 1
+                continue
+
+            new_end_time = session.created_at + stamp_cutoff
             original_end_time = session.end_time.isoformat() if session.end_time else "None"
 
             already_settled = (
@@ -116,9 +152,9 @@ def process_unusually_long_sessions(
                         "u2_active",
                     ]
                 )
-                updated_count += 1
+            updated_count += 1
 
         if dry_run:
             transaction.set_rollback(True)
 
-    return {"found": len(to_fix_ids), "updated": updated_count}
+    return {"found": len(to_fix_ids), "updated": updated_count, "dropped": dropped_count}

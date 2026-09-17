@@ -1,4 +1,8 @@
-"""Stuck LivekitSession rows are closed and stamped at 45 minutes, not recapped if they ended normally."""
+"""Stuck LivekitSession rows are closed and stamped at 45 minutes, not recapped if they ended normally.
+
+A session only counts as stuck once it has been open past the (much larger) detection
+cutoff, so a genuinely long real call is left alone while it is still running.
+"""
 
 from datetime import timedelta
 
@@ -6,8 +10,12 @@ from django.test import TestCase
 from django.utils import timezone
 from management.models.user import User
 
-from video.models import LiveKitRoom, LivekitSession
-from video.services.livekit_session_correction import UNUSUAL_LENGTH_CUTOFF, process_unusually_long_sessions
+from video.models import LiveKitRoom, LivekitSession, LivekitWebhookEvent
+from video.services.livekit_session_correction import (
+    STUCK_SESSION_DETECTION_CUTOFF,
+    UNUSUAL_LENGTH_CUTOFF,
+    process_unusually_long_sessions,
+)
 
 
 class UnusuallyLongSessionCorrectionTests(TestCase):
@@ -85,3 +93,84 @@ class UnusuallyLongSessionCorrectionTests(TestCase):
         self.assertTrue(session.is_active)
         self.assertFalse(session.unusual_length)
         self.assertIsNone(session.end_time)
+
+    def test_a_genuinely_long_live_call_is_not_touched(self):
+        """A real 6h call, still open, is well under the 10h detection cutoff."""
+        session = self._session(created_ago=timedelta(hours=6), end_time=None)
+
+        result = process_unusually_long_sessions()
+
+        session.refresh_from_db()
+        self.assertEqual(result["updated"], 0)
+        self.assertEqual(result["dropped"], 0)
+        self.assertTrue(session.is_active)
+        self.assertFalse(session.unusual_length)
+        self.assertIsNone(session.end_time)
+
+    def test_a_call_open_past_the_detection_cutoff_is_stamped(self):
+        session = self._session(created_ago=STUCK_SESSION_DETECTION_CUTOFF + timedelta(hours=1), end_time=None)
+
+        result = process_unusually_long_sessions()
+
+        session.refresh_from_db()
+        self.assertEqual(result["updated"], 1)
+        self.assertTrue(session.unusual_length)
+        self.assertFalse(session.is_active)
+
+    def test_a_stuck_session_with_a_real_sibling_is_dropped_not_stamped(self):
+        stuck = self._session(
+            created_ago=timedelta(days=2),
+            end_time=None,
+            both_have_been_active=False,
+            u1_active=True,
+            u2_active=False,
+        )
+        stuck.webhook_events.add(LivekitWebhookEvent.objects.create(data={"event": "participant_joined"}))
+        sibling_end = stuck.created_at + timedelta(minutes=20)
+        sibling = LivekitSession.objects.create(
+            room=self.room,
+            u1=self.u1,
+            u2=self.u2,
+            is_active=False,
+            both_have_been_active=True,
+            unusual_length=False,
+        )
+        LivekitSession.objects.filter(pk=sibling.pk).update(
+            created_at=stuck.created_at + timedelta(seconds=30), end_time=sibling_end
+        )
+
+        result = process_unusually_long_sessions()
+
+        self.assertEqual(result["dropped"], 1)
+        self.assertEqual(result["updated"], 0)
+        self.assertFalse(LivekitSession.objects.filter(pk=stuck.pk).exists())
+        sibling.refresh_from_db()
+        self.assertEqual(sibling.end_time, sibling_end)
+        self.assertTrue(sibling.both_have_been_active)
+        self.assertEqual(sibling.webhook_events.count(), 1)
+
+    def test_dry_run_drop_does_not_write(self):
+        stuck = self._session(
+            created_ago=timedelta(days=2),
+            end_time=None,
+            both_have_been_active=False,
+            u1_active=True,
+            u2_active=False,
+        )
+        sibling = LivekitSession.objects.create(
+            room=self.room,
+            u1=self.u1,
+            u2=self.u2,
+            is_active=False,
+            both_have_been_active=True,
+            unusual_length=False,
+        )
+        LivekitSession.objects.filter(pk=sibling.pk).update(
+            created_at=stuck.created_at + timedelta(seconds=30),
+            end_time=stuck.created_at + timedelta(minutes=20),
+        )
+
+        result = process_unusually_long_sessions(dry_run=True)
+
+        self.assertEqual(result["dropped"], 1)
+        self.assertTrue(LivekitSession.objects.filter(pk=stuck.pk).exists())
