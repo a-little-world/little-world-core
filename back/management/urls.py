@@ -202,6 +202,7 @@ api_routes = [
         "api/cookies/cookie_banner.js",
         cookies.get_dynamic_cookie_banner_js,
     ),
+    path("api/cookies/", cookies.cookie_settings),
     path("api/translator/translate/", translator.translate),
     path("api/translator/languages/", translator.languages),
     path("api/emails/toggle_sub/", email_settings.unsubscribe_link),
