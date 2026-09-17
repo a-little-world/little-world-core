@@ -215,16 +215,6 @@ class AdvancedVideoCallsViewset(viewsets.ModelViewSet):
                 "-created_at"
             )
 
-    def check_management_user_access(self, session, request):
-        user = session.get_partner(request.user)
-
-        if not request.user.is_staff and not request.user.has_perm(ManagementPermission.MATCHING_USER):
-            return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
-
-        if not request.user.is_staff and not request.user.has_management_access(user):
-            return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
-        return True, None
-
     @extend_schema(responses={200: FilterSchemaResponseSerializer})
     @action(detail=False, methods=["get"])
     def get_filter_schema(self, request, include_lookup_expr=False):
