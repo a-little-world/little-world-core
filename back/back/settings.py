@@ -1147,6 +1147,11 @@ OPEN_CHAT_AUTOMATION_USER_PASSWORD = os.environ.get(
 )
 OPEN_CHAT_TOOL_API_HOST = os.environ.get("DJ_OPEN_CHAT_TOOL_API_HOST", "").strip() or None
 
+# Optional override for the directory holding the committed support-context
+# markdown (handbook + message templates) injected into reply suggestions.
+# Empty → use back/open_chat/support_context/.
+OPEN_CHAT_SUPPORT_CONTEXT_DIR = os.environ.get("DJ_OPEN_CHAT_SUPPORT_CONTEXT_DIR", "").strip() or None
+
 CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION = bool_env(
     "DJ_CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION",
     "true" if OPEN_CHAT_BOOTSTRAP_ENABLED_DEFAULT else "false",
