@@ -1,4 +1,4 @@
-"""Stuck LivekitSession rows are closed and stamped at 45 minutes, not recapped if they ended normally.
+"""Stuck LivekitSession rows are closed and stamped at 30 minutes, not recapped if they ended normally.
 
 A session only counts as stuck once it has been open past the (much larger) detection
 cutoff, so a genuinely long real call is left alone while it is still running.
@@ -41,7 +41,7 @@ class UnusuallyLongSessionCorrectionTests(TestCase):
         session.refresh_from_db()
         return session
 
-    def test_stuck_open_session_is_closed_and_stamped_at_45_minutes(self):
+    def test_stuck_open_session_is_closed_and_stamped_at_30_minutes(self):
         session = self._session(created_ago=timedelta(days=2), end_time=None)
 
         result = process_unusually_long_sessions()
@@ -55,7 +55,7 @@ class UnusuallyLongSessionCorrectionTests(TestCase):
         self.assertEqual(session.end_time, session.created_at + UNUSUAL_LENGTH_CUTOFF)
         self.assertIn("end_time=None", session.start_end_before_correction)
 
-    def test_old_4h_unusual_stamp_is_recapped_to_45_minutes(self):
+    def test_old_4h_unusual_stamp_is_recapped_to_30_minutes(self):
         session = self._session(created_ago=timedelta(days=2), is_active=False, u1_active=False, u2_active=False)
         four_h_end = session.created_at + timedelta(hours=4)
         LivekitSession.objects.filter(pk=session.pk).update(
@@ -116,6 +116,27 @@ class UnusuallyLongSessionCorrectionTests(TestCase):
         self.assertEqual(result["updated"], 1)
         self.assertTrue(session.unusual_length)
         self.assertFalse(session.is_active)
+
+    def test_a_one_sided_stuck_session_with_no_sibling_is_closed_at_zero_length(self):
+        """Nobody else ever joined, so there is no evidence of overlap to stamp a
+        positive duration from — this is a no-show, not an unusually long call."""
+        session = self._session(
+            created_ago=timedelta(days=2),
+            end_time=None,
+            both_have_been_active=False,
+            u1_active=True,
+            u2_active=False,
+        )
+
+        result = process_unusually_long_sessions()
+
+        session.refresh_from_db()
+        self.assertEqual(result["updated"], 1)
+        self.assertEqual(result["dropped"], 0)
+        self.assertFalse(session.unusual_length)
+        self.assertFalse(session.is_active)
+        self.assertFalse(session.u1_active)
+        self.assertEqual(session.end_time, session.created_at)
 
     def test_a_stuck_session_with_a_real_sibling_is_dropped_not_stamped(self):
         stuck = self._session(

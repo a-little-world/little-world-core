@@ -12,7 +12,8 @@ from video.services.livekit_session_correction import process_unusually_long_ses
 @shared_task(name="video.tasks.daily_fix_unusually_long_livekit_sessions")
 def daily_fix_unusually_long_livekit_sessions(**_kwargs):
     """Resolve stuck sessions older than 24h: drop them into a real sibling if one
-    explains what happened, otherwise stamp them at 45 minutes.
+    explains what happened, otherwise stamp them at 30 minutes (or zero, for a
+    one-sided no-show with no evidence of overlap).
 
     No upper age bound: zombies older than a week were previously skipped and could stay
     open for days. Finished calls that already have a real hang-up are not recapped, and

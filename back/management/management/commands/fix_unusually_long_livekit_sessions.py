@@ -11,13 +11,14 @@ from video.services.livekit_session_correction import (
 class Command(BaseCommand):
     help = (
         "Resolve stuck LivekitSession rows (still open, or already unusual with an end "
-        "beyond the stamp cutoff). For each, drop it into a real mutual sibling in the same "
-        "room if one exists; otherwise mark unusual_length, store the previous end in "
-        "start_end_before_correction if empty, and stamp end_time to created_at + cutoff "
-        "(default 45 minutes). A session only counts as stuck once it has been open past "
-        "the detection cutoff (default 10 hours) — real calls regularly run past 45 minutes "
-        "and are never touched while still open. Does not recap finished calls that closed "
-        "normally."
+        "beyond the stamp cutoff). For each: drop it into a real mutual sibling in the same "
+        "room if one exists; else, if both users were ever active, mark unusual_length and "
+        "stamp end_time to created_at + cutoff (default 30 minutes); else (nobody else ever "
+        "joined — no evidence of overlap) close it at zero length instead of inventing a "
+        "duration. Stores the previous end in start_end_before_correction if empty. A session "
+        "only counts as stuck once it has been open past the detection cutoff (default 10 "
+        "hours) — real calls regularly run past 30 minutes and are never touched while still "
+        "open. Does not recap finished calls that closed normally."
     )
 
     def add_arguments(self, parser):
@@ -32,7 +33,7 @@ class Command(BaseCommand):
             type=float,
             default=UNUSUAL_LENGTH_CUTOFF.total_seconds() / 60.0,
             dest="cutoff_minutes",
-            help="Invented-duration stamp in minutes for a stuck session with no sibling (default: 45).",
+            help="Invented-duration stamp in minutes for a stuck session with no sibling (default: 30).",
         )
         parser.add_argument(
             "--detection-hours",
@@ -59,17 +60,13 @@ class Command(BaseCommand):
             stdout=self.stdout,
         )
 
-        if dry_run:
-            self.stdout.write(
-                self.style.WARNING(
-                    f"Dry-run complete. {result['updated']} would be stamped, "
-                    f"{result['dropped']} would be dropped into a sibling."
-                )
+        verb = "would be" if dry_run else "were"
+        style = self.style.WARNING if dry_run else self.style.SUCCESS
+        self.stdout.write(
+            style(
+                f"{'Dry-run complete.' if dry_run else 'Done.'} "
+                f"{result['stamped']} {verb} stamped at the cutoff (mutual, no better evidence), "
+                f"{result['closed_no_show']} {verb} closed at zero length (no-show, no overlap), "
+                f"{result['dropped']} {verb} dropped into a sibling."
             )
-        else:
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f"Stamped {result['updated']} unusually long session(s), "
-                    f"dropped {result['dropped']} into a sibling."
-                )
-            )
+        )

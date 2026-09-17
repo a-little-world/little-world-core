@@ -2,13 +2,13 @@
 later call glued onto one by the stuck-open reuse bug (fixed at the source: joins now
 lock the room and a later join can no longer attach to a row that never closed).
 
-The 4h (now 45min) cap is a placeholder for sessions that never closed. A
+The 4h (now 30min) cap is a placeholder for sessions that never closed. A
 ``participant_left`` in the original sitting is a real hang-up. With no leave:
 
-- a one-sided row with no successful sibling within 45 minutes is a missed ring
+- a one-sided row with no successful sibling within 30 minutes is a missed ring
   → last join (~0s)
 - a successful call with no hang-up (this row is mutual, or another row in the same
-  room within 45 minutes is a finished mutual call) → 45 minutes, clipped to the next
+  room within 30 minutes is a finished mutual call) → 30 minutes, clipped to the next
   session in this room if that starts sooner (same pair cannot overlap)
 
 ``start_end_before_correction`` is an audit of the cap job, not a hang-up.
@@ -32,7 +32,7 @@ from video.services.livekit_session_split import find_nearby_successful_sibling,
 
 # How far after ``created_at`` an event still belongs to the original sitting. The old
 # daily job stamped 4h, so a next-week join/leave that overwrote the cap is outside this
-# and must not become the recovered end. This is not the 45-minute fallback stamp. Also
+# and must not become the recovered end. This is not the 30-minute fallback stamp. Also
 # used as the maximum gap between events within one later, reconstructed sitting.
 FIRST_CALL_EVENT_WINDOW = timedelta(hours=4)
 

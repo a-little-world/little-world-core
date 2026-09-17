@@ -8,7 +8,7 @@ from video.services.livekit_session_split import drop_session_into, find_nearby_
 # Fallback stamp when we invent an end and have no better evidence. Not a detection
 # threshold — real calls regularly run longer than this (the longest self-reported is
 # ~7 hours).
-UNUSUAL_LENGTH_CUTOFF = timedelta(minutes=45)
+UNUSUAL_LENGTH_CUTOFF = timedelta(minutes=30)
 
 # How long a session must sit open before we treat it as a clear error rather than a
 # real long call. Kept well above the longest call anyone has actually reported.
@@ -43,12 +43,16 @@ def process_unusually_long_sessions(
     the row is deleted, rather than inventing a stamped duration for a call that is
     already on record elsewhere.
 
+    A positive duration (``created_at + stamp_cutoff``) is only invented when there is
+    evidence two people were actually connected at once — ``both_have_been_active`` on
+    this row, or that sibling. A row with no sibling and only one participant ever
+    active has no such evidence, so it is closed at zero length (``end_time =
+    created_at``, ``unusual_length=False``) instead of being stamped as an unusually
+    long call it never was.
+
     Completed calls that closed normally are left alone, including ones longer than
     ``detection_cutoff``. The daily job also waits ``min_age_hours`` (24h) so a live
     call is not touched while people are still in the room.
-
-    On stamp: ``end_time = created_at + stamp_cutoff``, ``unusual_length=True``, and the
-    session is deactivated so a later join cannot reuse the row and overwrite the cap.
     """
     stamp_cutoff = stamp_cutoff if stamp_cutoff is not None else UNUSUAL_LENGTH_CUTOFF
     detection_cutoff = detection_cutoff if detection_cutoff is not None else STUCK_SESSION_DETECTION_CUTOFF
@@ -87,7 +91,7 @@ def process_unusually_long_sessions(
     if not to_fix_ids:
         if stdout:
             stdout.write("No unusually long sessions found for selection.")
-        return {"found": 0, "updated": 0, "dropped": 0}
+        return {"found": 0, "updated": 0, "dropped": 0, "stamped": 0, "closed_no_show": 0}
 
     if stdout:
         stdout.write(
@@ -99,6 +103,8 @@ def process_unusually_long_sessions(
 
     updated_count = 0
     dropped_count = 0
+    stamped_count = 0
+    closed_no_show_count = 0
     with transaction.atomic():
         for session in sessions:
             sibling = find_nearby_successful_sibling(session, window=sibling_window)
@@ -113,12 +119,20 @@ def process_unusually_long_sessions(
                 dropped_count += 1
                 continue
 
-            new_end_time = session.created_at + stamp_cutoff
+            # No sibling and never mutual: nobody else was ever connected, so there is
+            # no evidence to invent a positive duration from. Close it at zero length
+            # instead of stamping a "call" that never had two participants.
+            if session.both_have_been_active:
+                new_end_time = session.created_at + stamp_cutoff
+                new_unusual_length = True
+            else:
+                new_end_time = session.created_at
+                new_unusual_length = False
             original_end_time = session.end_time.isoformat() if session.end_time else "None"
 
             already_settled = (
                 session.end_time == new_end_time
-                and session.unusual_length
+                and session.unusual_length == new_unusual_length
                 and not session.is_active
                 and not session.u1_active
                 and not session.u2_active
@@ -137,7 +151,7 @@ def process_unusually_long_sessions(
                         f"created_at={session.created_at.isoformat() if session.created_at else 'None'}; "
                         f"end_time={original_end_time}"
                     )
-                session.unusual_length = True
+                session.unusual_length = new_unusual_length
                 session.end_time = new_end_time
                 session.is_active = False
                 session.u1_active = False
@@ -153,8 +167,18 @@ def process_unusually_long_sessions(
                     ]
                 )
             updated_count += 1
+            if new_unusual_length:
+                stamped_count += 1
+            else:
+                closed_no_show_count += 1
 
         if dry_run:
             transaction.set_rollback(True)
 
-    return {"found": len(to_fix_ids), "updated": updated_count, "dropped": dropped_count}
+    return {
+        "found": len(to_fix_ids),
+        "updated": updated_count,
+        "dropped": dropped_count,
+        "stamped": stamped_count,
+        "closed_no_show": closed_no_show_count,
+    }

@@ -1,4 +1,4 @@
-"""unusual_length LivekitSession rows get a webhook end, or a 45-minute stamp."""
+"""unusual_length LivekitSession rows get a webhook end, or a 30-minute stamp."""
 
 from datetime import timedelta
 from io import StringIO
@@ -78,7 +78,7 @@ class BackfillUnusualLivekitDurationsTests(_DurationBackfillHelpers, TestCase):
         self.assertFalse(session.u1_active)
         self.assertFalse(session.u2_active)
 
-    def test_no_webhooks_stamps_45_minutes_and_stays_unusual(self):
+    def test_no_webhooks_stamps_30_minutes_and_stays_unusual(self):
         start = timezone.now() - timedelta(days=2)
         session = self._session(start=start, end=start + timedelta(hours=4))
 
@@ -89,7 +89,7 @@ class BackfillUnusualLivekitDurationsTests(_DurationBackfillHelpers, TestCase):
         self.assertTrue(session.unusual_length)
         self.assertFalse(session.is_active)
 
-    def test_mutual_join_only_stamps_45_minutes(self):
+    def test_mutual_join_only_stamps_30_minutes(self):
         start = timezone.now() - timedelta(days=2)
         session = self._session(start=start, end=start + timedelta(hours=4), both_have_been_active=True)
         session.webhook_events.add(self._event(start + timedelta(seconds=1), "participant_joined"))
@@ -187,7 +187,7 @@ class BackfillUnusualLivekitDurationsTests(_DurationBackfillHelpers, TestCase):
         self.assertEqual(session.end_time, later_start)
         self.assertTrue(session.unusual_length)
 
-    def test_one_sided_followed_by_a_call_within_45_minutes_ends_when_that_call_starts(self):
+    def test_one_sided_followed_by_a_call_within_30_minutes_ends_when_that_call_starts(self):
         start = timezone.now() - timedelta(days=2)
         missed = self._session(
             start=start,
@@ -221,7 +221,7 @@ class BackfillUnusualLivekitDurationsTests(_DurationBackfillHelpers, TestCase):
         self.assertEqual(missed.end_time, later_start)
         self.assertTrue(missed.unusual_length)
 
-    def test_a_call_after_45_minutes_does_not_change_a_missed_ring(self):
+    def test_a_call_after_30_minutes_does_not_change_a_missed_ring(self):
         start = timezone.now() - timedelta(days=2)
         missed = self._session(
             start=start,
@@ -255,7 +255,7 @@ class BackfillUnusualLivekitDurationsTests(_DurationBackfillHelpers, TestCase):
         self.assertEqual(missed.end_time, join_at)
         self.assertFalse(missed.unusual_length)
 
-    def test_a_60_minute_first_sitting_leave_is_kept_not_clipped_to_45(self):
+    def test_a_60_minute_first_sitting_leave_is_kept_not_clipped_to_30(self):
         start = timezone.now() - timedelta(days=2)
         session = self._session(start=start, end=start + timedelta(hours=4))
         real_leave = start + timedelta(minutes=60)
