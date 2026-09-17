@@ -1,6 +1,8 @@
+from datetime import timedelta
 from uuid import uuid4
 
 from django.test import TestCase
+from video.models import LivekitSession
 
 from management.analytics.registry import get_catalog_entry
 from management.api.match_journey_filter_list import (
@@ -10,6 +12,7 @@ from management.api.match_journey_filter_list import (
 )
 from management.api.match_journey_filters import all_matches, match_unviewed
 from management.api.user_journey_filters import first_search_v2
+from management.match_success import match_is_successful
 from management.models.matches import Match
 from management.models.profile import Profile
 from management.models.state import State
@@ -119,6 +122,64 @@ class MatchJourneyBucketTests(TestCase):
         )
 
         assert determine_match_bucket(match.pk) == "match_state__tokens_0"
+
+    def _qualifying_call(self, match, *, minutes):
+        session = LivekitSession.objects.create(
+            u1=match.user1, u2=match.user2, both_have_been_active=True, is_active=False
+        )
+        start = match.created_at + timedelta(hours=1)
+        LivekitSession.objects.filter(pk=session.pk).update(
+            created_at=start,
+            end_time=start + timedelta(minutes=minutes),
+        )
+        return session
+
+    def _close(self, match, *, kind="unmatch"):
+        match.active = False
+        match.report_unmatch = [{"kind": kind, "reason": "Wrapped up", "time": "2026-04-01T12:00:00Z"}]
+        match.save(update_fields=["active", "report_unmatch"])
+
+    def test_removed_match_that_reached_success_stays_in_the_successful_phase(self):
+        """Success is an outcome, not a state: removing a successful match must not undo it.
+
+        The scenario from the report — a user tidies up and removes a completed match. The
+        match remains successful (``match_success`` never looks at ``active``) and the V5
+        partition must file it under Successful, keyed by how it closed, rather than move it
+        to "Unmatched or Removed" because ``active`` is now False.
+        """
+        user1 = self._create_user("removed-success-u1")
+        user2 = self._create_user("removed-success-u2")
+        match = Match.objects.create(
+            user1=user1,
+            user2=user2,
+            match_type=MatchType.STANDARD,
+            active=True,
+            support_matching=False,
+            confirmed=False,
+        )
+        self._qualifying_call(match, minutes=210)
+        self._close(match)
+
+        assert match_is_successful(match), "a closed match keeps the success it reached"
+        assert determine_match_bucket(match.pk) == "match_state__unmatched_successful"
+
+    def test_removed_off_platform_match_stays_in_the_successful_phase(self):
+        """The off-platform route to success survives removal the same way tokens do."""
+        user1 = self._create_user("removed-offplatform-u1")
+        user2 = self._create_user("removed-offplatform-u2")
+        match = Match.objects.create(
+            user1=user1,
+            user2=user2,
+            match_type=MatchType.STANDARD,
+            active=True,
+            support_matching=False,
+            confirmed=False,
+            completed_off_plattform=True,
+        )
+        self._close(match, kind="report")
+
+        assert match_is_successful(match)
+        assert determine_match_bucket(match.pk) == "match_state__reported_successful"
 
 
 class FirstSearchRandomCallMatchTests(TestCase):

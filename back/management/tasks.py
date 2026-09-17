@@ -1770,7 +1770,7 @@ def automatic_emails_m043_m044_m045():
                 user_id=user.id,
                 match_id=match.pk,
                 emulated_send=emulated_send,
-                context={"share_story_url": _video_call_survey_url(user)},
+                context={"completed_match_poll_url": _video_call_survey_url(user)},
             )
             report["m045_send_to"].append([str(match.uuid), user.id])
         match.auto_email_m043_send = True
@@ -1869,6 +1869,7 @@ def automatic_emails_m043_m044_m045():
             send_email_background.delay(
                 "automatic-emails-m043",
                 user_id=user.id,
+                match_id=match.pk,
                 emulated_send=emulated_send,
                 context={"post_videocall_survey_url": _video_call_survey_url(user)},
             )

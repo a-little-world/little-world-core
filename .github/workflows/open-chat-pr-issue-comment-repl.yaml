@@ -1,0 +1,37 @@
+# Open-Chat comment REPL: a comment by the allowed author on an issue or PR
+# triggers a coding agent (or review agent when the phrase matches) on the
+# Open-Chat server, which implements the request / reviews the PR and follows
+# up in the thread.
+# Implementation (reusable workflow) lives in msgmate-io/open-chat-go; see
+# docs/open-chat-ci.md for configuration instructions.
+name: Open-Chat PR/Issue Comment REPL
+
+on:
+  issue_comment:
+    types:
+      - created
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  open-chat-repl:
+    name: Open-Chat Comment REPL
+    uses: msgmate-io/open-chat-go/.github/workflows/reusable-open-chat-pr-issue-comment-repl.yaml@main
+    with:
+      bot_user: ${{ vars.OPEN_CHAT_BOT_GITHUB_USER }}
+      allowed_author: ${{ vars.OPEN_CHAT_ALLOWED_AUTHOR }}
+      # Multiple allowed authors: comments by any of these users trigger the
+      # coding/review agent interaction on the Open-Chat server.
+      allowed_authors: "tbscode,Simba14,JannisToelle"
+      host: ${{ vars.OPEN_CHAT_HOST }}
+      # bot / review_bot / review_phrase are omitted by design: the reusable
+      # workflow resolves them to '<repo>-repl-bot' and '<repo>-review-bot'
+      # (little-world-backend-repl-bot / little-world-backend-review-bot) and
+      # the phrase 'please review'. These bots must exist on the Open-Chat
+      # server. See dev/docs/open_chat_ci.md.
+    secrets:
+      OPEN_CHAT_API_TOKEN: ${{ secrets.OPEN_CHAT_API_TOKEN }}
+      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
