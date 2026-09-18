@@ -1,4 +1,5 @@
-from django.db.models import Q
+from django.db.models import DurationField, ExpressionWrapper, F, Q
+from django.db.models.functions import Coalesce, Now
 from django.urls import path
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -37,14 +38,22 @@ def _format_session_duration(created_at, end_time):
     return f"{minutes} minutes ({seconds}s)"
 
 
-def _session_minutes(created_at, end_time) -> float:
-    """Length of this one call, in minutes.
+def _annotate_duration(queryset):
+    """Elapsed duration as a sortable DB column.
 
-    Deliberately not tokens. Tokens are a property of the *match*, banded on minutes
-    summed across all its calls, so a per-session token figure does not add up to the
-    match's total — three 205-minute calls would read 8 + 8 + 8 against a match showing 8.
-    Reporting the raw minutes leaves the column meaningful and additive.
+    Uses ``now()`` in place of a missing ``end_time`` so a still-open, long-running
+    session sorts by how long it has been open so far, rather than being dropped
     """
+    return queryset.annotate(
+        duration=ExpressionWrapper(
+            Coalesce(F("end_time"), Now()) - F("created_at"),
+            output_field=DurationField(),
+        )
+    )
+
+
+def _session_minutes(created_at, end_time) -> float:
+    """Length of this one call, in minutes."""
     if not created_at or not end_time:
         return 0.0
 
@@ -177,6 +186,7 @@ class LivekitSessionFilter(filters.FilterSet):
         fields=(
             ("created_at", "created_at"),
             ("end_time", "end_time"),
+            ("duration", "duration"),
             ("u1", "u1"),
             ("u2", "u2"),
             ("is_active", "is_active"),
@@ -194,7 +204,7 @@ class LivekitSessionFilter(filters.FilterSet):
     retrieve=extend_schema(summary="Retrieve Livekit session"),
 )
 class AdvancedVideoCallsViewset(viewsets.ModelViewSet):
-    queryset = LivekitSession.objects.all().order_by("-created_at")
+    queryset = _annotate_duration(LivekitSession.objects.all()).order_by("-created_at")
 
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = LivekitSessionFilter
@@ -208,12 +218,12 @@ class AdvancedVideoCallsViewset(viewsets.ModelViewSet):
         if not isinstance(user, User):
             return LivekitSession.objects.none()
         if user.is_staff:
-            return LivekitSession.objects.all().order_by("-created_at")
+            return _annotate_duration(LivekitSession.objects.all()).order_by("-created_at")
         elif user.has_perm(ManagementPermission.MATCHING_USER):
             managed_users = user.managed_users_queryset(active_only=False)
-            return LivekitSession.objects.filter(Q(u1__in=managed_users) | Q(u2__in=managed_users)).order_by(
-                "-created_at"
-            )
+            return _annotate_duration(
+                LivekitSession.objects.filter(Q(u1__in=managed_users) | Q(u2__in=managed_users))
+            ).order_by("-created_at")
 
     @extend_schema(responses={200: FilterSchemaResponseSerializer})
     @action(detail=False, methods=["get"])
