@@ -241,12 +241,6 @@ def create_lobby(request, lobby_name):
         video_call_timeout=60 * 10,
     )
 
-    reminder_time = start_time - timedelta(minutes=5)
-    if reminder_time > current_time:
-        from video.tasks import send_random_call_reminder
-
-        send_random_call_reminder.apply_async(args=[lobby.uuid], eta=reminder_time)  # pyright: ignore[reportCallIssue]
-
     return Response(
         {
             "success": True,
