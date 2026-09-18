@@ -161,9 +161,6 @@ def cleanup_if_not_accepted(match_uuid):
     return {"match_uuid": match_uuid, "auto_rejected_match": auto_rejected_match}
 
 
-
-
-
 @shared_task(name="video.tasks.create_default_random_call_lobby")
 def create_default_random_call_lobby():
     # create a new random call lobby
