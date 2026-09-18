@@ -22,7 +22,6 @@ from management.permissions import ManagementPermission
 class PushNotificationType(StrEnum):
     CHAT = "chat"
     MATCH = "match"
-    RANDOM_CALL = "random_call_reminder"
     ANNOUNCEMENT = "announcement"
 
     @property
@@ -33,8 +32,6 @@ class PushNotificationType(StrEnum):
                 return "conversations"
             case PushNotificationType.MATCH:
                 return "conversations"
-            case PushNotificationType.RANDOM_CALL:
-                return "reminders"
             case PushNotificationType.ANNOUNCEMENT:
                 return "announcements"
         assert_never(self)
@@ -46,8 +43,6 @@ class PushNotificationType(StrEnum):
             case PushNotificationType.CHAT:
                 return "high"
             case PushNotificationType.MATCH:
-                return "high"
-            case PushNotificationType.RANDOM_CALL:
                 return "high"
             case PushNotificationType.ANNOUNCEMENT:
                 return "normal"
@@ -61,8 +56,6 @@ class PushNotificationType(StrEnum):
                 return "push_notifications_chats_enabled"
             case PushNotificationType.MATCH:
                 return "push_notifications_matches_enabled"
-            case PushNotificationType.RANDOM_CALL:
-                return "push_notifications_random_calls_enabled"
             case PushNotificationType.ANNOUNCEMENT:
                 return "push_notifications_announcements_enabled"
         assert_never(self)
