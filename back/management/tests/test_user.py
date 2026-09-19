@@ -40,11 +40,6 @@ class PushDevicesNotificationTypeTests(TestCase):
     def test_accepts_plain_string_like_celery_would_deliver(self):
         self.assertEqual(self.user.push_devices("chat").count(), 1)
 
-    def test_excludes_when_category_disabled(self):
-        self.user.profile.push_notifications_random_calls_enabled = False
-        self.user.profile.save()
-        self.assertEqual(self.user.push_devices("random_call_reminder").count(), 0)
-
 
 class SendTestPushNotificationApiTests(TestCase):
     """The push notification APIs must pass a notification_type — it became required

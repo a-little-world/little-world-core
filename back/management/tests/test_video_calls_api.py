@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 from video.models import LivekitSession
 
@@ -70,3 +73,80 @@ class VideoCallsListFilterTests(TestCase):
         self.assertEqual(response.status_code, 200)
         uuids = {row["uuid"] for row in response.data["results"]}
         self.assertEqual(uuids, {str(self.unusual.uuid)})
+
+    def test_order_by_duration_descending_puts_the_longest_call_first(self):
+        now = timezone.now()
+        short = LivekitSession.create_backdated(
+            created_at=now - timedelta(hours=1),
+            u1=self.u1,
+            u2=self.u2,
+            is_active=False,
+            both_have_been_active=True,
+        )
+        LivekitSession.objects.filter(pk=short.pk).update(end_time=short.created_at + timedelta(minutes=5))
+        long = LivekitSession.create_backdated(
+            created_at=now - timedelta(hours=3),
+            u1=self.u1,
+            u2=self.u2,
+            is_active=False,
+            both_have_been_active=True,
+        )
+        LivekitSession.objects.filter(pk=long.pk).update(end_time=long.created_at + timedelta(hours=2))
+
+        response = self.client.get("/api/matching/video_calls/", {"order_by": "-duration"})
+
+        self.assertEqual(response.status_code, 200)
+        uuids = [row["uuid"] for row in response.data["results"]]
+        self.assertLess(uuids.index(str(long.uuid)), uuids.index(str(short.uuid)))
+
+    def test_order_by_duration_ascending_puts_the_shortest_call_first(self):
+        now = timezone.now()
+        short = LivekitSession.create_backdated(
+            created_at=now - timedelta(hours=1),
+            u1=self.u1,
+            u2=self.u2,
+            is_active=False,
+            both_have_been_active=True,
+        )
+        LivekitSession.objects.filter(pk=short.pk).update(end_time=short.created_at + timedelta(minutes=5))
+        long = LivekitSession.create_backdated(
+            created_at=now - timedelta(hours=3),
+            u1=self.u1,
+            u2=self.u2,
+            is_active=False,
+            both_have_been_active=True,
+        )
+        LivekitSession.objects.filter(pk=long.pk).update(end_time=long.created_at + timedelta(hours=2))
+
+        response = self.client.get("/api/matching/video_calls/", {"order_by": "duration"})
+
+        self.assertEqual(response.status_code, 200)
+        uuids = [row["uuid"] for row in response.data["results"]]
+        self.assertLess(uuids.index(str(short.uuid)), uuids.index(str(long.uuid)))
+
+    def test_order_by_duration_uses_elapsed_time_for_a_still_open_call(self):
+        """A still-open call sorts by how long it has been open so far, not by
+        dropping to the bottom/top for having no end_time."""
+        now = timezone.now()
+        finished = LivekitSession.create_backdated(
+            created_at=now - timedelta(minutes=10),
+            u1=self.u1,
+            u2=self.u2,
+            is_active=False,
+            both_have_been_active=True,
+        )
+        LivekitSession.objects.filter(pk=finished.pk).update(end_time=finished.created_at + timedelta(minutes=5))
+        long_open = LivekitSession.create_backdated(
+            created_at=now - timedelta(hours=3),
+            u1=self.u1,
+            u2=self.u2,
+            is_active=True,
+            u1_active=True,
+            both_have_been_active=True,
+        )
+
+        response = self.client.get("/api/matching/video_calls/", {"order_by": "-duration"})
+
+        self.assertEqual(response.status_code, 200)
+        uuids = [row["uuid"] for row in response.data["results"]]
+        self.assertLess(uuids.index(str(long_open.uuid)), uuids.index(str(finished.uuid)))
