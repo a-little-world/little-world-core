@@ -619,7 +619,6 @@ class Profile(models.Model):
     push_notifications_enabled = models.BooleanField(default=True)
     push_notifications_chats_enabled = models.BooleanField(default=True)
     push_notifications_matches_enabled = models.BooleanField(default=True)
-    push_notifications_random_calls_enabled = models.BooleanField(default=False)
     push_notifications_announcements_enabled = models.BooleanField(default=False)
 
     def add_profile_picture_from_local_path(self, path):
@@ -755,7 +754,6 @@ class SelfProfileSerializer(ProfileSerializer):
             "push_notifications_enabled",
             "push_notifications_chats_enabled",
             "push_notifications_matches_enabled",
-            "push_notifications_random_calls_enabled",
             "push_notifications_announcements_enabled",
             "job_search",
             "job_skill_description",
@@ -904,7 +902,6 @@ class MinimalProfileSerializer(serializers.ModelSerializer):
             "push_notifications_enabled",
             "push_notifications_chats_enabled",
             "push_notifications_matches_enabled",
-            "push_notifications_random_calls_enabled",
             "push_notifications_announcements_enabled",
             "country_of_residence",
             "job_search",
