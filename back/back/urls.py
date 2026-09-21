@@ -5,7 +5,6 @@ from django.http import HttpRequest, HttpResponse
 from django.urls import include, path, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from management.urls import public_routes_wildcard
-from management.views.cookie_banner_frontend import cookie_settings_page
 from rest_framework import status
 
 from back.build_types import BuildType
@@ -37,10 +36,6 @@ if settings.USE_AUTO_RELOAD:
 
 urlpatterns += [
     path("admin/", admin.site.urls),
-    # The settings page is served by the cookie banner frontend. The exact `cookies/` /
-    # `cookies` paths render it while `cookies/accept|decline/...` still resolve through
-    # the cookie_consent include below.
-    re_path(r"^cookies/?$", cookie_settings_page),
     path("cookies/", include("cookie_consent.urls")),
     path("hijack/", include("hijack.urls")),
     # In staging and production we are serving statics from an aws bucket!

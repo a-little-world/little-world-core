@@ -4,7 +4,7 @@ from django.test import RequestFactory, TestCase, override_settings
 
 
 @override_settings(COOKIE_CONSENT_DOMAIN=None)
-class CookieSettingsPageTests(TestCase):
+class CookieBannerTests(TestCase):
     def setUp(self):
         self.analytics = CookieGroup.objects.create(
             varname="analytics",
@@ -28,24 +28,6 @@ class CookieSettingsPageTests(TestCase):
             path="/",
         )
 
-    def test_cookies_page_serves_banner_settings_widget(self):
-        response = self.client.get("/cookies")
-
-        self.assertEqual(response.status_code, 200)
-        content = response.content.decode()
-        self.assertIn("window.__lwOpenCookieSettings = true", content)
-        self.assertIn("/api/cookies/cookie_banner.js", content)
-        # The old bare Django template must no longer be rendered.
-        self.assertNotIn("<h1>Cookies</h1>", content)
-        # The main frontend SPA is not involved anymore either.
-        self.assertNotIn("renderApp", content)
-
-    def test_cookies_trailing_slash_serves_settings_page(self):
-        response = self.client.get("/cookies/")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("window.__lwOpenCookieSettings = true", response.content.decode())
-
     def test_cookie_banner_script_still_exposes_group_data(self):
         response = self.client.get("/api/cookies/cookie_banner.js")
 
@@ -66,7 +48,7 @@ class CookieSettingsPageTests(TestCase):
 
     def test_cookie_banner_script_survives_percent_encoded_consent_cookie(self):
         # Regression: an encoded cookie used to raise ValueError and return a 500,
-        # so the banner bundle never loaded and /cookies stayed empty.
+        # so the banner bundle never loaded.
         response = self.client.get(
             "/api/cookies/cookie_banner.js",
             HTTP_COOKIE="backend_cookie_consent=analytics%3D-1%7Clw_func_cookies%3D2026-09-17T19%3A07%3A04.728Z",
@@ -74,15 +56,6 @@ class CookieSettingsPageTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/javascript")
-
-    def test_cookies_page_survives_percent_encoded_consent_cookie(self):
-        response = self.client.get(
-            "/cookies",
-            HTTP_COOKIE="backend_cookie_consent=analytics%3D-1%7Clw_func_cookies%3D2026-09-17T19%3A07%3A04.728Z",
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("window.__lwOpenCookieSettings = true", response.content.decode())
 
     def test_legacy_accept_endpoint_still_works(self):
         response = self.client.post("/cookies/accept/analytics/")
