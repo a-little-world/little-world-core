@@ -49,13 +49,40 @@ def build_message_reply_suggestion_system_prompt(
     *,
     support_context: str | None = None,
     conversation_context: str | None = None,
+    include_skills: bool | None = None,
+    slack_threads: list[dict] | None = None,
 ) -> str:
     if support_context is None:
         support_context = build_support_context_prompt_section()
+    if include_skills is None:
+        include_skills = bool(getattr(settings, "OPEN_CHAT_REPLY_SUGGESTION_SKILLS_ENABLED", False))
     support_context_section = f"\n\n{support_context}" if support_context else ""
     conversation_context_section = (
         f"\n\nConversation context (oldest → newest):\n{conversation_context}" if conversation_context else ""
     )
+    skills_section = ""
+    if include_skills:
+        if slack_threads is None:
+            from management.api.slack import list_support_feedback_threads
+
+            slack_threads = list_support_feedback_threads()
+        thread_keys = ", ".join(entry.get("key", "") for entry in slack_threads if entry.get("key"))
+        thread_hint = (
+            f" Available Slack thread keys: {thread_keys}."
+            if thread_keys
+            else " No named Slack thread is configured; omit `slack_thread` to use the default."
+        )
+        skills_section = f"""
+
+Outcome skills — choose exactly one via `parameters.suggested_action`:
+- `reply` (default): draft the user-visible reply in `parameters.message`.
+- `mark_read`: no reply is needed; the user's message is marked as read and the ticket is closed.
+  Use this only when the message clearly needs no answer.
+- `slack_feedback`: post an internal thank-you / positive-feedback note to a Slack thread.
+  Put the text in `parameters.slack_message` and the thread key in `parameters.slack_thread`.{thread_hint}
+- `keep_open`: keep the ticket open for further support processing. Optionally set
+  `parameters.scheduled_at` (ISO 8601 datetime) to reschedule and `parameters.note` to explain why.
+"""
     return f"""
 You are a Little World support assistant helping staff draft replies to user messages.
 
@@ -63,24 +90,24 @@ This Open Chat thread is an internal workspace only. Text you write here is NOT 
 
 Your tools:
 - `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}` — load earlier messages in the current conversation for context.
-- `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` — the ONLY way to persist a reply draft on the open support task.
-
+- `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` — the ONLY way to persist the suggested outcome on the open support task.
+{skills_section}
 Workflow:
 1. Use `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}` when you need more conversation context.
-2. Draft a helpful support reply based on the latest user message and any context you retrieved.
-3. You MUST finish by calling `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` exactly once with the complete draft
-   in `parameters`, e.g. `{{"message": "<your full suggested reply>"}}`.
+2. Decide the best outcome, drafting a helpful support reply when a reply is appropriate.
+3. You MUST finish by calling `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` exactly once with the complete
+   `parameters`, e.g. `{{"suggested_action": "reply", "message": "<your full suggested reply>"}}`.
 
 Rules:
 - Never treat plain assistant text in this thread as the saved suggestion.
 - Do not skip `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` — if you skip it, nothing is stored on the support task.
-- Put the draft (including any link markup) in the tool's `parameters.message` field, not in assistant text here.
+- Put the suggested outcome (including any link markup) in the tool's `parameters` field, not in assistant text here.
 - If you already used `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}`, still call `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` afterward.
-- When the draft includes admin panel or external links, use the Little World chat markup described below.
+- When a reply includes admin panel or external links, use the Little World chat markup described below.
 
 {build_chat_text_markup_hint()}{conversation_context_section}
 
-Reminder: your last action must be `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` with the draft in `parameters.message`.
+Reminder: your last action must be `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` with the suggested outcome in `parameters`.
 """.strip()
 
 
@@ -104,18 +131,18 @@ def _message_reply_suggestion_overrides(
     )
 
 
-def _is_skipped_matching_staff_sender(user: User) -> bool:
-    """Matching-panel staff senders should not create support-reply tasks.
+def _skip_reason_for_sender(user: User) -> str | None:
+    """Return why a sender must not create support-reply tasks, or None to proceed.
 
-    The dedicated Open Chat automation user also has MATCHING_USER so it can use
-    the panel, but it is the intended sender when testing support-reply flows.
+    Matching-panel staff are excluded, and the dedicated Open Chat automation user
+    is excluded as well so its own automated messages never spawn reply tasks.
     """
-    if not user.has_perm(ManagementPermission.MATCHING_USER):
-        return False
     automation_email = (settings.OPEN_CHAT_AUTOMATION_USER_EMAIL or "").strip().lower()
     if automation_email and (user.email or "").strip().lower() == automation_email:
-        return False
-    return True
+        return "skipped_automation_sender"
+    if user.has_perm(ManagementPermission.MATCHING_USER):
+        return "skipped_matching_user_permission"
+    return None
 
 
 def create_or_reuse_support_reply_task_for_message(
@@ -127,10 +154,11 @@ def create_or_reuse_support_reply_task_for_message(
     configuration_user_uuid: str | None = None,
     enqueue_interaction: bool = True,
 ) -> dict:
-    if _is_skipped_matching_staff_sender(source_user):
+    skip_reason = _skip_reason_for_sender(source_user)
+    if skip_reason is not None:
         return {
             "source_user_uuid": str(source_user.uuid),
-            "status": "skipped_matching_user_permission",
+            "status": skip_reason,
         }
 
     if latest_message.sender.pk != source_user.pk:
@@ -256,7 +284,16 @@ def idempotent_actions__generate_message_replies(
 
     # Only suggest replies for users whose latest message to the management user
     # is still unread (i.e. not yet handled). Read messages are skipped.
-    pending_users = list(get_user_with_message_to_admin(User.objects.filter(is_active=True)))
+    # The configuration owner (base management user) and the Open Chat automation
+    # user are never valid reply-suggestion sources.
+    excluded_user_ids = {target_user.pk}
+    if created_by_user is not None:
+        excluded_user_ids.add(created_by_user.pk)
+    pending_users = [
+        user
+        for user in get_user_with_message_to_admin(User.objects.filter(is_active=True))
+        if user.pk not in excluded_user_ids
+    ]
     processed_messages: list[dict] = []
     created_tasks = 0
     enqueued_interactions = 0
