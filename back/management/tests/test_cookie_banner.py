@@ -9,7 +9,7 @@ class CookieBannerTests(TestCase):
         self.analytics = CookieGroup.objects.create(
             varname="analytics",
             name="analytics_cookiegroup",
-            description="Google analytics and Facebook Pixel",
+            description="Google and Facebook analytics",
             is_required=False,
             is_deletable=True,
         )
