@@ -19,9 +19,7 @@ class Command(BaseCommand):
         group = CookieGroup.objects.filter(varname="analytics").first()
         if group is None:
             self.stdout.write(self.style.WARNING("No 'analytics' cookie group found."))
-            self.stdout.write(
-                self.style.SUCCESS(f"Done, {updated} description(s) updated.")
-            )
+            self.stdout.write(self.style.SUCCESS(f"Done, {updated} description(s) updated."))
             return
 
         if group.description != ANALYTICS_GROUP_DESCRIPTION:
@@ -35,9 +33,7 @@ class Command(BaseCommand):
         for name, description in ANALYTICS_COOKIE_DESCRIPTIONS.items():
             cookie = Cookie.objects.filter(cookiegroup=group, name=name).first()
             if cookie is None:
-                self.stdout.write(
-                    self.style.WARNING(f"No '{name}' found in the analytics group.")
-                )
+                self.stdout.write(self.style.WARNING(f"No '{name}' found in the analytics group."))
             elif cookie.description != description:
                 cookie.description = description
                 cookie.save(update_fields=["description"])
@@ -46,6 +42,4 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(f"{name} description already up to date.")
 
-        self.stdout.write(
-            self.style.SUCCESS(f"Done, {updated} description(s) updated.")
-        )
+        self.stdout.write(self.style.SUCCESS(f"Done, {updated} description(s) updated."))
