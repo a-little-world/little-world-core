@@ -57,6 +57,13 @@ class CookieBannerTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/javascript")
 
+    def test_legacy_cookies_page_disabled(self):
+        for path in ("/cookies", "/cookies/"):
+            response = self.client.get(path)
+
+            self.assertEqual(response.status_code, 302)
+            self.assertEqual(response["Location"], "/")
+
     def test_legacy_accept_endpoint_still_works(self):
         response = self.client.post("/cookies/accept/analytics/")
 
