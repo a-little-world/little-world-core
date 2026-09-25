@@ -61,7 +61,7 @@ class CommunityEvent(models.Model):
         return events.exclude(
             frequency=cls.EventFrequencyChoices.ONCE,
             end_time__lt=timezone.now(),
-        )
+        ).order_by("time", "id")
 
     @classmethod
     def get_all_active_events(cls, order_by="time"):
