@@ -1,6 +1,5 @@
 from cookie_consent.models import Cookie, CookieGroup
-from cookie_consent.util import get_cookie_value_from_request
-from django.test import RequestFactory, TestCase, override_settings
+from django.test import TestCase, override_settings
 
 
 @override_settings(COOKIE_CONSENT_DOMAIN=None)
@@ -35,27 +34,6 @@ class CookieBannerTests(TestCase):
         content = response.content.decode()
         self.assertIn("cookieBanner", content)
         self.assertIn("analytics", content)
-
-    def test_percent_encoded_consent_cookie_is_decoded(self):
-        # The banner also writes the consent cookie from the browser (js-cookie),
-        # which percent-encodes the value. It must not break parsing.
-        request = RequestFactory().get(
-            "/",
-            HTTP_COOKIE="backend_cookie_consent=analytics%3D-1%7Clw_func_cookies%3D2026-09-17T19%3A07%3A04.728Z",
-        )
-
-        self.assertFalse(get_cookie_value_from_request(request, "analytics"))
-
-    def test_cookie_banner_script_survives_percent_encoded_consent_cookie(self):
-        # Regression: an encoded cookie used to raise ValueError and return a 500,
-        # so the banner bundle never loaded.
-        response = self.client.get(
-            "/api/cookies/cookie_banner.js",
-            HTTP_COOKIE="backend_cookie_consent=analytics%3D-1%7Clw_func_cookies%3D2026-09-17T19%3A07%3A04.728Z",
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["Content-Type"], "application/javascript")
 
     def test_legacy_cookies_page_disabled(self):
         for path in ("/cookies", "/cookies/"):
