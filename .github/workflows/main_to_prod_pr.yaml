@@ -25,7 +25,6 @@ jobs:
           GH_TOKEN: ${{ secrets.BOT_PAT }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
 
@@ -43,7 +42,9 @@ jobs:
             echo "Refreshing existing main -> prod PR #$PR_NUMBER."
           fi
 
-          BODY="$(printf 'Automated release PR from `main` into `prod`.\n\nLatest main commit: `%s`\nBuild & tests: %s\n\n<!-- lw-main-to-prod -->\n' "$SHA" "$RUN_URL")"
+          BADGE_URL="https://github.com/$REPO/actions/workflows/main_build_test.yaml/badge.svg?branch=main"
+          RUNS_URL="https://github.com/$REPO/actions/workflows/main_build_test.yaml?query=branch%3Amain"
+          BODY="$(printf 'Automated release PR from `main` into `prod`.\n\nLatest main commit: `%s`\n\n[![Main Build, Publish & Test](%s)](%s)\n\n<!-- lw-main-to-prod -->\n' "$SHA" "$BADGE_URL" "$RUNS_URL")"
           TITLE="Production release (main @ ${SHORT})"
 
           if [ -z "$PR_NUMBER" ]; then
