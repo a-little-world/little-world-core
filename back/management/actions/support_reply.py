@@ -2,6 +2,8 @@ from dataclasses import dataclass
 
 from .registry import register, register_task_type
 
+SUGGESTED_ACTIONS = ("reply", "mark_read", "slack_feedback", "keep_open")
+
 
 @dataclass
 class StaticParams:
@@ -16,7 +18,26 @@ class StaticParams:
 
 @dataclass
 class Params:
-    message: str
+    message: str = ""
+    suggested_action: str = "reply"
+    slack_message: str = ""
+    slack_thread: str = ""
+    scheduled_at: str = ""
+    note: str = ""
+
+
+def _mark_source_message_read(static_params: dict) -> None:
+    from chat.models import Message
+
+    message_uuid = static_params.get("message_uuid")
+    if not message_uuid:
+        raise ValueError("mark_read requires message_uuid in static_parameters.")
+    source_message = Message.objects.filter(uuid=message_uuid).first()
+    if source_message is None:
+        raise ValueError(f"mark_read could not find message '{message_uuid}'.")
+    if not source_message.read:
+        source_message.read = True
+        source_message.save(update_fields=["read"])
 
 
 @register("support_reply", static_schema=StaticParams, param_schema=Params)
@@ -28,7 +49,31 @@ def support_reply(static_params: dict, params: dict) -> None:
 
     params:
         message (str): The reply text to send to the user
+        suggested_action (str): One of "reply" (default), "mark_read", "slack_feedback", "keep_open"
+        slack_message (str): Text to post when suggested_action == "slack_feedback"
+        slack_thread (str): Named Slack thread key when suggested_action == "slack_feedback"
     """
+    suggested_action = (params.get("suggested_action") or "reply").strip()
+
+    if suggested_action == "mark_read":
+        _mark_source_message_read(static_params)
+        return
+
+    if suggested_action == "slack_feedback":
+        from management.api.slack import post_support_feedback_to_slack
+
+        text = (params.get("slack_message") or params.get("message") or "").strip()
+        if not text:
+            raise ValueError("slack_feedback requires a non-empty slack_message.")
+        thread_key = (params.get("slack_thread") or "").strip()
+        post_support_feedback_to_slack(text, thread_key)
+        return
+
+    if suggested_action == "keep_open":
+        # Handled by the dedicated keep-open endpoint; a generic execute is a no-op
+        # so the action is never accidentally completed as a reply.
+        return
+
     from chat.models import Message
 
     from management.controller import get_base_management_user

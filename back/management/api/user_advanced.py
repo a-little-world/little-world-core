@@ -909,7 +909,25 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         message.read = True
         message.save()
 
-        return Response({"msg": "Message marked as read"})
+        closed_support_task_id = None
+        if message.sender_id == obj.pk:
+            from management.support_reply_outcomes import close_support_reply_task_for_read_message
+
+            try:
+                closed_action = close_support_reply_task_for_read_message(obj, actor=request.user, message=message)
+            except Exception:
+                logger.exception("Failed to close support reply task for read message %s", message.uuid)
+                closed_action = None
+            if closed_action is not None:
+                closed_support_task_id = closed_action.task_id
+
+        return Response(
+            {
+                "msg": "Message marked as read",
+                "support_task_closed": closed_support_task_id is not None,
+                "support_task_id": closed_support_task_id,
+            }
+        )
 
     @extend_schema(
         request=inline_serializer(name="DeleteMessageRequest", fields={"message_id": serializers.CharField()})
@@ -1064,6 +1082,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if open_support_reply_action is not None:
             updated_parameters = dict(open_support_reply_action.parameters or {})
             updated_parameters["message"] = stored_reply_message
+            updated_parameters["suggested_action"] = "reply"
             open_support_reply_action.parameters = updated_parameters
             open_support_reply_action.save(update_fields=["parameters"], changed_by=request.user)
             open_support_reply_action.resolve(SupportTaskAction.Status.EXECUTED, request.user)
