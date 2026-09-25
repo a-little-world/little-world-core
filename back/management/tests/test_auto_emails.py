@@ -2510,3 +2510,76 @@ class TestAutomaticEmails_fm021_fm022(TestCase):
         assert match.is_ghosted_match is False
         assert match.active is True
         self.mock_send_email.delay.assert_not_called()
+
+
+class TestJourneyEmailsSkipDeletedAccounts(TestCase):
+    """A deleted partner must stop the match-journey e-mails (issue #1194).
+
+    ``delete_user`` deactivates the account but deliberately leaves the match row active,
+    so the journey queries have to look at the users, not only at ``Match.active``.
+    """
+
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+        self._send_email_patch = patch("management.tasks.send_email_background")
+        self.mock_send_email = self._send_email_patch.start()
+        self.addCleanup(self._send_email_patch.stop)
+
+    def _create_m031_match(self, seed, *, deleted="none"):
+        user1 = User.objects.create_user(
+            email=f"journey-deleted-{seed}-1@test.de",
+            password="Test123!",
+            first_name="Journey",
+            last_name="User",
+        )
+        user2 = User.objects.create_user(
+            email=f"journey-deleted-{seed}-2@test.de",
+            password="Test123!",
+            first_name="Journey",
+            last_name="User",
+        )
+
+        match = Match.objects.create(
+            user1=user1,
+            user2=user2,
+            match_type=MatchType.STANDARD,
+            active=True,
+            confirmed=True,
+            support_matching=False,
+            total_mutal_video_calls_counter=0,
+            first_interaction_at=dj_timezone.now() - timedelta(days=8),
+            auto_email_m031_send=False,
+        )
+        add_mutual_messages(user1, user2)
+
+        if deleted != "none":
+            deleted_user = user1 if deleted == "user1" else user2
+            deleted_user.is_active = False
+            deleted_user.save(update_fields=["is_active"])
+
+        return user1, user2, match
+
+    def test_m031_still_sends_when_both_users_are_active(self):
+        user1, user2, match = self._create_m031_match("active")
+
+        result = automatic_emails_m031_m032_m033_m042()
+
+        assert str(match.uuid) in result["matches_m031"]
+        sent_user_ids = {call.kwargs["user_id"] for call in self.mock_send_email.delay.call_args_list}
+        assert sent_user_ids == {user1.id, user2.id}
+
+    def test_m031_skips_match_when_user1_account_was_deleted(self):
+        _user1, _user2, match = self._create_m031_match("deleted-u1", deleted="user1")
+
+        result = automatic_emails_m031_m032_m033_m042()
+
+        assert str(match.uuid) not in result["matches_m031"]
+        self.mock_send_email.delay.assert_not_called()
+
+    def test_m031_skips_match_when_user2_account_was_deleted(self):
+        _user1, _user2, match = self._create_m031_match("deleted-u2", deleted="user2")
+
+        result = automatic_emails_m031_m032_m033_m042()
+
+        assert str(match.uuid) not in result["matches_m031"]
+        self.mock_send_email.delay.assert_not_called()

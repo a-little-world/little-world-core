@@ -68,6 +68,10 @@ class RestToolDefinitionTests(SimpleTestCase):
 
         self.assertEqual(definition["name"], MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME)
         self.assertEqual(definition["operation_id"], "api_support_task_action_partial_update")
+        self.assertIn("suggested_action", definition["description"])
+        self.assertIn("mark_read", definition["description"])
+        self.assertIn("slack_feedback", definition["description"])
+        self.assertIn("keep_open", definition["description"])
 
         openapi = json.loads(definition["openapi_source"])
         self.assertIn(SUPPORT_TASK_ACTION_PATH, openapi["paths"])
