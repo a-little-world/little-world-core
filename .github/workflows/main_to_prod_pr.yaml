@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - 1206-automatic-prs-main---production-with-image-build-and-tests
   workflow_dispatch:
 
 permissions:
