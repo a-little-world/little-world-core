@@ -191,6 +191,23 @@ SLACK_API_TOKEN = os.environ.get("DJ_SLACK_API_TOKEN", "")
 SLACK_REPORT_CHANNEL_ID = os.environ.get("DJ_SLACK_REPORT_CHANNEL_ID", "")
 SLACK_CALLBACK_SECRET = os.environ.get("DJ_SLACK_CALLBACK_SECRET", "")
 
+# Support-feedback Slack destination for the Open Chat reply-suggestion
+# "slack_feedback" skill. Either a single default thread (channel + thread_ts)
+# or a named map of threads the agent can target by key.
+SLACK_SUPPORT_FEEDBACK_CHANNEL_ID = os.environ.get("DJ_SLACK_SUPPORT_FEEDBACK_CHANNEL_ID", "")
+SLACK_SUPPORT_FEEDBACK_THREAD_TS = os.environ.get("DJ_SLACK_SUPPORT_FEEDBACK_THREAD_TS", "")
+
+
+def _parse_json_dict(raw: str) -> dict:
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+SLACK_SUPPORT_FEEDBACK_THREADS = _parse_json_dict(os.environ.get("DJ_SLACK_SUPPORT_FEEDBACK_THREADS", ""))
+
 USE_AI = os.environ.get("DJ_USE_AI", "false").lower() in ("true", "1", "t")
 AI_BASE_URL = os.environ.get("DJ_AI_BASE_URL", "http://localhost:8000")
 AI_API_KEY = os.environ.get("DJ_AI_API_KEY", "none")
@@ -1146,6 +1163,14 @@ OPEN_CHAT_AUTOMATION_USER_PASSWORD = os.environ.get(
     "Test123!",
 )
 OPEN_CHAT_TOOL_API_HOST = os.environ.get("DJ_OPEN_CHAT_TOOL_API_HOST", "").strip() or None
+
+# Gates the extra reply-suggestion skills (mark_read, slack_feedback, keep_open)
+# in the Open Chat suggestion prompt. Off by default so existing bots keep the
+# plain reply behaviour until the rollout is enabled.
+OPEN_CHAT_REPLY_SUGGESTION_SKILLS_ENABLED = bool_env(
+    "DJ_OPEN_CHAT_REPLY_SUGGESTION_SKILLS_ENABLED",
+    "false",
+)
 
 # Optional override for the directory holding the committed support-context
 # markdown (handbook + message templates) injected into reply suggestions.
