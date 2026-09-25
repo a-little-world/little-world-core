@@ -749,11 +749,18 @@ def _match_journey_matches():
     """Matches that receive the Standard post-confirm email journey.
 
     Random Call matches share this journey. Temporary in-call matches do not.
+
+    Matches with a deleted account are excluded. Deleting a user deliberately leaves the
+    match row active (see ``Match.update_deleted_user_matches``), so without this the
+    journey keeps mailing the surviving partner about a match whose other side is gone.
     """
     from management.models.matches import Match
     from management.models.unconfirmed_matches import MatchType
 
-    return Match.objects.exclude(match_type=MatchType.TEMPORARY)
+    return Match.objects.exclude(match_type=MatchType.TEMPORARY).filter(
+        user1__is_active=True,
+        user2__is_active=True,
+    )
 
 
 def _matches_with_mutual_messages(qs):
