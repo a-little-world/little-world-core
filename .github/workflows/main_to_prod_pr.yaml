@@ -1,0 +1,52 @@
+name: Main -> Production PR
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: main-to-prod-pr
+  cancel-in-progress: true
+
+jobs:
+  open-pr:
+    name: Create or update main -> prod PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update PR
+        env:
+          GH_TOKEN: ${{ secrets.BOT_PAT }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          SHORT="${SHA:0:7}"
+          PR_NUMBER="$(gh pr list --repo "$REPO" --base prod --head main --state open --json number --jq '.[0].number')"
+
+          if [ -z "$PR_NUMBER" ]; then
+            AHEAD="$(gh api "repos/$REPO/compare/prod...main" --jq '.ahead_by')"
+            if [ "$AHEAD" -eq 0 ]; then
+              echo "main and prod are identical; nothing to release."
+              exit 0
+            fi
+            echo "No open main -> prod PR; creating one."
+          else
+            echo "Refreshing existing main -> prod PR #$PR_NUMBER."
+          fi
+
+          BODY="$(printf 'Automated release PR from `main` into `prod`.\n\nLatest main commit: `%s`\nBuild & tests: %s\n\n<!-- lw-main-to-prod -->\n' "$SHA" "$RUN_URL")"
+          TITLE="Production release (main @ ${SHORT})"
+
+          if [ -z "$PR_NUMBER" ]; then
+            gh pr create --repo "$REPO" --base prod --head main --title "$TITLE" --body "$BODY"
+          else
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --title "$TITLE" --body "$BODY"
+          fi
