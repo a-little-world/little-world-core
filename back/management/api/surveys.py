@@ -1,12 +1,17 @@
 """User-facing survey endpoints.
 
-``pending`` is the whole delivery mechanism. It works for offline users, works for native via
-the same JWT auth as every other endpoint, and fails loudly — a survey that stops appearing is
-a request returning nothing rather than silence.
+``pending`` is popup delivery. It works for offline users, works for native via the same
+JWT auth as every other endpoint, and fails loudly — a survey that stops appearing is a
+request returning nothing rather than silence.
 
-``shown`` is separate from ``pending`` on purpose: the pending response proves the *backend*
-offered the survey, while ``shown`` proves the client actually rendered it. Offers piling up
-with ``shown_count`` stuck at zero is precisely the failure that went unnoticed for a year.
+``GET /api/surveys/<slug>`` is the link channel for campaigns with ``available_via_link``.
+Submit still goes through ``/api/surveys/<id>/submit``. The page must not call ``shown``
+or ``dismiss``.
+
+``shown`` is separate from ``pending`` on purpose: the pending response proves the
+*backend* offered the survey, while ``shown`` proves the client actually rendered it.
+Offers piling up with ``shown_count`` stuck at zero is precisely the failure that went
+unnoticed for a year.
 """
 
 import logging
@@ -146,6 +151,32 @@ def dismiss_survey(request, response_id: int):
     return Response({"status": "ok"})
 
 
+@extend_schema(
+    description=(
+        "The survey at this campaign slug for the current user. "
+        "Optional ?live_session=<uuid> for live-session-scoped campaigns. "
+        "Unknown slugs, campaigns that are not available_via_link, and live_session "
+        "values that are missing, unfinished, or not the user's all 404."
+    ),
+    responses={200: PendingSurveySerializer(many=False)},
+)
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def survey_by_slug(request, slug: str):
+    state, response = surveys.survey_for_link(
+        request.user,
+        slug,
+        live_session_id=request.query_params.get("live_session") or None,
+    )
+    if state == surveys.SurveyLinkState.NOT_FOUND:
+        return Response({"status": "error", "message": "Survey not found"}, status=404)
+    survey_payload = None
+    if state == surveys.SurveyLinkState.AVAILABLE and response is not None:
+        survey_payload = PendingSurveySerializer(response, context={"language": _display_language(request.user)}).data
+    return Response({"state": state, "survey": survey_payload})
+
+
 #: ---------------------------------------------------------------------------------------
 #: Admin panel: campaigns are created and edited here rather than in code, which is why the
 #: copy lives on the row. Validation is the model's — these views only translate its errors.
@@ -181,6 +212,7 @@ class AdminSurveyCampaignSerializer(serializers.ModelSerializer):
             "starts_at",
             "ends_at",
             "max_shows",
+            "available_via_link",
             "created_at",
             "updated_at",
             "offered",
@@ -245,7 +277,11 @@ def _campaign_queryset():
             filter=Q(responses__status=SurveyResponse.Status.SUBMITTED),
             distinct=True,
         ),
-        rendered=Count("responses", filter=Q(responses__shown_count__gt=0), distinct=True),
+        rendered=Count(
+            "responses",
+            filter=Q(responses__shown_count__gt=0) | Q(responses__opened_at__isnull=False),
+            distinct=True,
+        ),
         mean_rating=Avg("responses__rating"),
     )
 
@@ -390,6 +426,7 @@ def admin_survey_responses(request):
 
 api_urls = [
     path("api/surveys/pending", pending_survey, name="pending_survey_api"),
+    path("api/surveys/<slug:slug>", survey_by_slug, name="survey_by_slug_api"),
     path("api/surveys/<int:response_id>/shown", mark_survey_shown, name="mark_survey_shown_api"),
     path("api/surveys/<int:response_id>/submit", submit_survey, name="submit_survey_api"),
     path("api/surveys/<int:response_id>/dismiss", dismiss_survey, name="dismiss_survey_api"),

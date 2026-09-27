@@ -193,6 +193,15 @@ class SurveyCampaignValidationTests(TestCase):
         with self.assertRaises(ValidationError):
             _campaign(questions=[{"id": "reason", "type": "choice"}])
 
+    def test_rating_question_is_optional(self):
+        campaign = _campaign(questions=[_q("comment", "text", required=True)])
+        self.assertIsNone(campaign.rating_question_id())
+        self.assertTrue(campaign.active)
+
+    def test_rejects_an_empty_question_list(self):
+        with self.assertRaises(ValidationError):
+            _campaign(questions=[])
+
     def test_context_scope_requires_context_type(self):
         with self.assertRaises(ValidationError):
             _campaign(repeat_scope=SurveyCampaign.RepeatScope.CONTEXT)
@@ -206,6 +215,32 @@ class SurveyCampaignValidationTests(TestCase):
                 repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
                 context_type=SurveyCampaign.ContextType.LIVE_SESSION,
             )
+
+    def test_link_delivery_rejects_match_scoped_campaigns(self):
+        with self.assertRaises(ValidationError):
+            _campaign(
+                trigger=SurveyCampaign.Trigger.NON_QUALIFYING_CALL_ENDED,
+                repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
+                context_type=SurveyCampaign.ContextType.MATCH,
+                available_via_link=True,
+            )
+
+    def test_no_in_app_trigger_requires_link_delivery(self):
+        with self.assertRaises(ValidationError):
+            _campaign(trigger=SurveyCampaign.Trigger.NONE, available_via_link=False)
+
+    def test_no_in_app_trigger_is_allowed_with_link_delivery(self):
+        campaign = _campaign(trigger=SurveyCampaign.Trigger.NONE, available_via_link=True)
+        self.assertEqual(campaign.trigger, SurveyCampaign.Trigger.NONE)
+
+    def test_link_delivery_allows_live_session_scoped_campaigns(self):
+        campaign = _campaign(
+            trigger=SurveyCampaign.Trigger.NON_QUALIFYING_CALL_ENDED,
+            repeat_scope=SurveyCampaign.RepeatScope.CONTEXT,
+            context_type=SurveyCampaign.ContextType.LIVE_SESSION,
+            available_via_link=True,
+        )
+        self.assertTrue(campaign.available_via_link)
 
     def test_company_audience_requires_a_value(self):
         with self.assertRaises(ValidationError):
@@ -536,6 +571,10 @@ class PendingSurveyTests(TestCase):
         _campaign(active=False)
         self.assertIsNone(surveys.pending_survey_for_user(self.user))
 
+    def test_no_in_app_trigger_is_not_offered_as_a_popup(self):
+        _campaign(trigger=SurveyCampaign.Trigger.NONE, available_via_link=True)
+        self.assertIsNone(surveys.pending_survey_for_user(self.user))
+
     def test_campaign_outside_its_window_offers_nothing(self):
         _campaign(starts_at=timezone.now() + timedelta(days=1))
         self.assertIsNone(surveys.pending_survey_for_user(self.user))
@@ -706,6 +745,15 @@ class SurveyAnswerValidationTests(TestCase):
         with self.assertRaises(ValidationError):
             surveys.submit_survey(self.response, {"rating": 1})
 
+    def test_text_only_survey_can_be_submitted_without_a_rating(self):
+        campaign = _campaign(slug="text-only", questions=[_q("comment", "text", required=True)])
+        response = surveys.offer_survey(campaign, self.user)
+        surveys.submit_survey(response, {"comment": "just text"})
+        response.refresh_from_db()
+        self.assertEqual(response.answers, {"comment": "just text"})
+        self.assertIsNone(response.rating)
+        self.assertEqual(response.status, SurveyResponse.Status.SUBMITTED)
+
 
 class AdminSurveyApiTests(TestCase):
     """The admin panel is now the only way campaigns are created, so these endpoints are the
@@ -762,6 +810,19 @@ class AdminSurveyApiTests(TestCase):
         # No English was supplied, so English readers get the German.
         self.assertEqual(campaign.card_for("en")["title"], "Wie läuft es?")
 
+    def test_creates_a_campaign_without_a_rating(self):
+        response = self._post(
+            self._payload(
+                questions=[
+                    {"id": "comment", "type": "text", "required": True, "label": localized(de="Kommentar")},
+                ]
+            )
+        )
+        self.assertEqual(response.status_code, 201)
+        types = [question["type"] for question in response.json()["questions"]]
+        self.assertEqual(types, ["text"])
+        self.assertIsNone(SurveyCampaign.objects.get(slug="acme-checkin").rating_question_id())
+
     def test_activation_without_copy_is_rejected(self):
         payload = self._payload(copy={"title": localized(), "submit_button": localized()})
         response = self._post(payload)
@@ -788,6 +849,41 @@ class AdminSurveyApiTests(TestCase):
         row = next(item for item in self.client.get(self.ENDPOINT).json() if item["slug"] == campaign.slug)
         self.assertEqual((row["offered"], row["rendered"], row["answered"]), (1, 1, 1))
         self.assertEqual(row["mean_rating"], 5.0)
+
+    def test_link_opened_response_counts_as_rendered(self):
+        campaign = _link_campaign()
+        user = register_user()
+        state, response = surveys.survey_for_link(user, campaign.slug)
+        self.assertEqual(state, surveys.SurveyLinkState.AVAILABLE)
+        self.assertEqual(response.shown_count, 0)
+        self.assertIsNotNone(response.opened_at)
+
+        row = next(item for item in self.client.get(self.ENDPOINT).json() if item["slug"] == campaign.slug)
+        self.assertEqual(row["rendered"], 1)
+        self.assertEqual(row["offered"], 1)
+
+    def test_creates_a_link_only_campaign(self):
+        response = self._post(
+            self._payload(trigger="none", available_via_link=True, audience_type="all", audience_value="")
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.json()["available_via_link"])
+        self.assertEqual(response.json()["trigger"], "none")
+
+    def test_no_in_app_trigger_without_link_is_rejected(self):
+        response = self._post(self._payload(trigger="none", available_via_link=False))
+        self.assertEqual(response.status_code, 400)
+
+    def test_link_delivery_on_match_scoped_campaign_is_rejected(self):
+        response = self._post(
+            self._payload(
+                trigger="event:call_ended",
+                repeat_scope="context",
+                context_type="match",
+                available_via_link=True,
+            )
+        )
+        self.assertEqual(response.status_code, 400)
 
     def test_answered_questions_are_reported_as_locked(self):
         campaign = _campaign()
@@ -982,3 +1078,234 @@ class DeletedUserFreeTextTests(TestCase):
         response.refresh_from_db()
         self.assertEqual(response.answers, {"rating": 5})
         self.assertEqual(response.rating, 5)
+
+
+def _link_campaign(**overrides) -> SurveyCampaign:
+    return _campaign(available_via_link=True, **overrides)
+
+
+def _session_scoped_link_campaign(**overrides) -> SurveyCampaign:
+    fields = {
+        "trigger": SurveyCampaign.Trigger.NON_QUALIFYING_CALL_ENDED,
+        "repeat_scope": SurveyCampaign.RepeatScope.CONTEXT,
+        "context_type": SurveyCampaign.ContextType.LIVE_SESSION,
+        "available_via_link": True,
+    }
+    fields.update(overrides)
+    return _campaign(**fields)
+
+
+class SurveyLinkTests(TestCase):
+    def setUp(self):
+        self.user = register_user()
+        self.partner = register_user()
+
+    def test_unknown_slug_is_not_found(self):
+        state, response = surveys.survey_for_link(self.user, "does-not-exist")
+        self.assertEqual(state, surveys.SurveyLinkState.NOT_FOUND)
+        self.assertIsNone(response)
+
+    def test_campaign_without_the_flag_is_not_found(self):
+        campaign = _campaign()
+        state, response = surveys.survey_for_link(self.user, campaign.slug)
+        self.assertEqual(state, surveys.SurveyLinkState.NOT_FOUND)
+        self.assertIsNone(response)
+        self.assertFalse(SurveyResponse.objects.exists())
+
+    def test_eligible_user_gets_an_available_card(self):
+        campaign = _link_campaign()
+        state, response = surveys.survey_for_link(self.user, campaign.slug)
+        self.assertEqual(state, surveys.SurveyLinkState.AVAILABLE)
+        self.assertEqual(response.campaign_id, campaign.pk)
+        self.assertEqual(response.delivery_channel, SurveyResponse.DeliveryChannel.LINK)
+        self.assertEqual(response.shown_count, 0)
+        self.assertIsNone(response.shown_at)
+        self.assertIsNotNone(response.opened_at)
+
+    def test_ineligible_user_creates_no_row(self):
+        campaign = _link_campaign(eligible_after_event=SurveyCampaign.EligibleAfterEvent.ONBOARDED)
+        state, response = surveys.survey_for_link(self.user, campaign.slug)
+        self.assertEqual(state, surveys.SurveyLinkState.INELIGIBLE)
+        self.assertIsNone(response)
+        self.assertFalse(SurveyResponse.objects.exists())
+
+    def test_inactive_campaign_is_inactive(self):
+        campaign = _link_campaign(active=False)
+        state, response = surveys.survey_for_link(self.user, campaign.slug)
+        self.assertEqual(state, surveys.SurveyLinkState.INACTIVE)
+        self.assertIsNone(response)
+        self.assertFalse(SurveyResponse.objects.exists())
+
+    def test_submitted_then_link_is_already_submitted(self):
+        campaign = _link_campaign()
+        offer = surveys.offer_survey(campaign, self.user)
+        surveys.submit_survey(offer, {"rating": 5})
+        state, response = surveys.survey_for_link(self.user, campaign.slug)
+        self.assertEqual(state, surveys.SurveyLinkState.ALREADY_SUBMITTED)
+        self.assertIsNone(response)
+
+    def test_expired_then_link_is_unavailable(self):
+        campaign = _link_campaign()
+        offer = surveys.offer_survey(campaign, self.user)
+        offer.expire()
+        state, response = surveys.survey_for_link(self.user, campaign.slug)
+        self.assertEqual(state, surveys.SurveyLinkState.UNAVAILABLE)
+        self.assertIsNone(response)
+
+    def test_dismissed_via_popup_then_link_is_available(self):
+        campaign = _link_campaign()
+        offer = surveys.offer_survey(campaign, self.user)
+        surveys.dismiss_survey(offer)
+        state, response = surveys.survey_for_link(self.user, campaign.slug)
+        self.assertEqual(state, surveys.SurveyLinkState.AVAILABLE)
+        self.assertEqual(response.pk, offer.pk)
+        self.assertEqual(response.status, SurveyResponse.Status.DISMISSED)
+        self.assertIsNotNone(response.opened_at)
+
+    def test_submit_via_link_on_a_dismissed_row_succeeds(self):
+        campaign = _link_campaign()
+        offer = surveys.offer_survey(campaign, self.user)
+        surveys.dismiss_survey(offer)
+        _, response = surveys.survey_for_link(self.user, campaign.slug)
+        surveys.submit_survey(response, {"rating": 4})
+        response.refresh_from_db()
+        self.assertEqual(response.status, SurveyResponse.Status.SUBMITTED)
+        self.assertEqual(response.rating, 4)
+
+    def test_link_open_does_not_start_popup_cooldown(self):
+        popup = _campaign(slug="popup-campaign", name="Popup")
+        link = _link_campaign(slug="link-campaign", name="Link")
+        surveys.survey_for_link(self.user, link.slug)
+        self.assertIsNone(surveys.last_shown_at(self.user))
+        pending = surveys.pending_survey_for_user(self.user)
+        self.assertIsNotNone(pending)
+        self.assertEqual(pending.campaign_id, popup.pk)
+
+    def test_link_created_offer_does_not_appear_as_a_popup(self):
+        campaign = _link_campaign()
+        surveys.survey_for_link(self.user, campaign.slug)
+        self.assertIsNone(surveys.pending_survey_for_user(self.user))
+
+    def test_opened_at_is_not_rewritten(self):
+        campaign = _link_campaign()
+        _, first = surveys.survey_for_link(self.user, campaign.slug)
+        first_opened = first.opened_at
+        _, second = surveys.survey_for_link(self.user, campaign.slug)
+        self.assertEqual(second.pk, first.pk)
+        self.assertEqual(second.opened_at, first_opened)
+
+    def test_session_scoped_without_param_is_missing_context(self):
+        campaign = _session_scoped_link_campaign()
+        state, response = surveys.survey_for_link(self.user, campaign.slug)
+        self.assertEqual(state, surveys.SurveyLinkState.MISSING_CONTEXT)
+        self.assertIsNone(response)
+        self.assertFalse(SurveyResponse.objects.exists())
+
+    def test_own_finished_session_is_available(self):
+        campaign = _session_scoped_link_campaign()
+        session = _finished_session(self.user, self.partner)
+        state, response = surveys.survey_for_link(self.user, campaign.slug, live_session_id=session.uuid)
+        self.assertEqual(state, surveys.SurveyLinkState.AVAILABLE)
+        self.assertEqual(response.context_key, f"live_session:{session.uuid}")
+        self.assertEqual(response.live_session_id, session.pk)
+
+    def test_another_users_session_is_not_found(self):
+        campaign = _session_scoped_link_campaign()
+        stranger = register_user()
+        session = _finished_session(stranger, self.partner)
+        state, response = surveys.survey_for_link(self.user, campaign.slug, live_session_id=session.uuid)
+        self.assertEqual(state, surveys.SurveyLinkState.NOT_FOUND)
+        self.assertIsNone(response)
+        self.assertFalse(SurveyResponse.objects.exists())
+
+    def test_nonexistent_session_is_not_found(self):
+        from uuid import uuid4
+
+        campaign = _session_scoped_link_campaign()
+        state, response = surveys.survey_for_link(self.user, campaign.slug, live_session_id=uuid4())
+        self.assertEqual(state, surveys.SurveyLinkState.NOT_FOUND)
+        self.assertIsNone(response)
+
+    def test_unfinished_session_is_not_found(self):
+        campaign = _session_scoped_link_campaign()
+        room = LiveKitRoom.objects.create(u1=self.user, u2=self.partner)
+        session = LivekitSession.objects.create(room=room, u1=self.user, u2=self.partner, end_time=None)
+        state, response = surveys.survey_for_link(self.user, campaign.slug, live_session_id=session.uuid)
+        self.assertEqual(state, surveys.SurveyLinkState.NOT_FOUND)
+        self.assertIsNone(response)
+        self.assertFalse(SurveyResponse.objects.exists())
+
+
+class SurveyLinkApiTests(TestCase):
+    def setUp(self):
+        self.user = register_user()
+        self.partner = register_user()
+        self.campaign = _link_campaign()
+        self.client.force_login(self.user)
+
+    def test_requires_authentication(self):
+        self.client.logout()
+        self.assertIn(self.client.get(f"/api/surveys/{self.campaign.slug}").status_code, (401, 403))
+
+    def test_returns_the_card(self):
+        response = self.client.get(f"/api/surveys/{self.campaign.slug}")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["state"], "available")
+        self.assertEqual(payload["survey"]["campaign"], self.campaign.slug)
+        self.assertEqual(payload["survey"]["title"], "Wie gefällt es dir?")
+
+    def test_unknown_slug_is_404(self):
+        response = self.client.get("/api/surveys/does-not-exist")
+        self.assertEqual(response.status_code, 404)
+        self.assertNotIn("state", response.json())
+
+    def test_flag_off_is_404(self):
+        hidden = _campaign(slug="hidden-campaign")
+        response = self.client.get(f"/api/surveys/{hidden.slug}")
+        self.assertEqual(response.status_code, 404)
+
+    def test_ineligible_is_structured_200(self):
+        campaign = _link_campaign(
+            slug="onboarded-only",
+            eligible_after_event=SurveyCampaign.EligibleAfterEvent.ONBOARDED,
+        )
+        response = self.client.get(f"/api/surveys/{campaign.slug}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"state": "ineligible", "survey": None})
+
+    def test_submit_on_a_dismissed_row_via_the_endpoint(self):
+        offer = surveys.offer_survey(self.campaign, self.user)
+        surveys.dismiss_survey(offer)
+        payload = self.client.get(f"/api/surveys/{self.campaign.slug}").json()
+        self.assertEqual(payload["state"], "available")
+        self.assertEqual(payload["survey"]["id"], offer.pk)
+        submitted = self.client.post(
+            f"/api/surveys/{offer.pk}/submit",
+            data={"answers": {"rating": 3}},
+            content_type="application/json",
+        )
+        self.assertEqual(submitted.status_code, 200)
+        offer.refresh_from_db()
+        self.assertEqual(offer.status, SurveyResponse.Status.SUBMITTED)
+
+    def test_foreign_session_is_404(self):
+        campaign = _session_scoped_link_campaign(slug="call-survey")
+        stranger = register_user()
+        session = _finished_session(stranger, self.partner)
+        response = self.client.get(f"/api/surveys/{campaign.slug}", {"live_session": str(session.uuid)})
+        self.assertEqual(response.status_code, 404)
+
+    def test_own_session_returns_available(self):
+        campaign = _session_scoped_link_campaign(slug="call-survey")
+        session = _finished_session(self.user, self.partner)
+        response = self.client.get(f"/api/surveys/{campaign.slug}", {"live_session": str(session.uuid)})
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["state"], "available")
+        self.assertEqual(payload["survey"]["context_key"], f"live_session:{session.uuid}")
+
+    def test_match_query_param_is_ignored(self):
+        response = self.client.get(f"/api/surveys/{self.campaign.slug}", {"match": "anything"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["state"], "available")

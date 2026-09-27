@@ -113,6 +113,9 @@ class SurveyCampaign(models.Model):
             _("After a qualifying call (%(minutes)s min or longer; excludes random calls)")
             % {"minutes": _QUALIFYING_MINUTES},
         )
+        #: Not offered by pending or post-call. Requires ``available_via_link`` — otherwise
+        #: the campaign has no delivery path at all.
+        NONE = "none", _("No in-app trigger")
 
     class EligibleAfterEvent(models.TextChoices):
         NONE = "", _("Immediately")
@@ -213,6 +216,14 @@ class SurveyCampaign(models.Model):
     max_shows = models.PositiveSmallIntegerField(
         default=3,
         help_text=_("How many times an unanswered offer may be presented before it expires."),
+    )
+    available_via_link = models.BooleanField(
+        default=False,
+        help_text=_(
+            "If true, an authenticated user can open this campaign at /api/surveys/{slug}. "
+            "Independent of trigger: a campaign can be a popup and a page. Match-scoped "
+            "campaigns cannot use this yet — there is no resolver for match context."
+        ),
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -392,6 +403,12 @@ class SurveyCampaign(models.Model):
             raise ValidationError(
                 _("A context-scoped campaign needs an event trigger — there is no context to offer it against.")
             )
+        if self.available_via_link and self.context_type == self.ContextType.MATCH:
+            raise ValidationError(_("Link delivery for match-scoped campaigns isn't supported yet."))
+        if self.trigger == self.Trigger.NONE and not self.available_via_link:
+            raise ValidationError(
+                _("A campaign with no in-app trigger needs link delivery — otherwise nobody can take it.")
+            )
 
     def _validate_audience(self):
         from management.models.custom_banner_event_filters import FILTER_FUNC_MAP
@@ -570,8 +587,15 @@ class SurveyResponse(models.Model):
         DISMISSED = "dismissed", _("Dismissed")
         EXPIRED = "expired", _("Expired")
 
+    class DeliveryChannel(models.TextChoices):
+        PENDING = "pending", _("Pending (in-app popup)")
+        LINK = "link", _("Link")
+
     #: Statuses that end the offer. Anything else is re-presentable, capped by ``max_shows``.
     TERMINAL_STATUSES = (Status.SUBMITTED, Status.DISMISSED, Status.EXPIRED)
+    #: Statuses that use up the unique slot for a link GET. Dismissed is not one of them —
+    #: closing the popup must not block answering at the campaign URL.
+    LINK_BLOCKING_STATUSES = (Status.SUBMITTED, Status.EXPIRED)
 
     campaign = models.ForeignKey(
         SurveyCampaign,
@@ -612,6 +636,20 @@ class SurveyResponse(models.Model):
         help_text=_("Times the client confirmed it displayed the card. Flat at 0 means delivery is broken."),
     )
     shown_at = models.DateTimeField(null=True, blank=True)
+    opened_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "Set on the first link GET, never on popup delivery — kept separate from shown_at "
+            "so it cannot affect cooldown or max_shows."
+        ),
+    )
+    delivery_channel = models.CharField(
+        max_length=16,
+        choices=DeliveryChannel.choices,
+        default=DeliveryChannel.PENDING,
+        help_text=_("How this offer was first created. Link-created rows are excluded from popup delivery."),
+    )
     submitted_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -641,6 +679,11 @@ class SurveyResponse(models.Model):
     @property
     def is_terminal(self) -> bool:
         return self.status in self.TERMINAL_STATUSES
+
+    @property
+    def blocks_link(self) -> bool:
+        """True when a link GET must not re-offer this row (submitted or expired)."""
+        return self.status in self.LINK_BLOCKING_STATUSES
 
     def mark_shown(self) -> None:
         """Record that the client actually rendered the card."""

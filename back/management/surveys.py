@@ -4,13 +4,18 @@ Eligibility is evaluated when the user is actually in the app, never precomputed
 frozen cohort: a user who gains the company field next week is included automatically, and a
 user who never returns leaves no row behind.
 
-Delivery is the polled pending endpoint and nothing else. WebSocket-only delivery is what
-failed silently for a year, so the ``event:call_ended`` trigger *creates* an offer and the
-next poll finds it — which also removes the "only if the user is connected" limitation.
+Popup delivery is the polled pending endpoint. WebSocket-only delivery is what failed
+silently for a year, so the ``event:call_ended`` trigger *creates* an offer and the next
+poll finds it — which also removes the "only if the user is connected" limitation.
+
+Link delivery is a second channel: ``GET /api/surveys/<slug>`` for campaigns with
+``available_via_link``. It shares the same uniqueness rule and answer record, but ignores
+cooldown and max_shows, does not write ``shown_at``, and does not appear in the popup queue.
 """
 
 import logging
 from datetime import datetime, time, timedelta
+from uuid import UUID
 
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
@@ -41,6 +46,24 @@ POST_CALL_SLUG = "post-call"
 #: also covers re-presenting one unanswered offer: that waits for a later visit rather than
 #: the next route change.
 SHOW_COOLDOWN = timedelta(hours=12)
+
+
+class SurveyLinkState:
+    """Outcomes of ``survey_for_link``. ``not_found`` is the 404 bucket: unknown slug,
+    ``available_via_link=False``, match-scoped (unsupported), or a ``live_session`` that
+    does not exist, is still in progress, or does not belong to the user. Those last
+    cases are indistinguishable on purpose so the endpoint cannot leak whether a uuid
+    is real.
+    """
+
+    NOT_FOUND = "not_found"
+    AVAILABLE = "available"
+    ALREADY_SUBMITTED = "already_submitted"
+    UNAVAILABLE = "unavailable"
+    INELIGIBLE = "ineligible"
+    INACTIVE = "inactive"
+    MISSING_CONTEXT = "missing_context"
+
 
 #: How long a negative eligibility result is remembered per user. The pending endpoint is
 #: polled on every route change, so without this a user who matches nothing would re-run the
@@ -437,11 +460,15 @@ def pending_survey_for_user(user) -> SurveyResponse | None:
     if not campaigns_by_id:
         return None
 
-    open_offers = SurveyResponse.objects.filter(
-        user=user,
-        campaign_id__in=campaigns_by_id,
-        status=SurveyResponse.Status.SHOWN,
-    ).order_by("-created_at")
+    open_offers = (
+        SurveyResponse.objects.filter(
+            user=user,
+            campaign_id__in=campaigns_by_id,
+            status=SurveyResponse.Status.SHOWN,
+        )
+        .exclude(delivery_channel=SurveyResponse.DeliveryChannel.LINK)
+        .order_by("-created_at")
+    )
     for response in open_offers:
         campaign = campaigns_by_id[response.campaign_id]
         if _deliverable(response, campaign):
@@ -463,10 +490,109 @@ def pending_survey_for_user(user) -> SurveyResponse | None:
             cache.set(cache_key, True, _INELIGIBLE_TTL)
             continue
         response = offer_survey(campaign, user)
-        if response is not None and _deliverable(response, campaign):
+        # Uniqueness may return a row the link channel already created. That slot is
+        # consumed, but it must not surface as a popup.
+        if response is None or response.delivery_channel == SurveyResponse.DeliveryChannel.LINK:
+            continue
+        if _deliverable(response, campaign):
             response.campaign = campaign
             return response
     return None
+
+
+def _finished_session_owned_by(user, live_session_id):
+    """A finished call this user was in, or ``None``.
+
+    ``None`` covers a missing/malformed uuid, a session that is not theirs, one that
+    does not exist, and one that has not ended yet. Callers must treat all of those as
+    ``not_found`` — do not distinguish "yours but still running" from "someone else's".
+    """
+    from video.models import LivekitSession
+
+    if not live_session_id:
+        return None
+    try:
+        session_uuid = UUID(str(live_session_id))
+    except (ValueError, TypeError, AttributeError):
+        return None
+    return (
+        LivekitSession.objects.filter(uuid=session_uuid, end_time__isnull=False).filter(Q(u1=user) | Q(u2=user)).first()
+    )
+
+
+def _mark_link_opened(response: SurveyResponse) -> None:
+    if response.opened_at is not None:
+        return
+    response.opened_at = timezone.now()
+    response.save(update_fields=["opened_at", "updated_at"])
+
+
+def _offer_for_link(campaign: SurveyCampaign, user, *, context_key: str = "", live_session=None) -> SurveyResponse:
+    """get_or_create the unique row for this link visit, without notifying the popup path."""
+    try:
+        with transaction.atomic():
+            response, _created = SurveyResponse.objects.get_or_create(
+                campaign=campaign,
+                user=user,
+                context_key=context_key,
+                defaults={
+                    "live_session": live_session,
+                    "delivery_channel": SurveyResponse.DeliveryChannel.LINK,
+                },
+            )
+    except IntegrityError:
+        response = SurveyResponse.objects.get(campaign=campaign, user=user, context_key=context_key)
+    return response
+
+
+def survey_for_link(user, slug: str, *, live_session_id=None) -> tuple[str, SurveyResponse | None]:
+    """Resolve a campaign URL for this user.
+
+    Returns ``(state, response)``. ``response`` is only set for ``available`` (the card
+    to render) and is ``None`` otherwise. ``not_found`` means the API should 404 with a
+    generic body.
+
+    A ``?match=`` query param is out of scope for v1 and must not be passed here.
+    """
+    campaign = get_campaign(slug)
+    if campaign is None or not campaign.available_via_link:
+        return SurveyLinkState.NOT_FOUND, None
+    # Match-scoped campaigns are rejected in ``clean()``. A row written around the
+    # model still has no resolver, so treat it as missing rather than 500.
+    if campaign.context_type == SurveyCampaign.ContextType.MATCH:
+        return SurveyLinkState.NOT_FOUND, None
+
+    live_session = None
+    context_key = ""
+    if campaign.is_context_scoped:
+        if campaign.context_type != SurveyCampaign.ContextType.LIVE_SESSION:
+            return SurveyLinkState.NOT_FOUND, None
+        if not live_session_id:
+            return SurveyLinkState.MISSING_CONTEXT, None
+        live_session = _finished_session_owned_by(user, live_session_id)
+        if live_session is None:
+            return SurveyLinkState.NOT_FOUND, None
+        context_key = build_context_key(SurveyCampaign.ContextType.LIVE_SESSION, live_session.uuid)
+
+    existing = (
+        SurveyResponse.objects.select_related("campaign")
+        .filter(campaign=campaign, user=user, context_key=context_key)
+        .first()
+    )
+    if existing is not None and existing.status == SurveyResponse.Status.SUBMITTED:
+        return SurveyLinkState.ALREADY_SUBMITTED, None
+
+    if not campaign.is_live():
+        return SurveyLinkState.INACTIVE, None
+    if existing is not None and existing.status == SurveyResponse.Status.EXPIRED:
+        return SurveyLinkState.UNAVAILABLE, None
+    if not user_is_eligible(campaign, user):
+        return SurveyLinkState.INELIGIBLE, None
+
+    response = existing or _offer_for_link(campaign, user, context_key=context_key, live_session=live_session)
+    response.campaign = campaign
+    _mark_link_opened(response)
+    return SurveyLinkState.AVAILABLE, response
 
 
 def validate_answers(campaign: SurveyCampaign, answers) -> dict:
@@ -516,7 +642,10 @@ def validate_answers(campaign: SurveyCampaign, answers) -> dict:
 
 
 def submit_survey(response: SurveyResponse, answers, *, allow_resubmit: bool = False) -> SurveyResponse:
-    if response.is_terminal and not allow_resubmit:
+    # ``blocks_link`` rather than ``is_terminal``: a dismissed popup must still be
+    # answerable at the campaign URL. ``allow_resubmit`` remains the escape hatch for
+    # SUBMITTED / EXPIRED; nothing in-tree currently passes it.
+    if response.blocks_link and not allow_resubmit:
         raise ValidationError("This survey has already been answered.")
     response.submit(validate_answers(response.campaign, answers))
     return response
