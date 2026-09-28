@@ -5,6 +5,9 @@ on:
     branches:
       - main
       - 1206-automatic-prs-main---production-with-image-build-and-tests
+  pull_request:
+    branches:
+      - prod
   workflow_dispatch:
 
 concurrency:
@@ -24,13 +27,14 @@ jobs:
         with:
           token: ${{ secrets.BOT_PAT }}
           submodules: recursive
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up image env
         id: image
         run: |
           set -euo pipefail
           REPO="ghcr.io/a-little-world/little-world-backend/littleworld-backend"
-          TAG="main-test-${GITHUB_SHA}"
+          TAG="main-test-${{ github.event.pull_request.head.sha || github.sha }}"
           IMAGE="$REPO:$TAG"
           # Test image: ships the test dependencies so the suite runs in it.
           {
@@ -54,6 +58,7 @@ jobs:
           DOCKER_BUILDKIT=1 docker compose build
 
       - name: Publish image
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'main')
         run: |
           set -euo pipefail
           IMAGE="${{ steps.image.outputs.image }}"
