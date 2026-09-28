@@ -97,6 +97,13 @@ def create_default_banners():
     return "banners created!"
 
 
+ANALYTICS_GROUP_DESCRIPTION = "Google and Facebook analytics"
+ANALYTICS_COOKIE_DESCRIPTIONS = {
+    "facebook_pixel_cookie": "Facebook analytics cookies and scripts",
+    "google_analytics_cookie": "Google analytics cookies and scripts",
+}
+
+
 @shared_task
 def create_default_cookie_groups():
     if BackendState.are_default_cookies_set(set_true=True):
@@ -105,7 +112,7 @@ def create_default_cookie_groups():
     analytics_cookiegroup = CookieGroup.objects.create(
         varname="analytics",
         name="analytics_cookiegroup",
-        description="Google analytics and Facebook Pixel",
+        description=ANALYTICS_GROUP_DESCRIPTION,
         is_required=False,
         is_deletable=True,
     )
@@ -121,7 +128,7 @@ def create_default_cookie_groups():
     Cookie.objects.create(
         cookiegroup=analytics_cookiegroup,
         name="google_analytics_cookie",
-        description="Google anlytics cookies and scripts",
+        description=ANALYTICS_COOKIE_DESCRIPTIONS["google_analytics_cookie"],
         include_srcs=["https://www.googletagmanager.com/gtag/js?id=AW-10994486925"],
         include_scripts=[
             "\nwindow.dataLayer = window.dataLayer || [];\n"
@@ -143,7 +150,7 @@ def create_default_cookie_groups():
     Cookie.objects.create(
         cookiegroup=analytics_cookiegroup,
         name="facebook_pixel_cookie",
-        description="Facebook Pixel analytics cookies and scripts",
+        description=ANALYTICS_COOKIE_DESCRIPTIONS["facebook_pixel_cookie"],
         include_srcs=[],
         include_scripts=[facebook_init_script],
     )
