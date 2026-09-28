@@ -890,6 +890,9 @@ def automatic_emails_m012_m013_m014():
     return {"status": "sent", **sent}
 
 
+UNANSWERED_FIRST_MESSAGE_MAX_AGE_DAYS = 21
+
+
 def _unanswered_first_message_chats(*, days, **filters):
     from chat.models import Chat
     from django.db.models import Count, F, Min, Q
@@ -902,6 +905,7 @@ def _unanswered_first_message_chats(*, days, **filters):
         )
         .filter(
             first_message_at__lte=dj_timezone.now() - timedelta(days=days),
+            first_message_at__gt=dj_timezone.now() - timedelta(days=UNANSWERED_FIRST_MESSAGE_MAX_AGE_DAYS),
             **filters,
         )
         .filter(Q(u1_message_count=0) | Q(u2_message_count=0))
