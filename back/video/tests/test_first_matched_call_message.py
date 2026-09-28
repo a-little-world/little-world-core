@@ -56,7 +56,7 @@ class FirstMatchedCallMessageTests(TestCase):
         self.assertIn("ersten Gespräch mit Ben", by_recipient[self.u1.pk])
         self.assertIn("Hallo Ben", by_recipient[self.u2.pk])
         self.assertIn("ersten Gespräch mit Anna", by_recipient[self.u2.pk])
-        self.assertIn("/app/resources/trainings/interkulturelle-kommunikation", by_recipient[self.u1.pk])
+        self.assertIn("/app/resources/trainings/interkulturelle-gespraechsfuehrung", by_recipient[self.u1.pk])
 
     @patch.object(User, "message", autospec=True)
     def test_later_matched_calls_do_not_send_again(self, message):
