@@ -66,14 +66,6 @@
       "template": "react_emails/expired-match.html",
       "theme": "little-world"
     },
-    "new-match": {
-      "id": "new-match",
-      "sender_id": "noreply",
-      "category_id": "automated",
-      "subject": "Gl\u00fcckwunsch! Lerne jetzt {{ partner_first_name }} kennen",
-      "template": "react_emails/new-match.html",
-      "theme": "little-world"
-    },
     "new-messages": {
       "id": "new-messages",
       "sender_id": "noreply",
@@ -368,6 +360,14 @@
       "category_id": "automated",
       "subject": "\u2728 Teile deine Geschichte und inspiriere andere",
       "template": "react_emails/automatic-emails-m044.html",
+      "theme": "little-world"
+    },
+    "automatic-emails-m011": {
+      "id": "automatic-emails-m011",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Lerne jetzt {{ partner_first_name }} kennen \ud83c\udf89",
+      "template": "react_emails/automatic-emails-m011.html",
       "theme": "little-world"
     },
     "automatic-emails-m012": {
@@ -676,6 +676,11 @@
       "depends_on": [
         "user"
       ]
+    },
+    "intercultural_communication_training_url": {
+      "id": "intercultural_communication_training_url",
+      "lookup": "emails.api.template_lookup.intercultural_communication_training_url",
+      "depends_on": []
     },
     "newsletter_subscribe_url": {
       "id": "newsletter_subscribe_url",

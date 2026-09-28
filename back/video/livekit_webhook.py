@@ -10,6 +10,7 @@ from django.urls import path
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from management.models.matches import Match
+from management.models.unconfirmed_matches import MatchType
 from management.models.user import PushNotificationType, User
 from management.surveys import offer_post_call_survey
 from management.tasks import push_notification_background
@@ -107,6 +108,57 @@ def _bump_match_mutual_video_call_counter(room):
     match.total_mutal_video_calls_counter += 1
     match.latest_interaction_at = timezone.now()
     match.save(update_fields=["total_mutal_video_calls_counter", "latest_interaction_at", "updated_at"])
+
+
+def _send_after_first_matched_call_message(session):
+    """Congratulate both users after their first mutual, non-random call as a real match."""
+    if session.random_call_session or not session.both_have_been_active or session.end_time is None:
+        return
+
+    match = (
+        Match.objects.filter(
+            Q(user1_id=session.u1_id, user2_id=session.u2_id) | Q(user1_id=session.u2_id, user2_id=session.u1_id),
+            active=True,
+            support_matching=False,
+            created_at__lte=session.created_at,
+        )
+        .exclude(match_type=MatchType.TEMPORARY)
+        .order_by("-created_at", "-pk")
+        .first()
+    )
+    if match is None:
+        return
+
+    earlier_matched_call_exists = (
+        LivekitSession.objects.filter(
+            Q(u1_id=session.u1_id, u2_id=session.u2_id) | Q(u1_id=session.u2_id, u2_id=session.u1_id),
+            both_have_been_active=True,
+            random_call_session=False,
+            end_time__isnull=False,
+            created_at__gte=match.created_at,
+            created_at__lte=session.created_at,
+        )
+        .exclude(pk=session.pk)
+        .exists()
+    )
+    if earlier_matched_call_exists:
+        return
+
+    template = get_translation("auto_messages.m041_after_first_call", lang="de")
+    for recipient, partner in ((session.u1, session.u2), (session.u2, session.u1)):
+        try:
+            recipient.message(
+                template.format(
+                    first_name=recipient.profile.first_name,
+                    partner_first_name=partner.profile.first_name,
+                )
+            )
+        except Exception:
+            logger.exception(
+                "Could not send first matched call message to user %s for session %s",
+                recipient.pk,
+                session.uuid,
+            )
 
 
 def process_webhook_random_call__participant_joined(data, event, participant_id, user, room_id, room):
@@ -212,6 +264,11 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
                 )
             except Exception:
                 print("Cound't send call widged to first_active_user")
+
+            try:
+                _send_after_first_matched_call_message(session)
+            except Exception:
+                logger.exception("Could not process first matched call message for session %s", session.uuid)
 
             # Offer the post-call survey to *both* participants. Creating the rows is
             # the whole job — each client's next poll of /api/surveys/pending finds
