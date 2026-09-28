@@ -17,6 +17,7 @@ concurrency:
 jobs:
   open-pr:
     name: Create or update main -> prod PR
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Create or update PR
