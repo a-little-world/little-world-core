@@ -108,7 +108,7 @@ jobs:
           fi
           set +e
           set -o pipefail
-          E2E_BASE_URL="http://127.0.0.1:8000" bash dev/e2e_simulations/run.sh 2>&1 | tee e2e_test_output.log
+          E2E_BASE_URL="http://127.0.0.1:8000" bash dev/e2e_simulations/run_web.sh 2>&1 | tee e2e_test_output.log
           exit "${PIPESTATUS[0]}"
           E2E_INNER
           TEST_EXIT=$?
