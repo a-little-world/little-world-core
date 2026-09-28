@@ -28,8 +28,9 @@ jobs:
         run: |
           set -euo pipefail
 
+          OWNER="${REPO%%/*}"
           SHORT="${SHA:0:7}"
-          PR_NUMBER="$(gh pr list --repo "$REPO" --base prod --head main --state open --json number --jq '.[0].number')"
+          PR_NUMBER="$(gh api "repos/$REPO/pulls?state=open&base=prod&head=${OWNER}:main" --jq '.[0].number // empty')"
 
           if [ -z "$PR_NUMBER" ]; then
             AHEAD="$(gh api "repos/$REPO/compare/prod...main" --jq '.ahead_by')"
@@ -49,7 +50,9 @@ jobs:
           TITLE="Production release (main @ ${SHORT})"
 
           if [ -z "$PR_NUMBER" ]; then
-            gh pr create --repo "$REPO" --base prod --head main --title "$TITLE" --body "$BODY"
+            gh api -X POST "repos/$REPO/pulls" \
+              -f title="$TITLE" -f body="$BODY" -f head="main" -f base="prod" --jq '.html_url'
           else
-            gh pr edit "$PR_NUMBER" --repo "$REPO" --title "$TITLE" --body "$BODY"
+            gh api -X PATCH "repos/$REPO/pulls/$PR_NUMBER" \
+              -f title="$TITLE" -f body="$BODY" --jq '.html_url'
           fi
