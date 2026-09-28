@@ -1,3 +1,5 @@
+from datetime import date, datetime
+
 from django.contrib.contenttypes.fields import GenericRelation
 from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
@@ -7,7 +9,7 @@ from rest_framework import serializers
 
 from management.models.object_history import ObjectHistory, ObjectHistorySerializer, log_history
 
-_TRACKED_TASK_FIELDS = ("title", "description", "status", "priority")
+_TRACKED_TASK_FIELDS = ("title", "description", "status", "priority", "scheduled_at")
 _TRACKED_ACTION_FIELDS = ("status", "parameters")
 _TRACKED_NOTE_FIELDS = ("text", "completed")
 _FIELD_VALUE_MODELS: dict[str, str] = {
@@ -16,6 +18,8 @@ _FIELD_VALUE_MODELS: dict[str, str] = {
 
 
 def _resolve_field(field, value):
+    if isinstance(value, (datetime, date)):
+        return field, value.isoformat()
     return field, value
 
 
@@ -95,6 +99,7 @@ class SupportTask(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateField(null=True, blank=True)
+    scheduled_at = models.DateTimeField(null=True, blank=True)
 
     history = GenericRelation(ObjectHistory)
     action: "SupportTaskAction"
@@ -260,6 +265,13 @@ class SupportTaskNote(models.Model):
         on_delete=models.SET_NULL,
         related_name="+",
     )
+    created_by = models.ForeignKey(
+        "management.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
 
     history = GenericRelation(ObjectHistory)
 
@@ -339,9 +351,13 @@ def _serialize_related_user_profile(user) -> dict | None:
 class SupportTaskNoteSerializer(serializers.ModelSerializer):
     history = ObjectHistorySerializer(many=True, read_only=True)
     completed_by_profile = serializers.SerializerMethodField()
+    created_by_profile = serializers.SerializerMethodField()
 
     def get_completed_by_profile(self, obj):
         return _serialize_user_profile(obj.completed_by)
+
+    def get_created_by_profile(self, obj):
+        return _serialize_user_profile(obj.created_by)
 
     class Meta:
         model = SupportTaskNote
@@ -352,6 +368,7 @@ class SupportTaskNoteSerializer(serializers.ModelSerializer):
             "completed_at",
             "created_at",
             "completed_by_profile",
+            "created_by_profile",
             "history",
         ]
 
@@ -409,6 +426,7 @@ class SupportTaskSerializer(serializers.ModelSerializer):
             "created_by_profile",
             "created_at",
             "updated_at",
+            "scheduled_at",
             "action",
             "history",
             "notes",

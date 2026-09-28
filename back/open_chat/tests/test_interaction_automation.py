@@ -172,7 +172,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         else:
             cls.automation_user = cls.admin_user
         # Automation is granted MATCHING_USER in production so it can use the panel;
-        # support-reply creation must still accept its messages.
+        # support-reply creation must still skip its messages.
         cls.automation_user.user_permissions.add(matching_user_permission)
 
         cls.source_user = User.objects.create_user(
@@ -325,7 +325,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
 
     @patch("open_chat.message_reply_suggestion.current_app.send_task")
-    def test_create_support_reply_accepts_open_chat_automation_sender(self, mock_send_task):
+    def test_create_support_reply_skips_open_chat_automation_sender(self, mock_send_task):
         from open_chat.message_reply_suggestion import (
             create_or_reuse_support_reply_task_for_message,
         )
@@ -352,13 +352,14 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             enqueue_interaction=True,
         )
 
-        self.assertEqual(result["status"], "created_and_enqueued")
-        self.assertTrue(
+        self.assertEqual(result["status"], "skipped_automation_sender")
+        self.assertFalse(
             SupportTaskAction.objects.filter(
                 action_type="support_reply",
                 static_parameters__message_uuid=str(message.uuid),
             ).exists()
         )
+        mock_send_task.assert_not_called()
 
     @patch("open_chat.basic_chat_interaction.ensure_rest_tool_definitions")
     @patch("chat.consumers.messages.NewMessage.send")
@@ -541,7 +542,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertNotIn('{"type": "interaction"}', overrides["system_prompt"])
         self.assertIn(RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME, overrides["system_prompt"])
         self.assertIn(MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME, overrides["system_prompt"])
-        self.assertIn("the ONLY way to persist a reply draft", overrides["system_prompt"])
+        self.assertIn("the ONLY way to persist the suggested outcome", overrides["system_prompt"])
         self.assertEqual(overrides["context"], MESSAGE_REPLY_SUGGESTION_CONTEXT)
         self.assertEqual(overrides["max_tokens"], DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS)
         self.assertEqual(overrides["temperature"], 0.1)
@@ -682,3 +683,26 @@ class BuildMessageReplySuggestionPromptTests(SimpleTestCase):
         self.assertIn("[2026-01-01 10:00] User: hi", prompt)
         self.assertLess(prompt.index("HALLMARK"), prompt.index("Your tools:"))
         self.assertLess(prompt.index("Conversation context (oldest"), prompt.index("Reminder:"))
+
+    def test_skills_section_is_omitted_by_default(self):
+        prompt = build_message_reply_suggestion_system_prompt(
+            support_context="",
+            conversation_context="",
+            include_skills=False,
+        )
+
+        self.assertNotIn("Outcome skills", prompt)
+
+    def test_skills_section_lists_outcomes_and_threads_when_enabled(self):
+        prompt = build_message_reply_suggestion_system_prompt(
+            support_context="",
+            conversation_context="",
+            include_skills=True,
+            slack_threads=[{"key": "praise", "label": "Praise"}],
+        )
+
+        self.assertIn("Outcome skills", prompt)
+        self.assertIn("mark_read", prompt)
+        self.assertIn("slack_feedback", prompt)
+        self.assertIn("keep_open", prompt)
+        self.assertIn("Available Slack thread keys: praise", prompt)
