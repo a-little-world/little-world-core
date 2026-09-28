@@ -890,29 +890,19 @@ def automatic_emails_m012_m013_m014():
     return {"status": "sent", **sent}
 
 
-@shared_task
-def automatic_emails_m023():
-    """
-    Notify user when they didn't respond to the first chat message for 3 days.
-    Only applies at the start of a conversation - once both users have sent a message, this no longer triggers.
-    """
+def _unanswered_first_message_chats(*, days, **filters):
     from chat.models import Chat
-    from django.conf import settings
     from django.db.models import Count, F, Min, Q
 
-    from management.models.matches import Match
-
-    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M023)
-
-    chats = (
+    return (
         Chat.objects.annotate(
             first_message_at=Min("message__created"),
             u1_message_count=Count("message", filter=Q(message__sender=F("u1"))),
             u2_message_count=Count("message", filter=Q(message__sender=F("u2"))),
         )
         .filter(
-            first_message_at__lte=dj_timezone.now() - timedelta(days=3),
-            three_days_inactive_email_send=False,
+            first_message_at__lte=dj_timezone.now() - timedelta(days=days),
+            **filters,
         )
         .filter(Q(u1_message_count=0) | Q(u2_message_count=0))
         .exclude(
@@ -930,27 +920,85 @@ def automatic_emails_m023():
             )
         )
     )
-    inactive_chats = []
-    for chat in chats:
-        first_message = chat.get_messages().order_by("created").first()
-        if not first_message:
-            continue
 
-        non_responder = chat.u1 if chat.u1_message_count == 0 else chat.u2
-        initiator = chat.u2 if non_responder == chat.u1 else chat.u1
+
+def _unanswered_first_message_context(chat):
+    from management.models.matches import Match
+
+    first_message = chat.get_messages().order_by("created").first()
+    if first_message is None:
+        return None
+
+    non_responder = chat.u1 if chat.u1_message_count == 0 else chat.u2
+    initiator = chat.u2 if non_responder == chat.u1 else chat.u1
+    match = (
+        Match.get_match(initiator, non_responder)
+        .filter(
+            created_at__lte=first_message.created,
+            support_matching=False,
+            total_mutal_video_calls_counter=0,
+        )
+        .order_by("-created_at", "-pk")
+        .first()
+    )
+    if match is None:
+        return None
+    return first_message, non_responder, match
+
+
+@shared_task
+def automatic_emails_m022():
+    """First reminder when the initial chat message has been unanswered for one day."""
+    from django.conf import settings
+
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M022_M023)
+    sent_message_ids = []
+
+    for chat in _unanswered_first_message_chats(days=1, one_day_inactive_email_send=False):
+        context = _unanswered_first_message_context(chat)
+        if context is None:
+            continue
+        first_message, non_responder, match = context
+
+        chat.one_day_inactive_email_send = True
+        chat.save(update_fields=["one_day_inactive_email_send"])
+
+        send_email_background.delay(
+            "automatic-emails-m022",
+            user_id=non_responder.id,
+            match_id=match.pk,
+            emulated_send=emulated_send,
+        )
+        sent_message_ids.append(first_message.pk)
+
+    return {"status": "sent", "message_ids": sent_message_ids}
+
+
+@shared_task
+def automatic_emails_m023():
+    """Second reminder after three days, once M022 has been sent."""
+    from django.conf import settings
+
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M022_M023)
+    inactive_chats = []
+    for chat in _unanswered_first_message_chats(
+        days=3,
+        one_day_inactive_email_send=True,
+        three_days_inactive_email_send=False,
+    ):
+        context = _unanswered_first_message_context(chat)
+        if context is None:
+            continue
+        _first_message, non_responder, match = context
 
         chat.three_days_inactive_email_send = True
-        chat.save()
+        chat.save(update_fields=["three_days_inactive_email_send"])
         inactive_chats.append(chat)
-
-        active_match = Match.get_match(initiator, non_responder).order_by("-created_at").first()
-        if not active_match:
-            continue
 
         send_email_background.delay(
             "automatic-emails-m023",
             user_id=non_responder.id,
-            match_id=active_match.pk,
+            match_id=match.pk,
             emulated_send=emulated_send,
         )
 
@@ -1441,9 +1489,9 @@ def daily_auto_email_report():
             "enabled": settings.ENABLE_AUTO_EMAILS__M012_M013_M014,
             "emulated": settings.EMULATE_AUTO_EMAILS__M012_M013_M014,
         },
-        "AUTOMATIC_EMAILS__M023": {
-            "enabled": settings.ENABLE_AUTO_EMAILS__M023,
-            "emulated": settings.EMULATE_AUTO_EMAILS__M023,
+        "AUTOMATIC_EMAILS__M022_M023": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__M022_M023,
+            "emulated": settings.EMULATE_AUTO_EMAILS__M022_M023,
         },
         "AUTOMATIC_EMAILS__M024_M025": {
             "enabled": settings.ENABLE_AUTO_EMAILS__M024_M025,
@@ -1509,6 +1557,7 @@ def daily_auto_email_report():
         "automatic-emails-m012",
         "automatic-emails-m013",
         "automatic-emails-m014",
+        "automatic-emails-m022",
         "automatic-emails-m023",
         "automatic-emails-m024",
         "automatic-emails-m025",

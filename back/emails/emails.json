@@ -394,6 +394,14 @@
       "template": "react_emails/automatic-emails-m014.html",
       "theme": "little-world"
     },
+    "automatic-emails-m022": {
+      "id": "automatic-emails-m022",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "\ud83d\udcac Starte jetzt den Austausch mit deinem neuen Match",
+      "template": "react_emails/automatic-emails-m022.html",
+      "theme": "little-world"
+    },
     "automatic-emails-m023": {
       "id": "automatic-emails-m023",
       "sender_id": "noreply",
