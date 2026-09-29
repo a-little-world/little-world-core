@@ -2328,7 +2328,7 @@ def onboarding_call_reminder_push_notification(user_id: int):
     user = User.objects.filter(pk=user_id).first()
     if user is None or not user.is_active:
         return
-    appointment = PreMatchingAppointment.objects.filter(user=user).first()
+    appointment = PreMatchingAppointment.get_current_for_user(user)
     if appointment is None:
         return
     # the appointment may have been rebooked after this task was scheduled

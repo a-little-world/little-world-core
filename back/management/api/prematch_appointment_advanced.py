@@ -232,6 +232,13 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
         if timezone.is_naive(end_time):
             end_time = timezone.make_aware(end_time, timezone.get_current_timezone())
 
+        # A manually created appointment replaces any earlier one for this user. Leaving the
+        # old row (and its reminders) around makes the unordered current-appointment lookup
+        # ambiguous, so drop it before inserting the new one.
+        from management.api.calcom import _delete_stale_appointments
+
+        _delete_stale_appointments(user)
+
         appointment = PreMatchingAppointment.objects.create(
             user=user,
             start_time=start_time,
