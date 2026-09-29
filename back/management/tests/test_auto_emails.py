@@ -25,6 +25,7 @@ from management.random_test_users import create_test_user
 from management.tasks import (
     automatic_emails_fm021_fm022__ghosted_matches,
     automatic_emails_m012_m013_m014,
+    automatic_emails_m022,
     automatic_emails_m023,
     automatic_emails_m024_m025,
     automatic_emails_m031_m032_m033_m042,
@@ -330,6 +331,111 @@ class TestSendOnceFlagsSurviveConcurrentWrites(TestCase):
         assert second["matches_m012"] + second["matches_m013"] + second["matches_m014"] == []
 
 
+class TestAutomaticEmails_m022(TestCase):
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+        self.sender = User.objects.create_user(
+            email="m022-sender@test.de",
+            password="Test123!",
+            first_name="Sender",
+            last_name="Test",
+        )
+        self.recipient = User.objects.create_user(
+            email="m022-recipient@test.de",
+            password="Test123!",
+            first_name="Recipient",
+            last_name="Test",
+        )
+        self.chat = Chat.objects.create(u1=self.sender, u2=self.recipient)
+        with freeze_time(dj_timezone.now() - timedelta(days=3)):
+            self.match = Match.objects.create(
+                user1=self.sender,
+                user2=self.recipient,
+                active=True,
+                confirmed=True,
+            )
+
+    def _message(self, *, age=timedelta(days=1, hours=1)):
+        sent_at = dj_timezone.now() - age
+        with freeze_time(sent_at):
+            return Message.objects.create(
+                chat=self.chat,
+                sender=self.sender,
+                recipient=self.recipient,
+                text="Hello from your new match",
+            )
+
+    @patch("management.tasks.send_email_background")
+    def test_sends_when_the_latest_message_has_been_unanswered_for_one_day(self, send_email):
+        source = self._message()
+
+        result = automatic_emails_m022()
+
+        send_email.delay.assert_called_once_with(
+            "automatic-emails-m022",
+            user_id=self.recipient.pk,
+            match_id=self.match.pk,
+            emulated_send=True,
+        )
+        assert result["message_ids"] == [source.pk]
+
+    @patch("management.tasks.send_email_background")
+    def test_does_not_send_before_one_day(self, send_email):
+        self._message(age=timedelta(hours=23))
+
+        automatic_emails_m022()
+
+        send_email.delay.assert_not_called()
+
+    @patch("management.tasks.send_email_background")
+    def test_does_not_send_if_the_recipient_replied_within_the_last_day(self, send_email):
+        self._message()
+        Message.objects.create(
+            chat=self.chat,
+            sender=self.recipient,
+            recipient=self.sender,
+            text="Thanks, let's plan it",
+        )
+
+        automatic_emails_m022()
+
+        send_email.delay.assert_not_called()
+
+    @patch("management.tasks.send_email_background")
+    def test_does_not_send_after_the_first_mutual_video_call(self, send_email):
+        self._message()
+        self.match.total_mutal_video_calls_counter = 1
+        self.match.save(update_fields=["total_mutal_video_calls_counter", "updated_at"])
+
+        automatic_emails_m022()
+
+        send_email.delay.assert_not_called()
+
+    @patch("management.tasks.send_email_background")
+    def test_one_day_flag_prevents_repeat(self, send_email):
+        self._message()
+        automatic_emails_m022()
+        automatic_emails_m022()
+
+        send_email.delay.assert_called_once()
+        self.chat.refresh_from_db()
+        assert self.chat.one_day_inactive_email_send is True
+
+    def test_template_renders_names_and_chat_button(self):
+        from emails.api.render_template import render_template_dynamic_lookup
+
+        rendered = render_template_dynamic_lookup(
+            "automatic-emails-m022",
+            self.recipient.pk,
+            self.match.pk,
+            None,
+        )
+
+        assert "Hallo Recipient" in rendered
+        assert "neuen Match Sender" in rendered
+        assert f"{settings.BASE_URL}/app/chat/" in rendered
+
+
 class TestAutomaticEmails_m023(TestCase):
     def setUp(self):
         settings.DJANGO_TESTING = True
@@ -366,11 +472,21 @@ class TestAutomaticEmails_m023(TestCase):
         with freeze_time(dj_timezone.now() - timedelta(days=10)):
             self.valid_user_1 = create_user("m023-valid-user1@test.de", "ValidOne")
             self.valid_user_2 = create_user("m023-valid-user2@test.de", "ValidTwo")
+            self.valid_match = Match.objects.create(
+                user1=self.valid_user_1,
+                user2=self.valid_user_2,
+                active=True,
+                confirmed=True,
+            )
 
         # Create chat and message older than 3 days
-        self.valid_chat = Chat.objects.create(u1=self.valid_user_1, u2=self.valid_user_2)
+        self.valid_chat = Chat.objects.create(
+            u1=self.valid_user_1,
+            u2=self.valid_user_2,
+            one_day_inactive_email_send=True,
+        )
         with freeze_time(dj_timezone.now() - timedelta(days=4)):
-            Message.objects.create(
+            self.valid_first_message = Message.objects.create(
                 chat=self.valid_chat,
                 sender=self.valid_user_1,
                 recipient=self.valid_user_2,
@@ -493,16 +609,25 @@ class TestAutomaticEmails_m023(TestCase):
         assert len(result2["inactive_chats"]) == 0
 
     def test_m023_sends_with_match_id(self):
-        match = Match.objects.create(user1=self.valid_user_1, user2=self.valid_user_2, active=True, confirmed=True)
-
         automatic_emails_m023()
 
         self.mock_send_email_background.delay.assert_called_once_with(
             "automatic-emails-m023",
             user_id=self.valid_user_2.id,
-            match_id=match.id,
+            match_id=self.valid_match.id,
             emulated_send=True,
         )
+
+    def test_m023_waits_until_m022_has_been_sent(self):
+        self.valid_chat.one_day_inactive_email_send = False
+        self.valid_chat.save(update_fields=["one_day_inactive_email_send"])
+
+        result = automatic_emails_m023()
+
+        assert result["inactive_chats"] == []
+        self.mock_send_email_background.delay.assert_not_called()
+        self.valid_chat.refresh_from_db()
+        assert self.valid_chat.three_days_inactive_email_send is False
 
 
 class TestAutomaticEmails_m024_m025(TestCase):
@@ -2056,7 +2181,9 @@ class TestAutomaticEmailsIncludeRandomCallMatches(TestCase):
 
     def test_m023_sends_for_random_call_match(self):
         user1, user2, match = self._create_pair("m023-rc", MatchType.RANDOM_CALL, confirmed=True)
-        chat = Chat.objects.create(u1=user1, u2=user2)
+        Match.objects.filter(pk=match.pk).update(created_at=dj_timezone.now() - timedelta(days=5))
+        match.refresh_from_db()
+        chat = Chat.objects.create(u1=user1, u2=user2, one_day_inactive_email_send=True)
         with freeze_time(dj_timezone.now() - timedelta(days=4)):
             Message.objects.create(chat=chat, sender=user1, recipient=user2, text="Hello")
 

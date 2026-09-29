@@ -115,6 +115,10 @@ def group_calls_url():
     return f"{settings.BASE_URL}/app/events"
 
 
+def intercultural_communication_training_url():
+    return f"{settings.BASE_URL}/app/resources/trainings/interkulturelle-gespraechsfuehrung"
+
+
 def random_calls_url():
     return f"{settings.BASE_URL}/app/random-calls"
 

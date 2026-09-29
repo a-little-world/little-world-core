@@ -394,8 +394,8 @@ def match_users(
             )
 
     if send_email and match_type in (MatchType.STANDARD, MatchType.RANDOM_CALL):
-        usr1.send_email("new-match", match_id=matching_obj.pk)
-        usr2.send_email("new-match", match_id=matching_obj.pk)
+        usr1.send_email("automatic-emails-m011", match_id=matching_obj.pk)
+        usr2.send_email("automatic-emails-m011", match_id=matching_obj.pk)
 
     if set_to_idle:
         usr1.state.set_idle()
