@@ -3,6 +3,7 @@
   "auto_messages.match_message": null,
   "auto_messages.appointment_booked": null,
   "auto_messages.still_in_contact": null,
+  "auto_messages.m041_after_first_call": null,
   "val.first_name_unallowed_chars": "First name contains invalid characters: {chars}",
   "val.second_name_too_many_spaces": "Please use only one space between the names.",
   "val.second_name_unallowed_chars": "Second name contains invalid characters",

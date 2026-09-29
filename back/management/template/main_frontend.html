@@ -8,7 +8,7 @@
 {% load render_bundle from webpack_loader %}
 {% load get_base_page_url from temp_utils %}
 <!DOCTYPE html>
-<html translate="no">
+<html lang="{{ user_lang|default:'de' }}" translate="no">
 <head>
   <meta name="google" content="notranslate" />
   {{ SENTRY_INIT_SCRIPT | safe }}

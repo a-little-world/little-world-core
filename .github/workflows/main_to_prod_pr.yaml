@@ -1,0 +1,58 @@
+name: Main -> Production PR
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: main-to-prod-pr
+  cancel-in-progress: true
+
+jobs:
+  open-pr:
+    name: Create or update main -> prod PR
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update PR
+        env:
+          GH_TOKEN: ${{ secrets.BOT_PAT }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          OWNER="${REPO%%/*}"
+          SHORT="${SHA:0:7}"
+          PR_NUMBER="$(gh api "repos/$REPO/pulls?state=open&base=prod&head=${OWNER}:main" --jq '.[0].number // empty')"
+
+          if [ -z "$PR_NUMBER" ]; then
+            AHEAD="$(gh api "repos/$REPO/compare/prod...main" --jq '.ahead_by')"
+            if [ "$AHEAD" -eq 0 ]; then
+              echo "main and prod are identical; nothing to release."
+              exit 0
+            fi
+            echo "No open main -> prod PR; creating one."
+          else
+            echo "Refreshing existing main -> prod PR #$PR_NUMBER."
+          fi
+
+          BADGE_URL="https://github.com/$REPO/actions/workflows/main_build_test.yaml/badge.svg?branch=main"
+          RUNS_URL="https://github.com/$REPO/actions/workflows/main_build_test.yaml?query=branch%3Amain"
+          COMMIT_URL="https://github.com/$REPO/commit/$SHA"
+          BODY="$(printf 'Automated release PR from `main` into `prod`.\n\nLatest main commit: [`%s`](%s)\n\n[![Main Build, Publish & Test](%s)](%s)\n\n<!-- lw-main-to-prod -->\n' "$SHORT" "$COMMIT_URL" "$BADGE_URL" "$RUNS_URL")"
+          TITLE="Production release (main @ ${SHORT})"
+
+          if [ -z "$PR_NUMBER" ]; then
+            gh api -X POST "repos/$REPO/pulls" \
+              -f title="$TITLE" -f body="$BODY" -f head="main" -f base="prod" --jq '.html_url'
+          else
+            gh api -X PATCH "repos/$REPO/pulls/$PR_NUMBER" \
+              -f title="$TITLE" -f body="$BODY" --jq '.html_url'
+          fi

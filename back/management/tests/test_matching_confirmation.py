@@ -336,7 +336,7 @@ class MatchConfirmationTests(TestCase):
         assert u1.state.searching_state == State.SearchingStateChoices.IDLE
         assert u2.state.searching_state == State.SearchingStateChoices.IDLE
 
-        new_match_calls = [call for call in mock_send_email.call_args_list if call.args[0] == "new-match"]
+        new_match_calls = [call for call in mock_send_email.call_args_list if call.args[0] == "automatic-emails-m011"]
         assert len(new_match_calls) == 2
         assert {call.kwargs["match_id"] for call in new_match_calls} == {match.pk}
 

@@ -54,10 +54,32 @@ jobs:
         run: |
           echo "❌ No action labels set (deploy/test/e2e/android)."
           exit 1
-  run-tests-and-deploy:
+
+  # One image build, then N parallel deterministic test shards, then deploy/e2e.
+  # The `finalize` job keeps the canonical `Test (api/e2e) & Deploy` check name so
+  # the merge gate and existing branch protection keep working.
+  prepare-build:
     runs-on: ubuntu-latest
-    name: Test (api/e2e) & Deploy
+    name: Setup & Build
     if: contains(github.event.pull_request.labels.*.name, 'deploy') || contains(github.event.pull_request.labels.*.name, 'test') || contains(github.event.pull_request.labels.*.name, 'e2e') || contains(github.event.pull_request.labels.*.name, 'android')
+    outputs:
+      pull_number: ${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
+      branch: ${{ steps.extract_branch.outputs.branch }}
+      sanitized_branch: ${{ steps.sanitize_branch.outputs.sanitized_branch }}
+      should_run_tests: ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS }}
+      should_run_e2e: ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E }}
+      should_deploy: ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY }}
+      image_url: ${{ steps.setup_emperial_env.outputs.IMAGE_URL }}
+      namespace: ${{ steps.setup_emperial_env.outputs.NAMESPACE }}
+      redis_url: ${{ steps.setup_emperial_env.outputs.REDIS_URL }}
+      redis_host: ${{ steps.setup_emperial_env.outputs.DJ_REDIS_HOST }}
+      redis_port: ${{ steps.setup_emperial_env.outputs.DJ_REDIS_PORT }}
+      testing: ${{ steps.setup_emperial_env.outputs.TESTING }}
+      dj_create_open_chat_automation_user: ${{ steps.setup_emperial_env.outputs.DJ_CREATE_OPEN_CHAT_AUTOMATION_USER }}
+      dj_open_chat_automation_user_email: ${{ steps.setup_emperial_env.outputs.DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL }}
+      dj_open_chat_automation_user_password: ${{ steps.setup_emperial_env.outputs.DJ_OPEN_CHAT_AUTOMATION_USER_PASSWORD }}
+      build_duration: ${{ steps.execution_time.outputs.DURATION }}
+      comment_id: ${{ steps.create_comment.outputs.comment-id }}
     steps:
       - uses: actions/checkout@main
         with:
@@ -302,17 +324,127 @@ jobs:
             ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '- [ ] `(3) ''deploy'' url=<deployment-url-loading>`' || '- [ ] ~~`(3) ''deploy'' url=<deployment-url-loading>`~~' }}
             ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test''` `loading` `t=<test-time-loading>`' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
             ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && '- [ ] `(5) ''e2e''` `loading` `t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
+      - name: Upload CI env artifact
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-env
+          path: .env
+          include-hidden-files: true
+          if-no-files-found: error
+
+  django-tests:
+    needs: prepare-build
+    name: Django Tests (${{ matrix.shard }}/${{ matrix.total }})
+    if: needs.prepare-build.outputs.should_run_tests != ''
+    runs-on: ubuntu-latest
+    strategy:
+      # Every shard must report its result, so never cancel the others on failure.
+      fail-fast: false
+      matrix:
+        # Bump `total` and the `shard` list together; also update the shard log
+        # count check in `finalize` if you change the number of shards.
+        total: [6]
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@main
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          submodules: recursive
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Download CI env artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-env
+      - name: Prepare CI compose file
+        run: |
+          set -euo pipefail
+          mv dev/ci/docker-compose.ci.yaml docker-compose.yaml
+          # Tests run against the compose-internal redis service, not the cluster one.
+          sed -i '/^REDIS_URL/d' .env
+          sed -i '/^DJ_REDIS_HOST/d' .env
+          sed -i '/^DJ_REDIS_PORT/d' .env
+          echo 'REDIS_URL="redis://redis:6379"' >> .env
+          echo 'DJ_REDIS_HOST="redis"' >> .env
+          echo 'DJ_REDIS_PORT="6379"' >> .env
+      - name: Pull CI images
+        run: |
+          set -euo pipefail
+          echo ${{ secrets.BOT_PAT }} | docker login ghcr.io -u littleworld-bot --password-stdin
+          docker compose pull all redis
+      - name: Run django tests (shard ${{ matrix.shard }}/${{ matrix.total }})
+        id: run_tests
+        run: |
+          set -euo pipefail
+          LOG_FILE="test_output_shard_${{ matrix.shard }}.log"
+          : > "$LOG_FILE"
+          docker compose up redis -d
+          set +e
+          docker compose run -T \
+            -e DJ_TEST_SHARDS=${{ matrix.total }} \
+            -e DJ_TEST_SHARD=${{ matrix.shard }} \
+            all python manage.py test \
+              --testrunner=back.sharded_test_runner.ShardedDiscoverRunner \
+              --durations 25 2>&1 | tee -a "$LOG_FILE"
+          TEST_EXIT=${PIPESTATUS[0]}
+          set -e
+          echo "test_exit=$TEST_EXIT" >> "$GITHUB_OUTPUT"
+          docker compose down redis || true
+          exit $TEST_EXIT
+      - name: Upload shard log artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: django-test-log-shard-${{ matrix.shard }}
+          path: test_output_shard_${{ matrix.shard }}.log
+          if-no-files-found: ignore
+
+  deploy-e2e:
+    needs: prepare-build
+    name: Deploy & E2E
+    if: needs.prepare-build.outputs.should_deploy != '' || needs.prepare-build.outputs.should_run_e2e != ''
+    runs-on: ubuntu-latest
+    outputs:
+      staging_url: ${{ steps.cluster_connection.outputs.STAGING_URL }}
+      e2e_result: ${{ steps.run_e2e_tests.outputs.test_result }}
+      e2e_duration: ${{ steps.execution_time_e2e_tests.outputs.DURATION }}
+    steps:
+      - uses: actions/checkout@main
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          submodules: recursive
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Download CI env artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-env
+      - name: Prepare CI compose file
+        run: |
+          set -euo pipefail
+          mv dev/ci/docker-compose.ci.yaml docker-compose.yaml
+          # The deployed cluster uses the k8s redis from the workflow outputs via helm;
+          # the compose-based e2e run uses the compose-internal redis service.
+          sed -i '/^REDIS_URL/d' .env
+          sed -i '/^DJ_REDIS_HOST/d' .env
+          sed -i '/^DJ_REDIS_PORT/d' .env
+          echo 'REDIS_URL="redis://redis:6379"' >> .env
+          echo 'DJ_REDIS_HOST="redis"' >> .env
+          echo 'DJ_REDIS_PORT="6379"' >> .env
+          echo ${{ secrets.BOT_PAT }} | docker login ghcr.io -u littleworld-bot --password-stdin
+          docker compose pull all redis
       - uses: azure/setup-helm@v4.3.0
+        if: needs.prepare-build.outputs.should_deploy != ''
         with:
           version: "latest"
           token: ${{ secrets.BOT_PAT }}
         id: install-helm
       - uses: azure/setup-kubectl@v3
+        if: needs.prepare-build.outputs.should_deploy != ''
         with:
           version: "latest"
         id: install-kubectl
       - name: Clone Helm Repository
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != ''
+        if: needs.prepare-build.outputs.branch != 'main' && needs.prepare-build.outputs.should_deploy != ''
         uses: actions/checkout@main
         with:
           repository: a-little-world/little-world-helm-chart
@@ -320,17 +452,17 @@ jobs:
           ref: main
           path: helm
       - name: Setup Cluster Connection
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != ''
+        if: needs.prepare-build.outputs.branch != 'main' && needs.prepare-build.outputs.should_deploy != ''
         id: cluster_connection
         run: |
           echo "${{ secrets.ENCRYPTED_KUBE_CONFIG_BASE64 }}" | base64 --decode > kubeconfig.enc
           openssl aes-256-cbc -d -pbkdf2 -in ./kubeconfig.enc -out kubeconfig.yaml -k ${{ secrets.KUBE_CONFIG_PASSWORD }}
           GH_CR_AUTH=$(echo -n "littleworld-bot:${{ secrets.BOT_PAT }}" | base64)
-          STAGING_HOST="${{ steps.sanitize_branch.outputs.sanitized_branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
+          STAGING_HOST="${{ needs.prepare-build.outputs.sanitized_branch }}-${{ needs.prepare-build.outputs.pull_number }}.t1m.me"
           STAGING_URL="https://$STAGING_HOST"
           cat << EOF | while read eval_command; do yq -i eval "$eval_command" ./helm/values.yaml; done
-            .rootNamespace = "${{ steps.setup_emperial_env.outputs.NAMESPACE }}"
-            .backend.imageURL = "${{ steps.setup_emperial_env.outputs.IMAGE_URL }}"
+            .rootNamespace = "${{ needs.prepare-build.outputs.namespace }}"
+            .backend.imageURL = "${{ needs.prepare-build.outputs.image_url }}"
             .ingress.certManager = true
             .ingress.host = "$STAGING_HOST"
             .registryAuth.token = "$GH_CR_AUTH"
@@ -338,24 +470,24 @@ jobs:
             .backend.celery.workerConcurrency = "1"
             .backend.resources.requests.memory = "256Mi"
             .backend.resources.limits.memory = "1Gi"
-            .backend.env.REDIS_URL = "${{ steps.setup_emperial_env.outputs.REDIS_URL }}"
-            .backend.env.DJ_REDIS_HOST = "${{ steps.setup_emperial_env.outputs.DJ_REDIS_HOST }}"
-            .backend.env.DJ_REDIS_PORT = "${{ steps.setup_emperial_env.outputs.DJ_REDIS_PORT }}"
-            .backend.env.DJ_CREATE_OPEN_CHAT_AUTOMATION_USER = "${{ steps.setup_emperial_env.outputs.DJ_CREATE_OPEN_CHAT_AUTOMATION_USER }}"
-            .backend.env.DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL = "${{ steps.setup_emperial_env.outputs.DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL }}"
-            .backend.env.DJ_OPEN_CHAT_AUTOMATION_USER_PASSWORD = "${{ steps.setup_emperial_env.outputs.DJ_OPEN_CHAT_AUTOMATION_USER_PASSWORD }}"
+            .backend.env.REDIS_URL = "${{ needs.prepare-build.outputs.redis_url }}"
+            .backend.env.DJ_REDIS_HOST = "${{ needs.prepare-build.outputs.redis_host }}"
+            .backend.env.DJ_REDIS_PORT = "${{ needs.prepare-build.outputs.redis_port }}"
+            .backend.env.DJ_CREATE_OPEN_CHAT_AUTOMATION_USER = "${{ needs.prepare-build.outputs.dj_create_open_chat_automation_user }}"
+            .backend.env.DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL = "${{ needs.prepare-build.outputs.dj_open_chat_automation_user_email }}"
+            .backend.env.DJ_OPEN_CHAT_AUTOMATION_USER_PASSWORD = "${{ needs.prepare-build.outputs.dj_open_chat_automation_user_password }}"
           EOF
-          NAMESPACE=lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
+          NAMESPACE=lw-tmp-env-${{ needs.prepare-build.outputs.pull_number }}
           KUBECONFIG=./kubeconfig.yaml kubectl create namespace $NAMESPACE || true
-          KUBECONFIG=./kubeconfig.yaml helm upgrade --install backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} ./helm
+          KUBECONFIG=./kubeconfig.yaml helm upgrade --install backend-tmp-${{ needs.prepare-build.outputs.pull_number }} ./helm
           echo "STAGING_URL=$STAGING_URL" >> $GITHUB_OUTPUT
       - name: Add build step comment 3
         uses: peter-evans/create-or-update-comment@v4
         id: update_comment_3
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != ''
+        if: needs.prepare-build.outputs.branch != 'main' && needs.prepare-build.outputs.should_deploy != ''
         with:
           token: ${{ secrets.BOT_PAT }}
-          comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          comment-id: ${{ needs.prepare-build.outputs.comment_id }}
           edit-mode: replace
           body: |
             running tests and deployment for you 🙂
@@ -363,56 +495,27 @@ jobs:
             <!-- lw-staging-workflow -->
 
             - [x] `(1) 'setup'` [`run`](${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }})
-            - [x] `(2) 'build' t=${{ steps.execution_time.outputs.DURATION }}s`
+            - [x] `(2) 'build' t=${{ needs.prepare-build.outputs.build_duration }}s`
             - [x] `(3) 'deploy'` [`url=${{ steps.cluster_connection.outputs.STAGING_URL }}`](${{ steps.cluster_connection.outputs.STAGING_URL }})
-            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test''` `running` `t=<test-time-loading>`' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
-            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && '- [ ] `(5) ''e2e''` `running` `t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
-
+            ${{ needs.prepare-build.outputs.should_run_tests != '' && '- [ ] `(4) ''test''` `running` `t=<test-time-loading>`' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
+            ${{ needs.prepare-build.outputs.should_run_e2e != '' && '- [ ] `(5) ''e2e''` `running` `t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
       - name: Notify Slack Channel
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != ''
+        if: needs.prepare-build.outputs.branch != 'main' && needs.prepare-build.outputs.should_deploy != ''
         env:
           SLACK_API_TOKEN: ${{ secrets.SLACK_API_TOKEN }}
           CHANNEL_ID: "C0695SSFPMM"
-          MESSAGE: "*Feature environment deployed*\nImage: ${{ steps.setup_emperial_env.outputs.IMAGE_URL }}\nUrl ${{ steps.cluster_connection.outputs.STAGING_URL }}"
+          MESSAGE: "*Feature environment deployed*\nImage: ${{ needs.prepare-build.outputs.image_url }}\nUrl ${{ steps.cluster_connection.outputs.STAGING_URL }}"
         run: |
           pip3 install slack_sdk
           wget -qO- https://raw.githubusercontent.com/tbscode/tims-blog-posts/main/assets/send_slack_message.py | python3 -
-      - name: Measure start time
-        id: start_tests
-        run: |
-          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
-      - name: Run django tests
-        id: run_tests
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != ''
-        run: |
-          set -euo pipefail
-          sed -i '/^REDIS_URL/d' .env
-          sed -i '/^DJ_REDIS_HOST/d' .env
-          sed -i '/^DJ_REDIS_PORT/d' .env
-          REDIS_URL="redis://redis:6379"
-          DJ_REDIS_HOST="redis"
-          DJ_REDIS_PORT="6379"
-          echo "REDIS_URL=\"$REDIS_URL\"" >> .env
-          echo "DJ_REDIS_HOST=\"$DJ_REDIS_HOST\"" >> .env
-          echo "DJ_REDIS_PORT=\"$DJ_REDIS_PORT\"" >> .env
-          docker compose up redis -d
-          # Run tests and capture logs to file while preserving exit code
-          LOG_FILE="test_output.log"
-          : > "$LOG_FILE"
-          set +e
-          docker compose run -T all python manage.py test 2>&1 | tee -a "$LOG_FILE"
-          TEST_EXIT=${PIPESTATUS[0]}
-          set -e
-          if [ $TEST_EXIT -eq 0 ]; then echo "test_result=pass" >> $GITHUB_OUTPUT; else echo "test_result=fail" >> $GITHUB_OUTPUT; fi
-          docker compose down redis
       - name: Measure start time e2e tests
         id: start_e2e_tests
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: needs.prepare-build.outputs.branch != 'main' && needs.prepare-build.outputs.should_run_e2e != ''
         run: |
           echo "time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Run e2e simulation tests
         id: run_e2e_tests
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: needs.prepare-build.outputs.branch != 'main' && needs.prepare-build.outputs.should_run_e2e != ''
         env:
           # Wall-clock cap for compose + readiness wait + simulations (GNU timeout exit 124 = exceeded).
           E2E_STEP_TIMEOUT_SEC: "500"
@@ -431,15 +534,6 @@ jobs:
           set +e
           timeout --kill-after=120 "$E2E_STEP_TIMEOUT_SEC" bash <<'E2E_INNER'
           set -euo pipefail
-          sed -i '/^REDIS_URL/d' .env
-          sed -i '/^DJ_REDIS_HOST/d' .env
-          sed -i '/^DJ_REDIS_PORT/d' .env
-          REDIS_URL="redis://redis:6379"
-          DJ_REDIS_HOST="redis"
-          DJ_REDIS_PORT="6379"
-          echo "REDIS_URL=\"$REDIS_URL\"" >> .env
-          echo "DJ_REDIS_HOST=\"$DJ_REDIS_HOST\"" >> .env
-          echo "DJ_REDIS_PORT=\"$DJ_REDIS_PORT\"" >> .env
           docker compose up -d redis all
           echo "Waiting for backend readiness on http://127.0.0.1:8000/login ..."
           READY=0
@@ -459,7 +553,7 @@ jobs:
           : > "$LOG_FILE"
           set +e
           set -o pipefail
-          E2E_BASE_URL="http://127.0.0.1:8000" bash dev/e2e_simulations/run.sh 2>&1 | tee -a "$LOG_FILE"
+          E2E_BASE_URL="http://127.0.0.1:8000" bash dev/e2e_simulations/run_web.sh 2>&1 | tee -a "$LOG_FILE"
           exit "${PIPESTATUS[0]}"
           E2E_INNER
           TEST_EXIT=$?
@@ -474,49 +568,117 @@ jobs:
           fi
       - name: Measure end time e2e tests
         id: end_e2e_tests
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: needs.prepare-build.outputs.branch != 'main' && needs.prepare-build.outputs.should_run_e2e != ''
         run: |
           echo "time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Calculate execution time e2e tests
         id: execution_time_e2e_tests
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: needs.prepare-build.outputs.branch != 'main' && needs.prepare-build.outputs.should_run_e2e != ''
         run: |
           START=${{ steps.start_e2e_tests.outputs.time }}
           END=${{ steps.end_e2e_tests.outputs.time }}
           DIFF=$(( END - START ))
           echo "DURATION=$DIFF" >> $GITHUB_OUTPUT
-      - name: Upload test log artifact
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != ''
-        uses: actions/upload-artifact@v4
-        with:
-          name: django-test-log
-          path: test_output.log
-          if-no-files-found: ignore
       - name: Upload e2e test log artifact
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: needs.prepare-build.outputs.branch != 'main' && needs.prepare-build.outputs.should_run_e2e != ''
         uses: actions/upload-artifact@v4
         with:
           name: e2e-test-log
           path: e2e_test_output.log
           if-no-files-found: ignore
       - name: Upload e2e service log artifact
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: needs.prepare-build.outputs.branch != 'main' && needs.prepare-build.outputs.should_run_e2e != ''
         uses: actions/upload-artifact@v4
         with:
           name: e2e-service-log
           path: e2e_services.log
           if-no-files-found: ignore
-      - name: Get artifact page URL
-        id: get_test_artifact_url
-        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' || steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '')
+
+  finalize:
+    needs: [prepare-build, django-tests, deploy-e2e]
+    name: Test (api/e2e) & Deploy
+    if: >-
+      always()
+      && github.event.pull_request.head.ref != 'main'
+      && (contains(github.event.pull_request.labels.*.name, 'deploy')
+      || contains(github.event.pull_request.labels.*.name, 'test')
+      || contains(github.event.pull_request.labels.*.name, 'e2e')
+      || contains(github.event.pull_request.labels.*.name, 'android'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download django shard logs
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: django-test-log-shard-*
+          path: test-logs
+          merge-multiple: true
+      - name: Download e2e test log
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: e2e-test-log
+          path: e2e-logs
+      - name: Download e2e service log
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: e2e-service-log
+          path: e2e-logs
+      - name: Combine shard logs and check partition completeness
+        id: completeness
+        continue-on-error: true
         run: |
-          # Link to the Actions run page which shows artifacts in the GitHub UI
-          echo "url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_OUTPUT"
-      - name: Prepare test log snippet
+          set -euo pipefail
+          mkdir -p test-logs
+          : > test_output.log
+          shard_count=0
+          for log in $(ls test-logs/test_output_shard_*.log 2>/dev/null | sort -V); do
+            cat "$log" >> test_output.log
+            shard_count=$(( shard_count + 1 ))
+          done
+          echo "downloaded shard logs: $shard_count"
+          # Each shard logs the true full-suite total (DiscoverRunner prints it before filtering).
+          found_values=$(grep -hoE 'Found [0-9]+ test' test-logs/*.log 2>/dev/null | grep -oE '[0-9]+' | sort -u || true)
+          found_count=$(printf '%s\n' "$found_values" | sed '/^$/d' | wc -l)
+          found=$(printf '%s\n' "$found_values" | sed '/^$/d' | head -1)
+          ran=$(grep -hoE '^Ran [0-9]+ tests' test-logs/*.log 2>/dev/null | awk '{s+=$2} END{print s+0}')
+          echo "found=$found ran=$ran"
+          if [ "$shard_count" -lt 1 ] || [ "$found_count" -ne 1 ] || [ "$ran" != "$found" ]; then
+            echo "❌ shard partition mismatch (logs=$shard_count found=['$found_values'] ran=$ran)"
+            echo "complete=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          echo "complete=true" >> "$GITHUB_OUTPUT"
+      - name: Summarize shard results
+        id: test_stats
+        if: always()
+        run: |
+          set -euo pipefail
+          status="pass"
+          duration="0"
+          per_shard=""
+          for log in $(ls test-logs/test_output_shard_*.log 2>/dev/null | sort -V); do
+            shard=$(basename "$log" | grep -oE '[0-9]+' | head -1)
+            if grep -qE '^FAILED' "$log"; then
+              mark="failed"; status="fail"
+            elif grep -qE '^OK' "$log"; then
+              mark="success"
+            else
+              mark="no-result"; status="fail"
+            fi
+            t=$(grep -E '^Ran [0-9]+ tests' "$log" | tail -1 | awk '{print $NF}' | tr -d 's')
+            t=${t:-0}
+            duration=$(awk -v a="$duration" -v b="$t" 'BEGIN{printf "%.0f", (b+0>a+0)?b:a}')
+            per_shard="${per_shard}shard ${shard}: ${mark} (${t}s); "
+          done
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "duration=$duration" >> "$GITHUB_OUTPUT"
+          echo "per_shard=$per_shard" >> "$GITHUB_OUTPUT"
+      - name: Prepare django test log snippet
         id: test_log_snippet
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != ''
+        if: always()
         run: |
-          # Capture output snippet for final progress message.
           SNIPPET="$(tail -n 400 test_output.log 2>/dev/null || echo 'No django test output captured.')"
           {
             echo "snippet<<EOF"
@@ -525,76 +687,105 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: Prepare e2e test log snippet
         id: e2e_test_log_snippet
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: always()
         run: |
-          SNIPPET="$(tail -n 400 e2e_test_output.log 2>/dev/null || echo 'No e2e test output captured.')"
+          SNIPPET="$(tail -n 400 e2e-logs/e2e_test_output.log 2>/dev/null || echo 'No e2e test output captured.')"
           {
             echo "snippet<<EOF"
             echo "$SNIPPET"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
-      - name: Measure end time
-        id: end_tests
+      - name: Compose consolidated comment
+        if: always()
+        env:
+          BUILD_DURATION: ${{ needs.prepare-build.outputs.build_duration }}
+          SHOULD_DEPLOY: ${{ needs.prepare-build.outputs.should_deploy }}
+          SHOULD_RUN_TESTS: ${{ needs.prepare-build.outputs.should_run_tests }}
+          SHOULD_RUN_E2E: ${{ needs.prepare-build.outputs.should_run_e2e }}
+          STAGING_URL: ${{ needs.deploy-e2e.outputs.staging_url }}
+          E2E_RESULT: ${{ needs.deploy-e2e.outputs.e2e_result }}
+          E2E_DURATION: ${{ needs.deploy-e2e.outputs.e2e_duration }}
+          TEST_STATUS: ${{ steps.test_stats.outputs.status }}
+          TEST_DURATION: ${{ steps.test_stats.outputs.duration }}
+          TEST_PER_SHARD: ${{ steps.test_stats.outputs.per_shard }}
+          TEST_SNIPPET: ${{ steps.test_log_snippet.outputs.snippet }}
+          E2E_SNIPPET: ${{ steps.e2e_test_log_snippet.outputs.snippet }}
         run: |
-          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
-      - name: Calculate execution time
-        id: execution_time_tests
-        run: |
-          START=${{ steps.start_tests.outputs.time }}
-          END=${{ steps.end_tests.outputs.time }}
-          DIFF=$(( END - START ))
-          echo "DURATION=$DIFF" >> $GITHUB_OUTPUT
-      - name: Add build step comment 5
+          {
+            echo "running tests and deployment for you 🙂"
+            echo ""
+            echo "<!-- lw-staging-workflow -->"
+            echo ""
+            echo "- [x] \`(1) 'setup'\` [\`run\`](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+            echo "- [x] \`(2) 'build' t=${BUILD_DURATION}s\`"
+            if [ -n "$SHOULD_DEPLOY" ]; then
+              echo "- [x] \`(3) 'deploy'\` [\`url=${STAGING_URL}\`](${STAGING_URL})"
+            else
+              echo "- [ ] ~~\`(3) 'deploy' url=<deployment-url-loading>\`~~"
+            fi
+            if [ -n "$SHOULD_RUN_TESTS" ]; then
+              echo "- [x] \`(4) 'test' ${TEST_STATUS} t=${TEST_DURATION}s\` — ${TEST_PER_SHARD}"
+            else
+              echo "- [ ] ~~\`(4) 'test' t=<test-time-loading>\`~~"
+            fi
+            if [ -n "$SHOULD_RUN_E2E" ]; then
+              if [ "$E2E_RESULT" = "pass" ]; then
+                echo "- [x] \`(5) 'e2e' success t=${E2E_DURATION}s\`"
+              else
+                echo "- [x] \`(5) 'e2e' failed t=${E2E_DURATION}s\`"
+              fi
+            else
+              echo "- [ ] ~~\`(5) 'e2e' t=<e2e-time-loading>\`~~"
+            fi
+            echo ""
+            echo "<details>"
+            echo "<summary>Django test output (last 400 lines)</summary>"
+            echo ""
+            echo '```text'
+            echo "$TEST_SNIPPET"
+            echo '```'
+            echo "</details>"
+            echo ""
+            echo "<details>"
+            echo "<summary>E2E test output (last 400 lines)</summary>"
+            echo ""
+            echo '```text'
+            echo "$E2E_SNIPPET"
+            echo '```'
+            echo "</details>"
+          } > final_comment.md
+          cat final_comment.md
+      - name: Update consolidated progress comment
+        if: always() && needs.prepare-build.outputs.pull_number != ''
         uses: peter-evans/create-or-update-comment@v4
-        id: update_comment_5
-        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
         with:
           token: ${{ secrets.BOT_PAT }}
-          comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          issue-number: ${{ needs.prepare-build.outputs.pull_number }}
+          body-includes: "<!-- lw-staging-workflow -->"
+          body-path: final_comment.md
           edit-mode: replace
-          body: |
-            running tests and deployment for you 🙂
-
-            <!-- lw-staging-workflow -->
-
-            - [x] `(1) 'setup'` [`run`](${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }})
-            - [x] `(2) 'build' t=${{ steps.execution_time.outputs.DURATION }}s`
-            ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && format('- [x] `(3) ''deploy''` [`url={0}`]({0})', steps.cluster_connection.outputs.STAGING_URL) || '- [ ] ~~`(3) ''deploy'' url=<deployment-url-loading>`~~' }}
-            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && (steps.run_tests.outputs.test_result == 'pass' && format('- [x] `(4) ''test''` `success` `t={0}s`', steps.execution_time_tests.outputs.DURATION) || format('- [x] `(4) ''test''` `failed` `t={0}s`', steps.execution_time_tests.outputs.DURATION)) || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
-            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && (steps.run_e2e_tests.outputs.test_result == 'pass' && format('- [x] `(5) ''e2e''` `success` `t={0}s`', steps.execution_time_e2e_tests.outputs.DURATION) || format('- [x] `(5) ''e2e''` `failed` `t={0}s`', steps.execution_time_e2e_tests.outputs.DURATION)) || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
-
-            <details>
-            <summary>Django test output (last 400 lines)</summary>
-
-            ```text
-            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && steps.test_log_snippet.outputs.snippet || 'Django tests were not selected.' }}
-            ```
-            </details>
-
-            <details>
-            <summary>E2E test output (last 400 lines)</summary>
-
-            ```text
-            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && steps.e2e_test_log_snippet.outputs.snippet || 'E2E tests were not selected.' }}
-            ```
-            </details>
-
       - name: Enforce tests required for success
-        if: steps.extract_branch.outputs.branch != 'main'
+        if: always()
         run: |
           set -euo pipefail
 
-          SHOULD_RUN_TESTS="${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS }}"
-          SHOULD_RUN_E2E="${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E }}"
-          TEST_RESULT="${{ steps.run_tests.outputs.test_result }}"
-          E2E_RESULT="${{ steps.run_e2e_tests.outputs.test_result }}"
+          SHOULD_RUN_TESTS="${{ needs.prepare-build.outputs.should_run_tests }}"
+          SHOULD_RUN_E2E="${{ needs.prepare-build.outputs.should_run_e2e }}"
+          TEST_RESULT="${{ needs.django-tests.result }}"
+          E2E_RESULT="${{ needs.deploy-e2e.outputs.e2e_result }}"
+          PARTITION_COMPLETE="${{ steps.completeness.outputs.complete }}"
 
           if [ -z "$SHOULD_RUN_TESTS" ] || [ -z "$SHOULD_RUN_E2E" ]; then
             echo "❌ Both 'test' and 'e2e' labels are required for a passing run."
             exit 1
           fi
 
-          if [ "$TEST_RESULT" != "pass" ] || [ "$E2E_RESULT" != "pass" ]; then
+          if [ "$PARTITION_COMPLETE" != "true" ]; then
+            echo "❌ Test shards did not collectively cover the full discovered suite."
+            exit 1
+          fi
+
+          if [ "$TEST_RESULT" != "success" ] || [ "$E2E_RESULT" != "pass" ]; then
             echo "❌ Required tests did not pass."
             echo "test=$TEST_RESULT e2e=$E2E_RESULT"
             exit 1

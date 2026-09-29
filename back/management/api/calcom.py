@@ -71,6 +71,11 @@ from management.models.state import State
 from management.models.user import User
 from management.tasks import onboarding_call_reminder_push_notification, send_sms_background
 
+#: cal.com emits BOOKING_CANCELLED / BOOKING_RESCHEDULED (there is no BOOKING_CHANGED).
+BOOKING_CREATED_EVENTS = ("BOOKING_CREATED", "BOOKING_RESCHEDULED")
+BOOKING_CANCELLED_EVENTS = ("BOOKING_CANCELLED", "BOOKING_REJECTED")
+BOOKING_HANDLED_EVENTS = BOOKING_CREATED_EVENTS + BOOKING_CANCELLED_EVENTS
+
 
 def translate_to_german_date(date_str, target_timezone="Europe/Berlin"):
     date_object = parser.parse(date_str)
@@ -278,8 +283,107 @@ def _resolve_user(user_uuid=None, user_email=None, booking_code=None):
     return user
 
 
-def _upsert_prematching_appointment(user, start_time_parsed, end_time_parsed, *, notify, start_time_normalized):
-    appointment = PreMatchingAppointment.objects.filter(user=user).first()
+def _booking_uid(payload):
+    """cal.com's booking uid (or the `rescheduleUid` of the booking being replaced)."""
+    return _normalize_response_value(payload.get("uid"))
+
+
+def _delete_stale_appointments(user, *, keep=None):
+    """Drop any other appointment rows for this user, cancelling their reminders.
+
+    A user should hold exactly one pre-matching appointment. Old rows survive if a
+    booking is replaced (admin-created or cal.com), and an unordered lookup could then
+    surface one of them. Their scheduled SMS is cancelled explicitly; the push reminder
+    re-checks the current appointment when it fires, so a deleted row makes it a no-op.
+    """
+    stale = PreMatchingAppointment.objects.filter(user=user)
+    if keep is not None:
+        stale = stale.exclude(pk=keep.pk)
+    for appointment in list(stale):
+        if appointment.sms_task:
+            end_task(task_id=appointment.sms_task)
+    stale.delete()
+
+
+def _cancel_prematching_appointments(user, *, calcom_booking_uid=""):
+    """Delete a user's appointment row(s) after a cal.com cancellation/rejection.
+
+    When the cancelled booking's uid is known, only rows for that uid are removed — a
+    delayed cancellation for a superseded booking must not delete a newer appointment.
+    """
+    appointments = list(PreMatchingAppointment.objects.filter(user=user))
+    if calcom_booking_uid:
+        appointments = [
+            appointment for appointment in appointments if appointment.calcom_booking_uid == calcom_booking_uid
+        ]
+    for appointment in appointments:
+        if appointment.sms_task:
+            end_task(task_id=appointment.sms_task)
+        appointment.delete()
+    return len(appointments)
+
+
+def _resolve_booking_users(payload):
+    """Resolve every user referenced by a booking payload.
+
+    Shared by the created/rescheduled and cancelled/rejected handlers so a seated
+    event's cancel only affects the attendee the webhook is about.
+    """
+    triggering_identity, attendee_idents = _triggering_identity(payload)
+    user_uuid = triggering_identity.get("uuid")
+    booking_code = triggering_identity.get("bookingcode")
+    user_email = triggering_identity.get("email")
+
+    triggering_user = _resolve_user(user_uuid=user_uuid, user_email=user_email, booking_code=booking_code)
+    users = []
+    if triggering_user is not None:
+        users.append(triggering_user)
+
+    # Seated events include every attendee. Create a row for each person we can resolve
+    # so a later seat booking backfills anyone whose own webhook was dropped.
+    resolved_attendee_users = []
+    for ident in attendee_idents:
+        attendee_user = _resolve_user(
+            user_uuid=ident.get("uuid"),
+            user_email=ident.get("email"),
+            booking_code=ident.get("bookingcode"),
+        )
+        if attendee_user is not None:
+            resolved_attendee_users.append(attendee_user)
+            if attendee_user not in users:
+                users.append(attendee_user)
+
+    # Normally the triggering identity resolves to a real account and is the one we notify.
+    # If it doesn't (e.g. its merged fields didn't match anyone) but an attendee did resolve,
+    # notify the most-recently-listed attendee instead of leaving the actual booker unnotified.
+    notify_target = triggering_user or (resolved_attendee_users[-1] if resolved_attendee_users else None)
+    return {
+        "triggering_user": triggering_user,
+        "users": users,
+        "notify_target": notify_target,
+        "booking_code": booking_code,
+        "user_uuid": user_uuid,
+        "user_email": user_email,
+    }
+
+
+def _upsert_prematching_appointment(
+    user,
+    start_time_parsed,
+    end_time_parsed,
+    *,
+    notify,
+    start_time_normalized,
+    calcom_booking_uid="",
+    previous_uid="",
+):
+    appointment = None
+    if previous_uid:
+        # A reschedule points at the booking it replaces; update that row in place.
+        appointment = PreMatchingAppointment.objects.filter(user=user, calcom_booking_uid=previous_uid).first()
+    if appointment is None:
+        appointment = PreMatchingAppointment.get_current_for_user(user)
+
     created = appointment is None
     if appointment is None:
         appointment = PreMatchingAppointment(user=user, start_time=start_time_parsed, end_time=end_time_parsed)
@@ -288,6 +392,9 @@ def _upsert_prematching_appointment(user, start_time_parsed, end_time_parsed, *,
         needs_reschedule = appointment.start_time != start_time_parsed or appointment.end_time != end_time_parsed
         appointment.end_time = end_time_parsed
         appointment.start_time = start_time_parsed
+
+    if calcom_booking_uid:
+        appointment.calcom_booking_uid = calcom_booking_uid
 
     # A seated event re-sends every attendee on each new seat booking, so this can run for
     # the same user/slot many times over. Only touch their reminder tasks when the slot
@@ -307,6 +414,8 @@ def _upsert_prematching_appointment(user, start_time_parsed, end_time_parsed, *,
             eta=start_time_parsed - timedelta(hours=1),
         )
     appointment.save()
+
+    _delete_stale_appointments(user, keep=appointment)
 
     if notify:
         user.message(
@@ -335,62 +444,20 @@ def callcom_websocket_callback(request):
     assert request.query_params["secret"] == settings.DJ_CALCOM_QUERY_ACCESS_PARAM
 
     event_type = request.data.get("triggerEvent")
-    if event_type != "BOOKING_CREATED":
+    if event_type not in BOOKING_HANDLED_EVENTS:
         return Response("ok")
 
     payload = request.data.get("payload")
     if not isinstance(payload, dict):
         return Response("ok")
 
-    start_time = payload.get("startTime")
-    end_time = payload.get("endTime")
-    triggering_identity, attendee_idents = _triggering_identity(payload)
-    user_uuid = triggering_identity.get("uuid")
-    booking_code = triggering_identity.get("bookingcode")
-    user_email = triggering_identity.get("email")
-
-    has_identity = user_uuid or user_email or booking_code or attendee_idents
-    if not start_time or not end_time or not has_identity:
-        print(
-            "CALCOM: missing required fields",
-            {
-                "start_time": bool(start_time),
-                "end_time": bool(end_time),
-                "user_uuid": bool(user_uuid),
-                "user_email": bool(user_email),
-            },
-        )
-        return Response("ok")
-
-    start_time_parsed = parse_datetime(start_time)
-    end_time_parsed = parse_datetime(end_time)
-    if not start_time_parsed or not end_time_parsed:
-        return Response("ok")
-    start_time_normalized = translate_to_german_date(start_time)
-
-    triggering_user = _resolve_user(user_uuid=user_uuid, user_email=user_email, booking_code=booking_code)
-    users_to_upsert = []
-    if triggering_user is not None:
-        users_to_upsert.append(triggering_user)
-
-    # Seated events include every attendee. Create a row for each person we can resolve
-    # so a later seat booking backfills anyone whose own webhook was dropped.
-    resolved_attendee_users = []
-    for ident in attendee_idents:
-        attendee_user = _resolve_user(
-            user_uuid=ident.get("uuid"),
-            user_email=ident.get("email"),
-            booking_code=ident.get("bookingcode"),
-        )
-        if attendee_user is not None:
-            resolved_attendee_users.append(attendee_user)
-            if attendee_user not in users_to_upsert:
-                users_to_upsert.append(attendee_user)
-
-    # Normally the triggering identity resolves to a real account and is the one we notify.
-    # If it doesn't (e.g. its merged fields didn't match anyone) but an attendee did resolve,
-    # notify the most-recently-listed attendee instead of leaving the actual booker unnotified.
-    notify_target = triggering_user or (resolved_attendee_users[-1] if resolved_attendee_users else None)
+    resolution = _resolve_booking_users(payload)
+    triggering_user = resolution["triggering_user"]
+    users_to_upsert = resolution["users"]
+    notify_target = resolution["notify_target"]
+    booking_code = resolution["booking_code"]
+    user_uuid = resolution["user_uuid"]
+    user_email = resolution["user_email"]
 
     if not users_to_upsert:
         print(
@@ -415,10 +482,54 @@ def callcom_websocket_callback(request):
     elif triggering_user is not None and not booking_code:
         print("CALCOM: booking code missing, proceeding with resolved user", {"user_uuid": str(triggering_user.uuid)})
 
+    calcom_booking_uid = _booking_uid(payload) or ""
+
+    if event_type in BOOKING_CANCELLED_EVENTS:
+        cancelled = 0
+        for user in users_to_upsert:
+            cancelled += _cancel_prematching_appointments(user, calcom_booking_uid=calcom_booking_uid)
+        print(
+            "CALCOM: booking cancelled",
+            {
+                "event": event_type,
+                "cancelled": cancelled,
+                "booking_uid": calcom_booking_uid,
+                "booking_code": booking_code,
+            },
+        )
+        return Response("ok")
+
+    start_time = payload.get("startTime")
+    end_time = payload.get("endTime")
+    if not start_time or not end_time:
+        print(
+            "CALCOM: missing required fields",
+            {
+                "start_time": bool(start_time),
+                "end_time": bool(end_time),
+                "user_uuid": bool(user_uuid),
+                "user_email": bool(user_email),
+            },
+        )
+        return Response("ok")
+
+    start_time_parsed = parse_datetime(start_time)
+    end_time_parsed = parse_datetime(end_time)
+    if not start_time_parsed or not end_time_parsed:
+        return Response("ok")
+    start_time_normalized = translate_to_german_date(start_time)
+
+    previous_uid = _normalize_response_value(payload.get("rescheduleUid")) or ""
+
     for user in users_to_upsert:
         print(
             "CALCOM: booking created",
-            {"user": str(user.uuid), "booking_code": booking_code, "start_time": start_time},
+            {
+                "event": event_type,
+                "user": str(user.uuid),
+                "booking_code": booking_code,
+                "start_time": start_time,
+            },
         )
         _upsert_prematching_appointment(
             user,
@@ -426,6 +537,8 @@ def callcom_websocket_callback(request):
             end_time_parsed,
             notify=user == notify_target,
             start_time_normalized=start_time_normalized,
+            calcom_booking_uid=calcom_booking_uid,
+            previous_uid=previous_uid,
         )
 
     return Response("ok")

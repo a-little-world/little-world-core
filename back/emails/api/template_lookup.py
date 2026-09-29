@@ -115,6 +115,10 @@ def group_calls_url():
     return f"{settings.BASE_URL}/app/events"
 
 
+def intercultural_communication_training_url():
+    return f"{settings.BASE_URL}/app/resources/trainings/interkulturelle-gespraechsfuehrung"
+
+
 def random_calls_url():
     return f"{settings.BASE_URL}/app/random-calls"
 
@@ -176,7 +180,7 @@ def patenmatch_language(user=None, context={"patenmatch_language": None}):
 
 def prematching_datetime(user, context={"appointment": None}):
     if context["appointment"] is None:
-        appointment = PreMatchingAppointment.objects.filter(user=user).first()
+        appointment = PreMatchingAppointment.get_current_for_user(user)
     else:
         appointment = context["appointment"]
 

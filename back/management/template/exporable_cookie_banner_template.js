@@ -47,19 +47,15 @@ const initCode = () => {
         script.async = true;
         script.src = baseUrl + scripUrl;
     });
-    const toImpressum = () => {
-        window.location.replace("https://home.little-world.com/impressum");
-    }
-    const toPrivacy = () => {
-        window.location.replace("https://home.little-world.com/datenschutz");
-    }
+    const impressumUrl = "https://home.little-world.com/impressum";
+    const privacyUrl = "https://home.little-world.com/datenschutz";
     scriptPromise.then(() => {
         cookieBanner(
             cookieData.cookieGroups,
             cookieData.cookieSets,
             cookieData.cookieStateDict,
-            toImpressum,
-            toPrivacy,
+            impressumUrl,
+            privacyUrl,
             cookieBannerIsHidden,
             {},
             cookieConsentName,
