@@ -507,5 +507,11 @@
   "info_card.still_in_contact_yes.link_text": "Zum Login",
   "info_card.still_in_contact_no.title": "Danke für deine Rückmeldung!",
   "info_card.still_in_contact_no.content": "Du hast ausgewählt, dass du nicht mehr in Kontakt bleibst. Bitte gib uns Feedback zu deinem Match.",
-  "info_card.still_in_contact_no.link_text": "Zum Login"
+  "info_card.still_in_contact_no.link_text": "Zum Login",
+  "info_card.activate_searching_success.title": "Suche aktiviert!",
+  "info_card.activate_searching_success.content": "Dein Profil ist jetzt wieder aktiv und wir suchen nach einer passenden Person für dich.",
+  "info_card.activate_searching_success.link_text": "Zur App",
+  "info_card.activate_searching_failure.title": "Link ungültig",
+  "info_card.activate_searching_failure.content": "Dieser Link ist leider ungültig. Bitte melde dich in der App an, um deine Suche zu aktivieren.",
+  "info_card.activate_searching_failure.link_text": "Zur App"
 }

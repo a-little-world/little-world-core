@@ -31,6 +31,10 @@ def restart_search_url(user):
     return f"{settings.BASE_URL}/app"
 
 
+def activate_searching_url(user):
+    return f"{settings.BASE_URL}/api/user/activate_searching/{user.uuid}/{user.state.search_activation_token}/"
+
+
 def verification_url(user):
     return f"{settings.BASE_URL}/mailverify_link/{user.state.get_email_auth_code_b64()}"
 
