@@ -18,6 +18,11 @@ try {
     console.error("Error getting cookie banner hidden state, using default value", e);
 }
 
+// The SPA may request the banner to stay hidden (e.g. after login) before this async script
+// loaded and defined the real setCookieBannerHidden. Honor that request here.
+const forcedHidden = cookieBannerIsHidden || window.__lwCookieBannerHidden === true;
+cookieBannerIsHidden = forcedHidden;
+
 const initCode = () => {
     const div = document.createElement('div');
     div.id = "shadow-root"; // The root container for the cookie banner
@@ -29,6 +34,7 @@ const initCode = () => {
     div.style.position = "fixed";
     if (cookieBannerIsHidden) {
         div.style.visibility = "hidden"; // then the script will still be loaded based on the users pre-selection
+        div.style.display = "none";
     }
     document.body.appendChild(div);
 
@@ -70,6 +76,7 @@ window.unloadCookieBanner = () => {
 }
 
 window.setCookieBannerHidden = (hidden) => {
+    window.__lwCookieBannerHidden = hidden;
     cookieBannerIsHidden = hidden;
 
     const root = document.getElementById("shadow-root");
@@ -80,8 +87,10 @@ window.setCookieBannerHidden = (hidden) => {
     if (hidden) {
         root.style.zIndex = "0";
         root.style.visibility = "hidden";
+        root.style.display = "none";
     } else {
         root.style.zIndex = "1000";
         root.style.visibility = "visible";
+        root.style.display = "block";
     }
 }
