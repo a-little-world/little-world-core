@@ -587,16 +587,24 @@ def get_user_data(user):
     user_profile = user.profile
 
     pre_match_appointent = None
-    pre_matching_app = PreMatchingAppointment.objects.filter(user=user).first()
+    pre_matching_app = PreMatchingAppointment.get_current_for_user(user)
     if pre_matching_app:
         pre_match_appointent = PreMatchingAppointmentSerializer(pre_matching_app).data
 
-    cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(
-        encoded_params=urllib.parse.urlencode(
-            {"email": str(user.email), "uuid": str(user.uuid), "bookingcode": str(user.state.prematch_booking_code)}
-        ),
-        calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID,
-    )
+    if pre_matching_app is not None and pre_matching_app.calcom_booking_uid:
+        # A stored booking uid means cal.com can reschedule the existing booking. The plain
+        # prefill link would create a second booking and leave the first one dangling.
+        cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(
+            encoded_params=urllib.parse.urlencode({"rescheduleUid": pre_matching_app.calcom_booking_uid}),
+            calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID,
+        )
+    else:
+        cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(
+            encoded_params=urllib.parse.urlencode(
+                {"email": str(user.email), "uuid": str(user.uuid), "bookingcode": str(user.state.prematch_booking_code)}
+            ),
+            calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID,
+        )
 
     # Get video call join link if available
     pre_call_join_link = settings.PREMATCHING_CALL_JOIN_LINK
