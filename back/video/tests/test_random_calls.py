@@ -1167,7 +1167,7 @@ class RandomCallsTests(TestCase):
         self.assertEqual(self.user1.state.searching_state, State.SearchingStateChoices.IDLE)
         self.assertEqual(self.user2.state.searching_state, State.SearchingStateChoices.IDLE)
 
-        new_match_calls = [call for call in mock_send_email.call_args_list if call.args[0] == "new-match"]
+        new_match_calls = [call for call in mock_send_email.call_args_list if call.args[0] == "automatic-emails-m011"]
         self.assertEqual(len(new_match_calls), 2)
         self.assertEqual({call.kwargs["match_id"] for call in new_match_calls}, {match.pk})
 
