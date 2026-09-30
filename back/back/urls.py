@@ -3,6 +3,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import HttpRequest, HttpResponse
 from django.urls import include, path, re_path
+from django.views.generic import RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from management.urls import public_routes_wildcard
 from rest_framework import status
@@ -36,21 +37,13 @@ if settings.USE_AUTO_RELOAD:
 
 urlpatterns += [
     path("admin/", admin.site.urls),
+    # Disable legacy cookies page
+    re_path(r"^cookies/?$", RedirectView.as_view(url="/")),
     path("cookies/", include("cookie_consent.urls")),
     path("hijack/", include("hijack.urls")),
     # In staging and production we are serving statics from an aws bucket!
     *(statics if settings.BUILD_TYPE == BuildType.DEVELOPMENT else []),
 ]
-
-if settings.DEBUG and settings.USE_DEBUG_TOOLBAR:
-    try:
-        import debug_toolbar
-
-        urlpatterns = [
-            path("__debug__/", include(debug_toolbar.urls)),
-        ] + urlpatterns
-    except ImportError:
-        print("Debug toolbar not installed")
 
 # These view have extra accesibility control via 'management.middleware'
 urlpatterns += [

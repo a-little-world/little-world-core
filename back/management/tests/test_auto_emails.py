@@ -25,6 +25,7 @@ from management.random_test_users import create_test_user
 from management.tasks import (
     automatic_emails_fm021_fm022__ghosted_matches,
     automatic_emails_m012_m013_m014,
+    automatic_emails_m022,
     automatic_emails_m023,
     automatic_emails_m024_m025,
     automatic_emails_m031_m032_m033_m042,
@@ -330,6 +331,111 @@ class TestSendOnceFlagsSurviveConcurrentWrites(TestCase):
         assert second["matches_m012"] + second["matches_m013"] + second["matches_m014"] == []
 
 
+class TestAutomaticEmails_m022(TestCase):
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+        self.sender = User.objects.create_user(
+            email="m022-sender@test.de",
+            password="Test123!",
+            first_name="Sender",
+            last_name="Test",
+        )
+        self.recipient = User.objects.create_user(
+            email="m022-recipient@test.de",
+            password="Test123!",
+            first_name="Recipient",
+            last_name="Test",
+        )
+        self.chat = Chat.objects.create(u1=self.sender, u2=self.recipient)
+        with freeze_time(dj_timezone.now() - timedelta(days=3)):
+            self.match = Match.objects.create(
+                user1=self.sender,
+                user2=self.recipient,
+                active=True,
+                confirmed=True,
+            )
+
+    def _message(self, *, age=timedelta(days=1, hours=1)):
+        sent_at = dj_timezone.now() - age
+        with freeze_time(sent_at):
+            return Message.objects.create(
+                chat=self.chat,
+                sender=self.sender,
+                recipient=self.recipient,
+                text="Hello from your new match",
+            )
+
+    @patch("management.tasks.send_email_background")
+    def test_sends_when_the_latest_message_has_been_unanswered_for_one_day(self, send_email):
+        source = self._message()
+
+        result = automatic_emails_m022()
+
+        send_email.delay.assert_called_once_with(
+            "automatic-emails-m022",
+            user_id=self.recipient.pk,
+            match_id=self.match.pk,
+            emulated_send=True,
+        )
+        assert result["message_ids"] == [source.pk]
+
+    @patch("management.tasks.send_email_background")
+    def test_does_not_send_before_one_day(self, send_email):
+        self._message(age=timedelta(hours=23))
+
+        automatic_emails_m022()
+
+        send_email.delay.assert_not_called()
+
+    @patch("management.tasks.send_email_background")
+    def test_does_not_send_if_the_recipient_replied_within_the_last_day(self, send_email):
+        self._message()
+        Message.objects.create(
+            chat=self.chat,
+            sender=self.recipient,
+            recipient=self.sender,
+            text="Thanks, let's plan it",
+        )
+
+        automatic_emails_m022()
+
+        send_email.delay.assert_not_called()
+
+    @patch("management.tasks.send_email_background")
+    def test_does_not_send_after_the_first_mutual_video_call(self, send_email):
+        self._message()
+        self.match.total_mutal_video_calls_counter = 1
+        self.match.save(update_fields=["total_mutal_video_calls_counter", "updated_at"])
+
+        automatic_emails_m022()
+
+        send_email.delay.assert_not_called()
+
+    @patch("management.tasks.send_email_background")
+    def test_one_day_flag_prevents_repeat(self, send_email):
+        self._message()
+        automatic_emails_m022()
+        automatic_emails_m022()
+
+        send_email.delay.assert_called_once()
+        self.chat.refresh_from_db()
+        assert self.chat.one_day_inactive_email_send is True
+
+    def test_template_renders_names_and_chat_button(self):
+        from emails.api.render_template import render_template_dynamic_lookup
+
+        rendered = render_template_dynamic_lookup(
+            "automatic-emails-m022",
+            self.recipient.pk,
+            self.match.pk,
+            None,
+        )
+
+        assert "Hallo Recipient" in rendered
+        assert "neuen Match Sender" in rendered
+        assert f"{settings.BASE_URL}/app/chat/" in rendered
+
+
 class TestAutomaticEmails_m023(TestCase):
     def setUp(self):
         settings.DJANGO_TESTING = True
@@ -366,11 +472,21 @@ class TestAutomaticEmails_m023(TestCase):
         with freeze_time(dj_timezone.now() - timedelta(days=10)):
             self.valid_user_1 = create_user("m023-valid-user1@test.de", "ValidOne")
             self.valid_user_2 = create_user("m023-valid-user2@test.de", "ValidTwo")
+            self.valid_match = Match.objects.create(
+                user1=self.valid_user_1,
+                user2=self.valid_user_2,
+                active=True,
+                confirmed=True,
+            )
 
         # Create chat and message older than 3 days
-        self.valid_chat = Chat.objects.create(u1=self.valid_user_1, u2=self.valid_user_2)
+        self.valid_chat = Chat.objects.create(
+            u1=self.valid_user_1,
+            u2=self.valid_user_2,
+            one_day_inactive_email_send=True,
+        )
         with freeze_time(dj_timezone.now() - timedelta(days=4)):
-            Message.objects.create(
+            self.valid_first_message = Message.objects.create(
                 chat=self.valid_chat,
                 sender=self.valid_user_1,
                 recipient=self.valid_user_2,
@@ -493,16 +609,25 @@ class TestAutomaticEmails_m023(TestCase):
         assert len(result2["inactive_chats"]) == 0
 
     def test_m023_sends_with_match_id(self):
-        match = Match.objects.create(user1=self.valid_user_1, user2=self.valid_user_2, active=True, confirmed=True)
-
         automatic_emails_m023()
 
         self.mock_send_email_background.delay.assert_called_once_with(
             "automatic-emails-m023",
             user_id=self.valid_user_2.id,
-            match_id=match.id,
+            match_id=self.valid_match.id,
             emulated_send=True,
         )
+
+    def test_m023_waits_until_m022_has_been_sent(self):
+        self.valid_chat.one_day_inactive_email_send = False
+        self.valid_chat.save(update_fields=["one_day_inactive_email_send"])
+
+        result = automatic_emails_m023()
+
+        assert result["inactive_chats"] == []
+        self.mock_send_email_background.delay.assert_not_called()
+        self.valid_chat.refresh_from_db()
+        assert self.valid_chat.three_days_inactive_email_send is False
 
 
 class TestAutomaticEmails_m024_m025(TestCase):
@@ -2056,7 +2181,9 @@ class TestAutomaticEmailsIncludeRandomCallMatches(TestCase):
 
     def test_m023_sends_for_random_call_match(self):
         user1, user2, match = self._create_pair("m023-rc", MatchType.RANDOM_CALL, confirmed=True)
-        chat = Chat.objects.create(u1=user1, u2=user2)
+        Match.objects.filter(pk=match.pk).update(created_at=dj_timezone.now() - timedelta(days=5))
+        match.refresh_from_db()
+        chat = Chat.objects.create(u1=user1, u2=user2, one_day_inactive_email_send=True)
         with freeze_time(dj_timezone.now() - timedelta(days=4)):
             Message.objects.create(chat=chat, sender=user1, recipient=user2, text="Hello")
 
@@ -2182,6 +2309,37 @@ class TestAutomaticEmailsIncludeRandomCallMatches(TestCase):
                 == settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER
             )
 
+    @patch("management.tasks.send_email_background")
+    def test_m045_sends_video_call_survey_url_as_completed_match_poll(self, mock_send_email):
+        user1, user2, match = self._create_pair(
+            "m045-rc",
+            MatchType.RANDOM_CALL,
+            confirmed=True,
+            auto_email_m043_send=True,
+            auto_email_m044_send=True,
+            auto_email_m045_send=False,
+            latest_counter_sync=dj_timezone.now() - timedelta(days=2),
+            latest_interaction_at=dj_timezone.now() - timedelta(days=1),
+        )
+        for _ in range(10):
+            LivekitSession.objects.create(
+                u1=user1,
+                u2=user2,
+                both_have_been_active=True,
+                is_active=False,
+            )
+
+        automatic_emails_m043_m044_m045()
+
+        calls = mock_send_email.delay.call_args_list
+        assert {call.kwargs["user_id"] for call in calls} == {user1.id, user2.id}
+        for call in calls:
+            assert call.kwargs["context"]["completed_match_poll_url"] in (
+                settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER,
+                settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER,
+            )
+            assert "completed_match_poll_url" in call.kwargs["context"]
+
     def test_fm021_includes_random_call_and_excludes_temporary(self):
         _u1, _u2, rc_match = self._create_pair(
             "fm021-rc",
@@ -2207,6 +2365,183 @@ class TestAutomaticEmailsIncludeRandomCallMatches(TestCase):
         assert temp_match.pk not in match_ids
         rc_match.refresh_from_db()
         assert rc_match.is_ghosted_match is False
+
+
+class TestAutomaticEmails_m043_m044_m045_EmailContent(TestCase):
+    """Regression tests for the match-milestone impact-survey emails (issue #1154).
+
+    M043 was sent without ``match_id`` even though its template renders
+    ``partner_first_name``, so the lookup raised a ``TypeError`` and the task died
+    before an ``EmailLog`` row could be written. M044 relied on the
+    ``share_story_url`` lookup fallback, which only recognised the literal string
+    "Not set" and therefore rendered ``href="None"``.
+    """
+
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+
+    def _create_pair(self, seed):
+        learner = User.objects.create_user(
+            email=f"milestone-content-{seed}-learner@test.de",
+            password="Test123!",
+            first_name="Learner",
+            last_name="Test",
+        )
+        volunteer = User.objects.create_user(
+            email=f"milestone-content-{seed}-volunteer@test.de",
+            password="Test123!",
+            first_name="Volunteer",
+            last_name="Test",
+        )
+        learner.profile.first_name = "Learner"
+        volunteer.profile.first_name = "Volunteer"
+        learner.profile.user_type = Profile.TypeChoices.LEARNER
+        volunteer.profile.user_type = Profile.TypeChoices.VOLUNTEER
+        learner.profile.save()
+        volunteer.profile.save()
+        match = Match.objects.create(
+            user1=learner,
+            user2=volunteer,
+            active=True,
+            confirmed=True,
+            auto_email_m043_send=False,
+            auto_email_m044_send=False,
+            auto_email_m045_send=False,
+            latest_counter_sync=dj_timezone.now() - timedelta(days=2),
+            latest_interaction_at=dj_timezone.now() - timedelta(days=1),
+        )
+        return learner, volunteer, match
+
+    def _create_sessions(self, user1, user2, amount):
+        for _ in range(amount):
+            LivekitSession.objects.create(
+                u1=user1,
+                u2=user2,
+                both_have_been_active=True,
+                is_active=False,
+            )
+
+    def _render(self, template_name, user, match, context=None):
+        from emails.api.send_email import send_template_email
+        from emails.models import EmailLog
+
+        send_template_email(
+            template_name,
+            user_id=user.id,
+            match_id=match.pk,
+            emulated_send=True,
+            context=context or {},
+        )
+        return EmailLog.objects.filter(template=template_name, receiver=user).order_by("-time").first()
+
+    def _assert_no_broken_links(self, html):
+        assert 'href="None"' not in html, 'Rendered email contains a literal href="None"'
+        assert "href='None'" not in html, "Rendered email contains a literal href='None'"
+
+    def test_share_story_url_lookup_falls_back_for_none_and_not_set(self):
+        from emails.api.template_lookup import share_story_url
+
+        assert share_story_url(user=None, match=None, context={"share_story_url": None}) == (
+            settings.GOOGLE_FORM_SHARE_STORY_URL
+        )
+        assert share_story_url(user=None, match=None, context={"share_story_url": "Not set"}) == (
+            settings.GOOGLE_FORM_SHARE_STORY_URL
+        )
+        assert (
+            share_story_url(user=None, match=None, context={"share_story_url": "https://example.com/story"})
+            == "https://example.com/story"
+        )
+
+    @patch("management.tasks.send_email_background")
+    def test_m043_sends_with_match_id_and_renders_survey(self, mock_send_email):
+        learner, volunteer, match = self._create_pair("m043")
+        self._create_sessions(learner, volunteer, 5)
+
+        automatic_emails_m043_m044_m045()
+
+        calls = [call for call in mock_send_email.delay.call_args_list if call.args[0] == "automatic-emails-m043"]
+        assert len(calls) == 2
+        assert {call.kwargs["user_id"] for call in calls} == {learner.id, volunteer.id}
+        for call in calls:
+            assert call.kwargs["match_id"] == match.pk, "M043 must carry match_id or partner_first_name crashes"
+
+        for call in calls:
+            log = self._render(
+                call.args[0],
+                User.objects.get(pk=call.kwargs["user_id"]),
+                match,
+                call.kwargs["context"],
+            )
+            assert log is not None and log.sucess is True
+            self._assert_no_broken_links(log.data["html"])
+
+        learner_log = self._render(
+            "automatic-emails-m043",
+            learner,
+            match,
+            {"post_videocall_survey_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER},
+        )
+        volunteer_log = self._render(
+            "automatic-emails-m043",
+            volunteer,
+            match,
+            {"post_videocall_survey_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER},
+        )
+        assert settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER in learner_log.data["html"]
+        assert settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER in volunteer_log.data["html"]
+
+    def test_m044_renders_share_story_fallback(self):
+        learner, _volunteer, match = self._create_pair("m044")
+
+        log = self._render("automatic-emails-m044", learner, match)
+
+        assert log is not None and log.sucess is True
+        assert settings.GOOGLE_FORM_SHARE_STORY_URL in log.data["html"]
+        self._assert_no_broken_links(log.data["html"])
+
+    def test_m045_renders_completed_match_poll_url(self):
+        learner, _volunteer, match = self._create_pair("m045")
+
+        log = self._render(
+            "automatic-emails-m045",
+            learner,
+            match,
+            {"completed_match_poll_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER},
+        )
+
+        assert log is not None and log.sucess is True
+        assert settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER in log.data["html"]
+        self._assert_no_broken_links(log.data["html"])
+
+    def test_m053_m055_keep_still_in_contact_redirect(self):
+        from emails.api.template_lookup import still_in_contact_yes_url
+
+        learner, _volunteer, match = self._create_pair("m053-m055")
+        redirect_slugs = {"redirect_slug_no": "info-screen", "redirect_slug_yes": "match-form1"}
+
+        m053_log = self._render(
+            "automatic-emails-m053",
+            learner,
+            match,
+            {
+                **redirect_slugs,
+                "five_week_survey_url": still_in_contact_yes_url(learner, match, redirect_slugs),
+            },
+        )
+        m055_log = self._render(
+            "automatic-emails-m055",
+            learner,
+            match,
+            {
+                **redirect_slugs,
+                "completed_match_poll_url": still_in_contact_yes_url(learner, match, redirect_slugs),
+            },
+        )
+
+        for log in (m053_log, m055_log):
+            assert log is not None and log.sucess is True
+            assert "redirect_slug=match-form1" in log.data["html"]
+            self._assert_no_broken_links(log.data["html"])
 
 
 class TestAutomaticEmails_fm021_fm022(TestCase):
@@ -2301,4 +2636,77 @@ class TestAutomaticEmails_fm021_fm022(TestCase):
 
         assert match.is_ghosted_match is False
         assert match.active is True
+        self.mock_send_email.delay.assert_not_called()
+
+
+class TestJourneyEmailsSkipDeletedAccounts(TestCase):
+    """A deleted partner must stop the match-journey e-mails (issue #1194).
+
+    ``delete_user`` deactivates the account but deliberately leaves the match row active,
+    so the journey queries have to look at the users, not only at ``Match.active``.
+    """
+
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+        self._send_email_patch = patch("management.tasks.send_email_background")
+        self.mock_send_email = self._send_email_patch.start()
+        self.addCleanup(self._send_email_patch.stop)
+
+    def _create_m031_match(self, seed, *, deleted="none"):
+        user1 = User.objects.create_user(
+            email=f"journey-deleted-{seed}-1@test.de",
+            password="Test123!",
+            first_name="Journey",
+            last_name="User",
+        )
+        user2 = User.objects.create_user(
+            email=f"journey-deleted-{seed}-2@test.de",
+            password="Test123!",
+            first_name="Journey",
+            last_name="User",
+        )
+
+        match = Match.objects.create(
+            user1=user1,
+            user2=user2,
+            match_type=MatchType.STANDARD,
+            active=True,
+            confirmed=True,
+            support_matching=False,
+            total_mutal_video_calls_counter=0,
+            first_interaction_at=dj_timezone.now() - timedelta(days=8),
+            auto_email_m031_send=False,
+        )
+        add_mutual_messages(user1, user2)
+
+        if deleted != "none":
+            deleted_user = user1 if deleted == "user1" else user2
+            deleted_user.is_active = False
+            deleted_user.save(update_fields=["is_active"])
+
+        return user1, user2, match
+
+    def test_m031_still_sends_when_both_users_are_active(self):
+        user1, user2, match = self._create_m031_match("active")
+
+        result = automatic_emails_m031_m032_m033_m042()
+
+        assert str(match.uuid) in result["matches_m031"]
+        sent_user_ids = {call.kwargs["user_id"] for call in self.mock_send_email.delay.call_args_list}
+        assert sent_user_ids == {user1.id, user2.id}
+
+    def test_m031_skips_match_when_user1_account_was_deleted(self):
+        _user1, _user2, match = self._create_m031_match("deleted-u1", deleted="user1")
+
+        result = automatic_emails_m031_m032_m033_m042()
+
+        assert str(match.uuid) not in result["matches_m031"]
+        self.mock_send_email.delay.assert_not_called()
+
+    def test_m031_skips_match_when_user2_account_was_deleted(self):
+        _user1, _user2, match = self._create_m031_match("deleted-u2", deleted="user2")
+
+        result = automatic_emails_m031_m032_m033_m042()
+
+        assert str(match.uuid) not in result["matches_m031"]
         self.mock_send_email.delay.assert_not_called()

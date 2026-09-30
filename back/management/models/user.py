@@ -22,7 +22,6 @@ from management.permissions import ManagementPermission
 class PushNotificationType(StrEnum):
     CHAT = "chat"
     MATCH = "match"
-    RANDOM_CALL = "random_call_reminder"
     ANNOUNCEMENT = "announcement"
 
     @property
@@ -33,8 +32,6 @@ class PushNotificationType(StrEnum):
                 return "conversations"
             case PushNotificationType.MATCH:
                 return "conversations"
-            case PushNotificationType.RANDOM_CALL:
-                return "reminders"
             case PushNotificationType.ANNOUNCEMENT:
                 return "announcements"
         assert_never(self)
@@ -46,8 +43,6 @@ class PushNotificationType(StrEnum):
             case PushNotificationType.CHAT:
                 return "high"
             case PushNotificationType.MATCH:
-                return "high"
-            case PushNotificationType.RANDOM_CALL:
                 return "high"
             case PushNotificationType.ANNOUNCEMENT:
                 return "normal"
@@ -61,8 +56,6 @@ class PushNotificationType(StrEnum):
                 return "push_notifications_chats_enabled"
             case PushNotificationType.MATCH:
                 return "push_notifications_matches_enabled"
-            case PushNotificationType.RANDOM_CALL:
-                return "push_notifications_random_calls_enabled"
             case PushNotificationType.ANNOUNCEMENT:
                 return "push_notifications_announcements_enabled"
         assert_never(self)
@@ -442,13 +435,13 @@ class User(AbstractUser):
         there is a problem with authentication of the changed email check `user.state.past_emails`
         The user will still be allowed to use this api to change the email back
         there is the frontend `/change_email` for logged-in users
-        so if someone fasely changes their mail they can change it back
-        & user will be automaticly reidrected to `/mailverify/`
-        wich has a button `change-email` which redirects to `/change_email`
+        so if someone falsely changes their mail they can change it back
+        & user will be automatically redirected to `/mailverify/`
+        which has a button `change-email` which redirects to `/change_email`
         """
         from ..api.user import ChangeEmailSerializer
 
-        # We do an aditional email serialization here!
+        # We do an additional email serialization here!
         _s = ChangeEmailSerializer(data=dict(email=email))  # type: ignore
         _s.is_valid(raise_exception=True)
         prms = _s.save()
@@ -456,7 +449,7 @@ class User(AbstractUser):
         self.state.archive_email_adress(self.email)
         self.state.regnerate_email_auth_code()  # New auth code and pin !
 
-        # NOTE the save() method automaicly detects the email change and also changes the username
+        # NOTE the save() method automatically detects the email change and also changes the username
         # We do this so admins can edit emails in the admin pannel and changes are reflected as expected
         # self.username = prms.email  # <- so the user can login with that email now
         self.email = prms.email.lower()

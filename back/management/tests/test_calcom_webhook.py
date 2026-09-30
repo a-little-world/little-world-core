@@ -2,6 +2,7 @@ import json
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
 from management.api.calcom import (
     _extract_attendee_nested_response,
@@ -21,14 +22,18 @@ def _booking_payload(
     responses=None,
     user_fields=None,
     attendees=None,
+    uid=None,
 ):
-    return {
+    payload = {
         "startTime": start_time,
         "endTime": end_time,
         "responses": responses or {},
         "userFieldsResponses": user_fields or {},
         "attendees": attendees or [],
     }
+    if uid is not None:
+        payload["uid"] = uid
+    return payload
 
 
 class TestCalcomFieldExtraction(TestCase):
@@ -349,3 +354,180 @@ class TestCalcomWebhookCallback(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(PreMatchingAppointment.objects.filter(user=real_user).exists())
         self.mock_message.assert_called_once()
+
+    def test_booking_created_stores_calcom_uid(self):
+        user = self._create_user("uid@example.com", Profile.TypeChoices.LEARNER, "Uid")
+        payload = _booking_payload(
+            responses={"email": {"value": "uid@example.com"}},
+            attendees=[{"email": "uid@example.com"}],
+            uid="booking-uid-1",
+        )
+
+        response = self._post({"triggerEvent": "BOOKING_CREATED", "payload": payload})
+
+        self.assertEqual(response.status_code, 200)
+        appointment = PreMatchingAppointment.objects.get(user=user)
+        self.assertEqual(appointment.calcom_booking_uid, "booking-uid-1")
+
+    def test_reschedule_updates_same_row_and_reschedules_reminders(self):
+        user = self._create_user("resched@example.com", Profile.TypeChoices.LEARNER, "Resched")
+        created_payload = _booking_payload(
+            responses={"email": {"value": "resched@example.com"}},
+            attendees=[{"email": "resched@example.com"}],
+            uid="booking-uid-1",
+        )
+        self._post({"triggerEvent": "BOOKING_CREATED", "payload": created_payload})
+        self.assertEqual(self.mock_push.apply_async.call_count, 1)
+        appointment = PreMatchingAppointment.objects.get(user=user)
+        original_uuid = appointment.uuid
+
+        rescheduled_payload = _booking_payload(
+            start_time="2026-09-04T15:00:00Z",
+            end_time="2026-09-04T16:00:00Z",
+            responses={"email": {"value": "resched@example.com"}},
+            attendees=[{"email": "resched@example.com"}],
+            uid="booking-uid-2",
+        )
+        rescheduled_payload["rescheduleUid"] = "booking-uid-1"
+
+        response = self._post({"triggerEvent": "BOOKING_RESCHEDULED", "payload": rescheduled_payload})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(PreMatchingAppointment.objects.filter(user=user).count(), 1)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.uuid, original_uuid)
+        self.assertEqual(appointment.calcom_booking_uid, "booking-uid-2")
+        self.assertEqual(appointment.start_time.isoformat(), "2026-09-04T15:00:00+00:00")
+        self.assertEqual(self.mock_push.apply_async.call_count, 2)
+
+    def test_booking_cancelled_deletes_row_and_cancels_sms(self):
+        user = self._create_user("cancel@example.com", Profile.TypeChoices.LEARNER, "Cancel")
+        payload = _booking_payload(
+            responses={"email": {"value": "cancel@example.com"}},
+            attendees=[{"email": "cancel@example.com"}],
+            uid="cancel-uid",
+        )
+        self._post({"triggerEvent": "BOOKING_CREATED", "payload": payload})
+        appointment = PreMatchingAppointment.objects.get(user=user)
+        appointment.sms_task = "sms-task-id"
+        appointment.save(update_fields=["sms_task"])
+
+        with patch("management.api.calcom.end_task") as mock_end_task:
+            response = self._post({"triggerEvent": "BOOKING_CANCELLED", "payload": payload})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(PreMatchingAppointment.objects.filter(user=user).exists())
+        mock_end_task.assert_called_once_with(task_id="sms-task-id")
+
+    def test_cancellation_for_superseded_uid_does_not_delete_newer_booking(self):
+        user = self._create_user("superseded@example.com", Profile.TypeChoices.LEARNER, "Superseded")
+        payload = _booking_payload(
+            responses={"email": {"value": "superseded@example.com"}},
+            attendees=[{"email": "superseded@example.com"}],
+            uid="new-uid",
+        )
+        self._post({"triggerEvent": "BOOKING_CREATED", "payload": payload})
+
+        stale_cancel = _booking_payload(
+            responses={"email": {"value": "superseded@example.com"}},
+            attendees=[{"email": "superseded@example.com"}],
+            uid="old-uid",
+        )
+        response = self._post({"triggerEvent": "BOOKING_CANCELLED", "payload": stale_cancel})
+
+        self.assertEqual(response.status_code, 200)
+        appointment = PreMatchingAppointment.objects.get(user=user)
+        self.assertEqual(appointment.calcom_booking_uid, "new-uid")
+
+    def test_new_booking_deletes_stale_duplicate_rows(self):
+        user = self._create_user("dup@example.com", Profile.TypeChoices.LEARNER, "Dup")
+        start = timezone.now()
+        PreMatchingAppointment.objects.create(user=user, start_time=start, end_time=start)
+        PreMatchingAppointment.objects.create(user=user, start_time=start, end_time=start)
+
+        payload = _booking_payload(
+            responses={"email": {"value": "dup@example.com"}},
+            attendees=[{"email": "dup@example.com"}],
+            uid="new-uid",
+        )
+        response = self._post({"triggerEvent": "BOOKING_CREATED", "payload": payload})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(PreMatchingAppointment.objects.filter(user=user).count(), 1)
+        appointment = PreMatchingAppointment.objects.get(user=user)
+        self.assertEqual(appointment.calcom_booking_uid, "new-uid")
+
+
+class TestAdminCreateAppointmentInvalidatesPrior(TestCase):
+    def test_create_appointment_for_user_deletes_prior_rows(self):
+        from rest_framework.test import APIClient
+
+        user = User.objects.create_user(
+            email="admin-appt@example.com",
+            password="Test123!",
+            first_name="Appt",
+            last_name="User",
+        )
+        start = timezone.now()
+        stale = PreMatchingAppointment.objects.create(user=user, start_time=start, end_time=start)
+
+        staff = User.objects.create_user(
+            email="staff@example.com",
+            password="Test123!",
+            first_name="Staff",
+            last_name="User",
+        )
+        staff.is_staff = True
+        staff.save(update_fields=["is_staff"])
+        client = APIClient()
+        client.force_authenticate(user=staff)
+
+        response = client.post(
+            "/api/matching/prematchingappointments/create_appointment_for_user/",
+            data={"user_id": user.id, "start_time": "2026-09-05T10:00:00Z"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(PreMatchingAppointment.objects.filter(user=user).count(), 1)
+        self.assertFalse(PreMatchingAppointment.objects.filter(pk=stale.pk).exists())
+
+
+class TestUserDataAppointmentLink(TestCase):
+    def test_returns_reschedule_link_once_uid_stored(self):
+        from management.api.user import get_user_data
+
+        user = User.objects.create_user(
+            email="link@example.com",
+            password="Test123!",
+            first_name="Link",
+            last_name="User",
+        )
+        start = timezone.now()
+        PreMatchingAppointment.objects.create(
+            user=user,
+            start_time=start,
+            end_time=start,
+            calcom_booking_uid="uid-abc",
+        )
+
+        data = get_user_data(user)
+
+        self.assertIn("rescheduleUid=uid-abc", data["calComAppointmentLink"])
+
+    def test_returns_prefill_link_without_uid(self):
+        from management.api.user import get_user_data
+
+        user = User.objects.create_user(
+            email="nolink@example.com",
+            password="Test123!",
+            first_name="No",
+            last_name="Link",
+        )
+        start = timezone.now()
+        PreMatchingAppointment.objects.create(user=user, start_time=start, end_time=start)
+
+        data = get_user_data(user)
+
+        self.assertNotIn("rescheduleUid", data["calComAppointmentLink"])
+        self.assertIn("bookingcode=", data["calComAppointmentLink"])

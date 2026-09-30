@@ -1,3 +1,4 @@
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -6,7 +7,8 @@ from chat.models import Message as ChatMessage
 from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
+from django.utils import timezone
 from management.api.user_advanced_filter import (
     get_user_with_message_to_admin,
     get_user_with_message_to_admin_that_are_read_but_not_replied,
@@ -21,7 +23,7 @@ from open_chat.basic_chat_interaction import (
     build_basic_chat_interaction_system_prompt,
     open_chat_basic_chat_interaction,
 )
-from open_chat.helpers import rewrite_open_chat_url_for_browser
+from open_chat.helpers import build_chat_transcript, rewrite_open_chat_url_for_browser
 from open_chat.interaction_config import (
     DEFAULT_OPEN_CHAT_MAX_TOKENS,
     DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS,
@@ -170,7 +172,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         else:
             cls.automation_user = cls.admin_user
         # Automation is granted MATCHING_USER in production so it can use the panel;
-        # support-reply creation must still accept its messages.
+        # support-reply creation must still skip its messages.
         cls.automation_user.user_permissions.add(matching_user_permission)
 
         cls.source_user = User.objects.create_user(
@@ -323,7 +325,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
 
     @patch("open_chat.message_reply_suggestion.current_app.send_task")
-    def test_create_support_reply_accepts_open_chat_automation_sender(self, mock_send_task):
+    def test_create_support_reply_skips_open_chat_automation_sender(self, mock_send_task):
         from open_chat.message_reply_suggestion import (
             create_or_reuse_support_reply_task_for_message,
         )
@@ -350,13 +352,14 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             enqueue_interaction=True,
         )
 
-        self.assertEqual(result["status"], "created_and_enqueued")
-        self.assertTrue(
+        self.assertEqual(result["status"], "skipped_automation_sender")
+        self.assertFalse(
             SupportTaskAction.objects.filter(
                 action_type="support_reply",
                 static_parameters__message_uuid=str(message.uuid),
             ).exists()
         )
+        mock_send_task.assert_not_called()
 
     @patch("open_chat.basic_chat_interaction.ensure_rest_tool_definitions")
     @patch("chat.consumers.messages.NewMessage.send")
@@ -473,15 +476,49 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             SimpleNamespace(open_chat_host=DEFAULT_OPEN_CHAT_HOST),
         )
 
-        result = open_chat_run_message_reply_suggestion_interaction(
-            configuration_user_uuid=str(self.admin_user.uuid),
-            chat_uuid=str(self.chat.uuid),
-            message_uuid=str(self.source_message.uuid),
-            sender_uuid=str(self.source_user.uuid),
-            recipient_uuid=str(self.admin_user.uuid),
-            user_message_text=self.source_message.text,
-            support_task_id=support_task.pk,
+        older_user_message = ChatMessage.objects.create(
+            chat=self.chat,
+            sender=self.source_user,
+            recipient=self.admin_user,
+            text="Earlier user question",
         )
+        older_support_message = ChatMessage.objects.create(
+            chat=self.chat,
+            sender=self.admin_user,
+            recipient=self.source_user,
+            text="Earlier support answer",
+        )
+        parsable_message = ChatMessage.objects.create(
+            chat=self.chat,
+            sender=self.source_user,
+            recipient=self.admin_user,
+            text='{"type": "interaction"}',
+            parsable_message=True,
+        )
+        earlier = timezone.now() - timedelta(days=1)
+        ChatMessage.objects.filter(
+            pk__in=[older_user_message.pk, older_support_message.pk, parsable_message.pk]
+        ).update(created=earlier)
+
+        expected_transcript = build_chat_transcript(
+            str(self.chat.uuid),
+            support_user_id=self.admin_user.pk,
+        )
+        support_context_sentinel = "SENTINEL_SUPPORT_HANDBOOK"
+
+        with patch(
+            "open_chat.message_reply_suggestion.build_support_context_prompt_section",
+            return_value=support_context_sentinel,
+        ):
+            result = open_chat_run_message_reply_suggestion_interaction(
+                configuration_user_uuid=str(self.admin_user.uuid),
+                chat_uuid=str(self.chat.uuid),
+                message_uuid=str(self.source_message.uuid),
+                sender_uuid=str(self.source_user.uuid),
+                recipient_uuid=str(self.admin_user.uuid),
+                user_message_text=self.source_message.text,
+                support_task_id=support_task.pk,
+            )
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(result["shared_url"], expected_shared_url)
@@ -492,10 +529,20 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertTrue(interact_kwargs["share"])
         self.assertEqual(interact_kwargs["message"], self.source_message.text)
         overrides = interact_kwargs["overrides"]
-        self.assertEqual(overrides["system_prompt"], build_message_reply_suggestion_system_prompt())
+        self.assertEqual(
+            overrides["system_prompt"],
+            build_message_reply_suggestion_system_prompt(
+                support_context=support_context_sentinel,
+                conversation_context=expected_transcript,
+            ),
+        )
+        self.assertIn(support_context_sentinel, overrides["system_prompt"])
+        self.assertIn("Earlier user question", overrides["system_prompt"])
+        self.assertIn("Earlier support answer", overrides["system_prompt"])
+        self.assertNotIn('{"type": "interaction"}', overrides["system_prompt"])
         self.assertIn(RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME, overrides["system_prompt"])
         self.assertIn(MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME, overrides["system_prompt"])
-        self.assertIn("the ONLY way to persist a reply draft", overrides["system_prompt"])
+        self.assertIn("the ONLY way to persist the suggested outcome", overrides["system_prompt"])
         self.assertEqual(overrides["context"], MESSAGE_REPLY_SUGGESTION_CONTEXT)
         self.assertEqual(overrides["max_tokens"], DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS)
         self.assertEqual(overrides["temperature"], 0.1)
@@ -613,3 +660,49 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
 
         self.assertEqual(result["status"], "ok")
         mock_create_session.assert_called_once_with(support_task.created_by)
+
+
+class BuildMessageReplySuggestionPromptTests(SimpleTestCase):
+    def test_omits_context_sections_when_context_is_empty(self):
+        prompt = build_message_reply_suggestion_system_prompt(
+            support_context="",
+            conversation_context="",
+        )
+
+        self.assertNotIn("Support handbook and reply templates", prompt)
+        self.assertNotIn("Conversation context", prompt)
+
+    def test_injects_support_and_conversation_context_in_order(self):
+        prompt = build_message_reply_suggestion_system_prompt(
+            support_context="Support handbook and reply templates (authoritative guidance):\nHALLMARK",
+            conversation_context="[2026-01-01 10:00] User: hi",
+        )
+
+        self.assertIn("HALLMARK", prompt)
+        self.assertIn("Conversation context (oldest → newest):", prompt)
+        self.assertIn("[2026-01-01 10:00] User: hi", prompt)
+        self.assertLess(prompt.index("HALLMARK"), prompt.index("Your tools:"))
+        self.assertLess(prompt.index("Conversation context (oldest"), prompt.index("Reminder:"))
+
+    def test_skills_section_is_omitted_by_default(self):
+        prompt = build_message_reply_suggestion_system_prompt(
+            support_context="",
+            conversation_context="",
+            include_skills=False,
+        )
+
+        self.assertNotIn("Outcome skills", prompt)
+
+    def test_skills_section_lists_outcomes_and_threads_when_enabled(self):
+        prompt = build_message_reply_suggestion_system_prompt(
+            support_context="",
+            conversation_context="",
+            include_skills=True,
+            slack_threads=[{"key": "praise", "label": "Praise"}],
+        )
+
+        self.assertIn("Outcome skills", prompt)
+        self.assertIn("mark_read", prompt)
+        self.assertIn("slack_feedback", prompt)
+        self.assertIn("keep_open", prompt)
+        self.assertIn("Available Slack thread keys: praise", prompt)

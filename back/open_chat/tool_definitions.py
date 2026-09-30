@@ -69,9 +69,14 @@ def build_message_reply_suggestion_rest_tool_definition(api_host: str | None = N
         RESTToolBuilder(
             MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
             (
-                "Persist the final support reply draft on the open support task action. "
-                "You MUST call this tool exactly once as your last step with the complete draft in "
-                '`parameters`, e.g. {"message": "<full suggested reply>"}. '
+                "Persist the final suggested outcome on the open support task action. "
+                "You MUST call this tool exactly once as your last step with the complete "
+                '`parameters`, e.g. {"suggested_action": "reply", "message": "<full suggested reply>"}. '
+                "`parameters.suggested_action` is one of: "
+                '"reply" (default, user-visible reply in `message`), '
+                '"mark_read" (mark the user message read and close the ticket), '
+                '"slack_feedback" (post `slack_message` to the Slack thread `slack_thread`), '
+                '"keep_open" (keep the ticket open, optional `scheduled_at` and `note`). '
                 "If you do not call this tool, no suggestion is saved for the support task."
             ),
         )

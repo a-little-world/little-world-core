@@ -3,6 +3,7 @@ from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.urls import path
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.authentication import SessionAuthentication
@@ -30,6 +31,7 @@ from management.models.support_task import (
 )
 from management.models.user import User
 from management.permissions import ManagementPermission, users_with_effective_permission
+from management.support_reply_outcomes import log_support_reply_outcome
 
 
 def _users_for_ids(user_ids: list[int]) -> list[User]:
@@ -250,6 +252,7 @@ def support_task_detail(request, pk):
             .prefetch_related(
                 "assignees__profile",
                 "notes__completed_by__profile",
+                "notes__created_by__profile",
                 "notes__history__changed_by__profile",
             )
             .get(pk=pk)
@@ -310,6 +313,17 @@ def support_task_action_update(request, task_pk):
     return Response(SupportTaskActionSerializer(action).data)
 
 
+def _support_reply_outcome_note(action: SupportTaskAction) -> str | None:
+    """Return the audit note for a support_reply outcome that changes ticket state."""
+    suggested_action = ((action.parameters or {}).get("suggested_action") or "reply").strip()
+    if suggested_action == "mark_read":
+        return "Message marked as read and ticket closed."
+    if suggested_action == "slack_feedback":
+        thread = ((action.parameters or {}).get("slack_thread") or "").strip() or "default"
+        return f"Posted support feedback to Slack thread '{thread}' and closed the ticket."
+    return None
+
+
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAdminOrMatchingUser])
@@ -330,8 +344,77 @@ def support_task_action_execute(request, task_pk):
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+    if action.action_type == "support_reply":
+        note_text = _support_reply_outcome_note(action)
+        if note_text:
+            log_support_reply_outcome(action, request.user, note_text)
+
     action.resolve(SupportTaskAction.Status.EXECUTED, request.user)
     return Response(SupportTaskActionSerializer(action).data)
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAdminOrMatchingUser])
+def support_task_action_keep_open(request, task_pk):
+    """Keep a support-reply task open for further processing, optionally rescheduling it."""
+    try:
+        task = SupportTask.objects.select_related("action").get(pk=task_pk)
+    except SupportTask.DoesNotExist:
+        return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    action = task.action
+
+    if action.action_type != "support_reply":
+        return Response(
+            {"error": "keep_open is only supported for support_reply actions"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if action.status != SupportTaskAction.Status.OPEN:
+        return Response({"error": "Action already processed"}, status=status.HTTP_400_BAD_REQUEST)
+
+    parameters = dict(action.parameters or {})
+    provided = request.data.get("parameters")
+    if isinstance(provided, dict):
+        parameters.update(provided)
+    else:
+        for key in ("note", "scheduled_at", "message", "slack_message", "slack_thread"):
+            if key in request.data:
+                parameters[key] = request.data[key]
+    parameters["suggested_action"] = "keep_open"
+
+    scheduled_at = None
+    scheduled_raw = (parameters.get("scheduled_at") or "").strip()
+    if scheduled_raw:
+        scheduled_at = parse_datetime(scheduled_raw)
+        if scheduled_at is None:
+            return Response({"error": "scheduled_at must be an ISO 8601 datetime"}, status=status.HTTP_400_BAD_REQUEST)
+        if timezone.is_naive(scheduled_at):
+            scheduled_at = timezone.make_aware(scheduled_at)
+
+    action.parameters = parameters
+    action.save(update_fields=["parameters"], changed_by=request.user)
+
+    task.status = SupportTask.Status.IN_PROGRESS
+    task.scheduled_at = scheduled_at
+    task.save(update_fields=["status", "scheduled_at", "updated_at"], changed_by=request.user)
+
+    note_text = (parameters.get("note") or "").strip()
+    if note_text:
+        log_support_reply_outcome(action, request.user, note_text)
+
+    task.claim_if_unassigned(request.user)
+    return Response(SupportTaskActionSerializer(action).data)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAdminOrMatchingUser])
+def support_task_slack_threads(request):
+    """List configured support-feedback Slack threads (keys/labels only, no secrets)."""
+    from management.api.slack import list_support_feedback_threads
+
+    return Response(list_support_feedback_threads())
 
 
 @api_view(["POST"])
@@ -466,7 +549,7 @@ def support_task_note_create(request, task_pk):
     if not text:
         return Response({"error": "Note text is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    note = SupportTaskNote(task=task, text=text)
+    note = SupportTaskNote(task=task, text=text, created_by=request.user)
     note.save(changed_by=request.user)
     return Response(SupportTaskNoteSerializer(note).data, status=status.HTTP_201_CREATED)
 
@@ -509,10 +592,12 @@ api_urls = [
     path("api/support_task/open_assigned_count/<int:user_pk>/", open_assigned_support_task_count),
     path("api/support_task/assignee_users/", assignee_users),
     path("api/support_task/user_search/", user_search),
+    path("api/support_task/slack_threads/", support_task_slack_threads),
     path("api/support_task/<int:pk>/", support_task_detail),
     path("api/support_task/<int:pk>/update/", support_task_update),
     path("api/support_task/<int:task_pk>/action/", support_task_action_update),
     path("api/support_task/<int:task_pk>/action/execute/", support_task_action_execute),
+    path("api/support_task/<int:task_pk>/action/keep_open/", support_task_action_keep_open),
     path("api/support_task/<int:task_pk>/action/cancel/", support_task_action_cancel),
     path("api/support_task/<int:task_pk>/notes/", support_task_note_create),
     path("api/support_task/notes/<int:note_pk>/", support_task_note_detail),

@@ -60,6 +60,7 @@ from management.api.question_cards import (
     get_question_cards,
 )
 from management.api.scores import api_urls as scores_api_urls
+from management.api.search_activation import api_urls as search_activation_api_urls
 from management.api.short_links import api_urls as short_links_api_urls
 from management.api.still_in_contact import api_urls as still_in_contact_api_urls
 from management.api.user import api_urls as user_api_urls
@@ -175,6 +176,7 @@ api_routes = [
     *open_chat_api_urls,
     *matching_users_advanced_api_urls,
     *still_in_contact_api_urls,
+    *search_activation_api_urls,
     *journey_overview.api_urls,
     *match_success.api_urls,
     *scores_advanced.api_urls,

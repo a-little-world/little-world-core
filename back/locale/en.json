@@ -3,6 +3,7 @@
   "auto_messages.match_message": null,
   "auto_messages.appointment_booked": null,
   "auto_messages.still_in_contact": null,
+  "auto_messages.m041_after_first_call": null,
   "val.first_name_unallowed_chars": "First name contains invalid characters: {chars}",
   "val.second_name_too_many_spaces": "Please use only one space between the names.",
   "val.second_name_unallowed_chars": "Second name contains invalid characters",
@@ -494,5 +495,11 @@
   "info_card.still_in_contact_yes.link_text": "Back to app",
   "info_card.still_in_contact_no.title": "Thank you for your feedback!",
   "info_card.still_in_contact_no.content": "You have selected that you are not in contact anymore. Please give us feedback on your match.",
-  "info_card.still_in_contact_no.link_text": "Back to app"
+  "info_card.still_in_contact_no.link_text": "Back to app",
+  "info_card.activate_searching_success.title": "Searching activated!",
+  "info_card.activate_searching_success.content": "Your profile is active again and we are looking for a matching person for you.",
+  "info_card.activate_searching_success.link_text": "Back to app",
+  "info_card.activate_searching_failure.title": "Invalid link",
+  "info_card.activate_searching_failure.content": "This link is unfortunately invalid. Please log in to the app to activate your search.",
+  "info_card.activate_searching_failure.link_text": "Back to app"
 }

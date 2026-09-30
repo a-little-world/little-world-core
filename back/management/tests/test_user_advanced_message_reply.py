@@ -1,11 +1,11 @@
 from unittest.mock import patch
 
 from chat.helpers import MessageSendValidationError, process_message_attachment
-from chat.models import Message
+from chat.models import Chat, Message
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from management.controller import get_base_management_user
@@ -13,6 +13,7 @@ from management.models.matches import Match
 from management.models.support_task import SupportTask, SupportTaskAction
 from management.models.user import User
 from management.permissions import ManagementPermission
+from management.support_reply_outcomes import READ_CLOSURE_NOTE
 
 
 class MessageSendHelperTests(TestCase):
@@ -202,3 +203,132 @@ class AdvancedUserMessageReplyTests(TestCase):
         response = client.post(endpoint, {"message": "Blocked manager reply"}, format="json")
 
         self.assertEqual(response.status_code, 404)
+
+    @patch("chat.helpers.send_email_background.delay")
+    @patch("chat.consumers.messages.NewMessage.send")
+    def test_message_mark_read_closes_support_reply_task_and_logs_note(self, _mock_new_message_send, _mock_email):
+        base_management_user = get_base_management_user()
+        chat = Chat.objects.create(u1=self.target_user, u2=base_management_user, is_temporary=False)
+        message = Message.objects.create(
+            chat=chat,
+            sender=self.target_user,
+            recipient=base_management_user,
+            text="Please close this",
+            read=False,
+        )
+        support_task = SupportTask.create_of_type(
+            "support_reply",
+            static_parameters={
+                "help_message_id": None,
+                "kind_display": "Open Chat",
+                "message_preview": message.text,
+                "message_uuid": str(message.uuid),
+                "chat_uuid": str(chat.uuid),
+                "sender_user_id": self.target_user.pk,
+                "recipient_user_id": base_management_user.pk,
+            },
+            parameters={"message": ""},
+            created_by=self.support_user,
+            related_user=self.target_user,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.support_user)
+        response = client.post(
+            f"/api/matching/users/{self.target_user.pk}/message_mark_read/",
+            {"message_id": str(message.uuid)},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["support_task_closed"])
+        self.assertEqual(response.data["support_task_id"], support_task.pk)
+
+        message.refresh_from_db()
+        support_task.refresh_from_db()
+        self.assertTrue(message.read)
+        self.assertEqual(support_task.status, SupportTask.Status.COMPLETED)
+        self.assertEqual(support_task.action.status, SupportTaskAction.Status.EXECUTED)
+
+        note = support_task.notes.get(text=READ_CLOSURE_NOTE)
+        self.assertEqual(note.created_by_id, self.support_user.pk)
+
+    def test_keep_open_keeps_task_open_and_reschedules(self):
+        support_task = self._build_open_support_reply_task()
+
+        client = APIClient()
+        client.force_authenticate(user=self.support_user)
+        response = client.post(
+            f"/api/support_task/{support_task.pk}/action/keep_open/",
+            {
+                "parameters": {
+                    "note": "Waiting for the user's documents",
+                    "scheduled_at": "2030-01-01T10:00:00Z",
+                }
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        support_task.refresh_from_db()
+        support_action = SupportTaskAction.objects.get(task=support_task)
+
+        self.assertEqual(support_task.status, SupportTask.Status.IN_PROGRESS)
+        self.assertIsNotNone(support_task.scheduled_at)
+        self.assertEqual(support_action.status, SupportTaskAction.Status.OPEN)
+        self.assertEqual(support_action.parameters.get("suggested_action"), "keep_open")
+        note = support_task.notes.get(text="Waiting for the user's documents")
+        self.assertEqual(note.created_by_id, self.support_user.pk)
+
+    def test_keep_open_rejects_invalid_scheduled_at(self):
+        support_task = self._build_open_support_reply_task()
+
+        client = APIClient()
+        client.force_authenticate(user=self.support_user)
+        response = client.post(
+            f"/api/support_task/{support_task.pk}/action/keep_open/",
+            {"parameters": {"scheduled_at": "not-a-date"}},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        support_task.refresh_from_db()
+        self.assertEqual(support_task.status, SupportTask.Status.NEW)
+
+    @override_settings(
+        USE_SLACK_INTEGRATION=True,
+        SLACK_SUPPORT_FEEDBACK_THREADS={"praise": {"channel_id": "C123", "thread_ts": "1.234", "label": "Praise"}},
+    )
+    @patch("slack_sdk.WebClient.chat_postMessage")
+    def test_slack_feedback_execute_posts_to_thread_and_logs_note(self, mock_chat_post_message):
+        support_task = self._build_open_support_reply_task()
+        support_action = SupportTaskAction.objects.get(task=support_task)
+        support_action.parameters = {
+            "suggested_action": "slack_feedback",
+            "slack_message": "Thank you for the lovely feedback!",
+            "slack_thread": "praise",
+        }
+        support_action.save(update_fields=["parameters"])
+
+        client = APIClient()
+        client.force_authenticate(user=self.support_user)
+        response = client.post(
+            f"/api/support_task/{support_task.pk}/action/execute/",
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mock_chat_post_message.assert_called_once()
+        _, kwargs = mock_chat_post_message.call_args
+        self.assertEqual(kwargs["channel"], "C123")
+        self.assertEqual(kwargs["thread_ts"], "1.234")
+        self.assertIn("Thank you for the lovely feedback!", kwargs["text"])
+
+        support_task.refresh_from_db()
+        support_action.refresh_from_db()
+        self.assertEqual(support_action.status, SupportTaskAction.Status.EXECUTED)
+        self.assertEqual(support_task.status, SupportTask.Status.COMPLETED)
+        note = support_task.notes.get()
+        self.assertEqual(note.created_by_id, self.support_user.pk)
+        self.assertIn("praise", note.text)

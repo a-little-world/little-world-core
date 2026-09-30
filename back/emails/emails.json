@@ -66,14 +66,6 @@
       "template": "react_emails/expired-match.html",
       "theme": "little-world"
     },
-    "new-match": {
-      "id": "new-match",
-      "sender_id": "noreply",
-      "category_id": "automated",
-      "subject": "Gl\u00fcckwunsch! Lerne jetzt {{ partner_first_name }} kennen",
-      "template": "react_emails/new-match.html",
-      "theme": "little-world"
-    },
     "new-messages": {
       "id": "new-messages",
       "sender_id": "noreply",
@@ -370,6 +362,14 @@
       "template": "react_emails/automatic-emails-m044.html",
       "theme": "little-world"
     },
+    "automatic-emails-m011": {
+      "id": "automatic-emails-m011",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Lerne jetzt {{ partner_first_name }} kennen \ud83c\udf89",
+      "template": "react_emails/automatic-emails-m011.html",
+      "theme": "little-world"
+    },
     "automatic-emails-m012": {
       "id": "automatic-emails-m012",
       "sender_id": "noreply",
@@ -392,6 +392,14 @@
       "category_id": "automated",
       "subject": "Bitte nimm Kontakt zu deinem Match auf \ud83e\udd1d",
       "template": "react_emails/automatic-emails-m014.html",
+      "theme": "little-world"
+    },
+    "automatic-emails-m022": {
+      "id": "automatic-emails-m022",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "\ud83d\udcac Starte jetzt den Austausch mit deinem neuen Match",
+      "template": "react_emails/automatic-emails-m022.html",
       "theme": "little-world"
     },
     "automatic-emails-m023": {
@@ -617,6 +625,13 @@
         "user"
       ]
     },
+    "activate_searching_url": {
+      "id": "activate_searching_url",
+      "lookup": "emails.api.template_lookup.activate_searching_url",
+      "depends_on": [
+        "user"
+      ]
+    },
     "verification_code": {
       "id": "verification_code",
       "lookup": "emails.api.template_lookup.verification_code",
@@ -676,6 +691,11 @@
       "depends_on": [
         "user"
       ]
+    },
+    "intercultural_communication_training_url": {
+      "id": "intercultural_communication_training_url",
+      "lookup": "emails.api.template_lookup.intercultural_communication_training_url",
+      "depends_on": []
     },
     "newsletter_subscribe_url": {
       "id": "newsletter_subscribe_url",

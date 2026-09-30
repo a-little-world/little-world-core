@@ -1,4 +1,5 @@
-from django.db.models import Q
+from django.db.models import DurationField, ExpressionWrapper, F, Q
+from django.db.models.functions import Coalesce, Now
 from django.urls import path
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -12,6 +13,11 @@ from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.profile import MinimalProfileSerializer
 from management.models.user import User
 from management.permissions import ManagementPermission
+
+VIDEO_CALL_LISTS = (
+    ("all", "All calls"),
+    ("unusual_length", "Unusual length"),
+)
 
 
 def _format_session_duration(created_at, end_time):
@@ -32,14 +38,22 @@ def _format_session_duration(created_at, end_time):
     return f"{minutes} minutes ({seconds}s)"
 
 
-def _session_minutes(created_at, end_time) -> float:
-    """Length of this one call, in minutes.
+def _annotate_duration(queryset):
+    """Elapsed duration as a sortable DB column.
 
-    Deliberately not tokens. Tokens are a property of the *match*, banded on minutes
-    summed across all its calls, so a per-session token figure does not add up to the
-    match's total — three 205-minute calls would read 8 + 8 + 8 against a match showing 8.
-    Reporting the raw minutes leaves the column meaningful and additive.
+    Uses ``now()`` in place of a missing ``end_time`` so a still-open, long-running
+    session sorts by how long it has been open so far, rather than being dropped
     """
+    return queryset.annotate(
+        duration=ExpressionWrapper(
+            Coalesce(F("end_time"), Now()) - F("created_at"),
+            output_field=DurationField(),
+        )
+    )
+
+
+def _session_minutes(created_at, end_time) -> float:
+    """Length of this one call, in minutes."""
     if not created_at or not end_time:
         return 0.0
 
@@ -57,6 +71,7 @@ class AdvancedLivekitSessionSerializer(serializers.ModelSerializer):
             "u1",
             "u2",
             "both_have_been_active",
+            "unusual_length",
             "random_call_session",
             "u1_was_active",
             "u2_was_active",
@@ -86,6 +101,7 @@ class AdvancedLivekitSessionSerializer(serializers.ModelSerializer):
             representation["status"] = "inactive"
 
         representation["both_have_been_active"] = instance.both_have_been_active
+        representation["unusual_length"] = instance.unusual_length
         representation["random_call_session"] = instance.random_call_session
         representation["call_type"] = "random" if instance.random_call_session else "standard"
         representation["u1_was_active"] = instance.u1_was_active
@@ -136,6 +152,11 @@ class LivekitSessionFilter(filters.FilterSet):
             return queryset.filter(random_call_session=False)
         return queryset
 
+    def filter_list(self, queryset, name, value):
+        if value == "unusual_length":
+            return queryset.filter(unusual_length=True)
+        return queryset
+
     created_between = filters.DateFromToRangeFilter(
         field_name="created_at", help_text="Range filter for when the session was created, accepts string datetimes"
     )
@@ -150,10 +171,22 @@ class LivekitSessionFilter(filters.FilterSet):
         field_name="both_have_been_active", help_text="Filter for sessions where both users were active"
     )
 
+    unusual_length = filters.BooleanFilter(
+        field_name="unusual_length", help_text="Filter for sessions flagged with an unusual call length"
+    )
+
+    list = filters.ChoiceFilter(
+        field_name="list",
+        choices=VIDEO_CALL_LISTS,
+        method="filter_list",
+        help_text="Named video-call list",
+    )
+
     order_by = filters.OrderingFilter(
         fields=(
             ("created_at", "created_at"),
             ("end_time", "end_time"),
+            ("duration", "duration"),
             ("u1", "u1"),
             ("u2", "u2"),
             ("is_active", "is_active"),
@@ -171,7 +204,7 @@ class LivekitSessionFilter(filters.FilterSet):
     retrieve=extend_schema(summary="Retrieve Livekit session"),
 )
 class AdvancedVideoCallsViewset(viewsets.ModelViewSet):
-    queryset = LivekitSession.objects.all().order_by("-created_at")
+    queryset = _annotate_duration(LivekitSession.objects.all()).order_by("-created_at")
 
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = LivekitSessionFilter
@@ -185,20 +218,12 @@ class AdvancedVideoCallsViewset(viewsets.ModelViewSet):
         if not isinstance(user, User):
             return LivekitSession.objects.none()
         if user.is_staff:
-            return LivekitSession.objects.all()
+            return _annotate_duration(LivekitSession.objects.all()).order_by("-created_at")
         elif user.has_perm(ManagementPermission.MATCHING_USER):
             managed_users = user.managed_users_queryset(active_only=False)
-            return LivekitSession.objects.filter(Q(u1__in=managed_users) | Q(u2__in=managed_users))
-
-    def check_management_user_access(self, session, request):
-        user = session.get_partner(request.user)
-
-        if not request.user.is_staff and not request.user.has_perm(ManagementPermission.MATCHING_USER):
-            return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
-
-        if not request.user.is_staff and not request.user.has_management_access(user):
-            return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
-        return True, None
+            return _annotate_duration(
+                LivekitSession.objects.filter(Q(u1__in=managed_users) | Q(u2__in=managed_users))
+            ).order_by("-created_at")
 
     @extend_schema(responses={200: FilterSchemaResponseSerializer})
     @action(detail=False, methods=["get"])
@@ -207,7 +232,12 @@ class AdvancedVideoCallsViewset(viewsets.ModelViewSet):
         filterset = self.filterset_class()
         _filters = filterset_schema_dict(filterset, include_lookup_expr, "/api/video-calls/livekit-sessions/", request)
 
-        return Response({"filters": _filters, "lists": []})
+        return Response(
+            {
+                "filters": _filters,
+                "lists": [{"name": name, "label": label, "display_name": label} for name, label in VIDEO_CALL_LISTS],
+            }
+        )
 
     def get_object(self):
         if isinstance(self.kwargs["pk"], int):

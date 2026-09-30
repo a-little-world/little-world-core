@@ -10,6 +10,12 @@ from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_K
 from management import controller
 from management.models.user import User
 
+from open_chat.interaction_config import (
+    DEFAULT_OPEN_CHAT_SUGGESTION_HISTORY_LIMIT,
+    DEFAULT_OPEN_CHAT_SUGGESTION_HISTORY_MAX_CHARS,
+    DEFAULT_OPEN_CHAT_SUGGESTION_HISTORY_MESSAGE_MAX_CHARS,
+)
+
 FALLBACK_USER_MESSAGE = "Hallo"
 
 _T = TypeVar("_T")
@@ -226,6 +232,50 @@ def interaction_called_tool(interaction: InteractionSession, tool_name: str) -> 
         if any(_tool_call_name(tc) == tool_name for tc in value_or(message.tool_calls, [])):
             return True
     return False
+
+
+def build_chat_transcript(
+    chat_uuid,
+    *,
+    support_user_id: int,
+    limit: int = DEFAULT_OPEN_CHAT_SUGGESTION_HISTORY_LIMIT,
+    max_message_chars: int = DEFAULT_OPEN_CHAT_SUGGESTION_HISTORY_MESSAGE_MAX_CHARS,
+    max_chars: int = DEFAULT_OPEN_CHAT_SUGGESTION_HISTORY_MAX_CHARS,
+) -> str:
+    """Build a bounded, oldest-first transcript of a chat for prompt context.
+
+    Message text is deliberately sent in the interaction payload/prompt rather
+    than retrieved through the (PII-censored) tools. JSON interaction/link rows
+    (``parsable_message=True``) are excluded; the newest ``limit`` messages are
+    kept and the result is trimmed to the most recent ``max_chars`` characters.
+    """
+    from chat.models import Message as ChatMessage
+    from django.utils import timezone
+
+    recent_messages = list(
+        ChatMessage.objects.filter(chat__uuid=chat_uuid, parsable_message=False)
+        .select_related("sender")
+        .order_by("-created", "-id")[:limit]
+    )
+    recent_messages.reverse()
+
+    lines: list[str] = []
+    for message in recent_messages:
+        text = " ".join((message.text or "").split())
+        if not text:
+            continue
+        if max_message_chars and len(text) > max_message_chars:
+            text = text[: max_message_chars - 1].rstrip() + "…"
+        role = "Support" if message.sender_id == support_user_id else "User"
+        timestamp = timezone.localtime(message.created).strftime("%Y-%m-%d %H:%M")
+        lines.append(f"[{timestamp}] {role}: {text}")
+
+    transcript = "\n".join(lines)
+    if not transcript:
+        return ""
+    if max_chars and len(transcript) > max_chars:
+        transcript = "…[earlier messages truncated]…\n" + transcript[-max_chars:]
+    return transcript
 
 
 def resolve_open_chat_automation_task_creator_user() -> User | None:

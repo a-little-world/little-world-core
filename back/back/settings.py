@@ -119,7 +119,6 @@ REDIS_PROTOCOL = os.environ.get(
 )
 REDIS_PASSWORD = os.environ.get("DJ_REDIS_PASSWORD", None)
 
-USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
 REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
 REDIS_URL = os.environ.get(
     "REDIS_URL", f"{REDIS_PROTOCOL}://{REDIS_HOST}:{REDIS_PORT}"
@@ -192,6 +191,23 @@ SLACK_API_TOKEN = os.environ.get("DJ_SLACK_API_TOKEN", "")
 SLACK_REPORT_CHANNEL_ID = os.environ.get("DJ_SLACK_REPORT_CHANNEL_ID", "")
 SLACK_CALLBACK_SECRET = os.environ.get("DJ_SLACK_CALLBACK_SECRET", "")
 
+# Support-feedback Slack destination for the Open Chat reply-suggestion
+# "slack_feedback" skill. Either a single default thread (channel + thread_ts)
+# or a named map of threads the agent can target by key.
+SLACK_SUPPORT_FEEDBACK_CHANNEL_ID = os.environ.get("DJ_SLACK_SUPPORT_FEEDBACK_CHANNEL_ID", "")
+SLACK_SUPPORT_FEEDBACK_THREAD_TS = os.environ.get("DJ_SLACK_SUPPORT_FEEDBACK_THREAD_TS", "")
+
+
+def _parse_json_dict(raw: str) -> dict:
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+SLACK_SUPPORT_FEEDBACK_THREADS = _parse_json_dict(os.environ.get("DJ_SLACK_SUPPORT_FEEDBACK_THREADS", ""))
+
 USE_AI = os.environ.get("DJ_USE_AI", "false").lower() in ("true", "1", "t")
 AI_BASE_URL = os.environ.get("DJ_AI_BASE_URL", "http://localhost:8000")
 AI_API_KEY = os.environ.get("DJ_AI_API_KEY", "none")
@@ -256,7 +272,6 @@ INSTALLED_APPS = [
     "drf_spectacular",  # for api shema generation
     "drf_spectacular_sidecar",  # statics for redoc and swagger
     *(["django_spaghetti"] if ENABLE_SPAGHETTI else []),
-    *(["debug_toolbar"] if USE_DEBUG_TOOLBAR else []),
     "webpack_loader",  # Load bundled webpack files, check `./run.py front`
     "storages",  # django storages managing s3 bucket files!
     "django.contrib.admin",
@@ -290,7 +305,6 @@ MIDDLEWARE = [
         if (BUILD_TYPE == BuildType.DEVELOPMENT or DOCS_BUILD or USE_WHITENOISE)
         else []
     ),
-    *(["debug_toolbar.middleware.DebugToolbarMiddleware"] if USE_DEBUG_TOOLBAR else []),
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet",
@@ -314,26 +328,6 @@ MIDDLEWARE_CLASSES = [
 if DEBUG:
     SECURE_CROSS_ORIGIN_OPENER_POLICY = None
     X_FRAME_OPTIONS = "ALLOWALL"
-
-    # Debug Toolbar settings
-    INTERNAL_IPS = [
-        "127.0.0.1",
-        "172.17.0.1",  # Docker host IP
-        "172.18.0.1",
-        "172.19.0.1",
-        "172.20.0.1",
-        "172.21.0.1",
-        "172.22.0.1",
-    ]
-
-    if USE_DEBUG_TOOLBAR:
-        DEBUG_TOOLBAR_CONFIG = {
-            "SHOW_TOOLBAR_CALLBACK": lambda request: USE_DEBUG_TOOLBAR,
-        }
-    else:
-        DEBUG_TOOLBAR_CONFIG = {
-            "SHOW_TOOLBAR_CALLBACK": lambda request: False,
-        }
 
 COOKIE_CONSENT_ENABLED = True
 COOKIE_CONSENT_DOMAIN = (
@@ -834,7 +828,7 @@ For loading webpack static files
 - in production we instead copy the `./front` files to `/front`
 """
 WEBPACK_LOADER = {
-    app: {  # Configure seperate loaders for every app!
+    app: {  # Configure separate loaders for every app!
         "CACHE": not DEBUG,
         "STATS_FILE": f"/front/webpack-stats/{app}/webpack-stats.json",
         "BUNDLE_DIR_NAME": f"/front/dist/{app}",
@@ -848,8 +842,8 @@ WEBPACK_LOADER = {
 Default language code of the application
 this reflects which language the translation of the app are written in
 so as long the default the incode translations are english **dont change this**
-as default language the user will always have a fallback langugae
-english no matter if frontent translation failes
+as default language the user will always have a fallback language
+english no matter if frontend translations fail
 """
 LANGUAGE_CODE = "en"
 TIME_ZONE = os.environ.get("DJ_TIME_ZONE", "UTC")
@@ -1044,11 +1038,13 @@ GOOGLE_FORM_MATCH_REMOVED_GHOSTED = (
     "https://docs.google.com/forms/d/e/1FAIpQLSck918AL9dST6Dqp9DtOvtBC0-3BWJfB2pPZc31DUjCSWEOyg/viewform"
 )
 GOOGLE_FORM_STILL_IN_CONTACT_MATCH_FORM1 = "https://docs.google.com/forms/d/e/1FAIpQLScZpHVBkd9oXMTXGwH6aIUS8-Ep3LGbmHzx0wKYTA0fDpzJtQ/viewform?entry.1868418501={user_uuid}&entry.1064841735={match_uuid}"
-GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER = (
+GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER = (
+    # form named '2026 Impact Umfrage - Deutschlernende'
     "https://docs.google.com/forms/d/e/1FAIpQLSeRiEUt9ZHNsPWeHlRMJSrR6jAagGO-u8jKZlJdJ3SvQqKgpA/viewform"
 )
-GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER = (
-    "https://docs.google.com/forms/d/e/1FAIpQLScLdpyDzaf_JS9hWE6ok6_xENc34RbPv7Wg--Qb1NhqFl8cjQ/viewform?usp=header"
+GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER = (
+    # form named '2026 Impact Umfrage - Volunteers'
+    "https://docs.google.com/forms/d/e/1FAIpQLScLdpyDzaf_JS9hWE6ok6_xENc34RbPv7Wg--Qb1NhqFl8cjQ/viewform"
 )
 GOOGLE_FORM_SHARE_STORY_URL = (
     "https://docs.google.com/forms/d/e/1FAIpQLSct9CPNv-8wjV1WMg9tPfm7RyqBeZgkFOAz0qABIqu4uRdSTg/viewform"
@@ -1064,8 +1060,14 @@ EMULATE_AUTO_EMAILS__U023_U024_U025 = bool_env("DJ_EMULATE_AUTO_EMAILS__U023_U02
 ENABLE_AUTO_EMAILS__M012_M013_M014 = bool_env("DJ_ENABLE_AUTO_EMAILS__M012_M013_M014", "false")
 EMULATE_AUTO_EMAILS__M012_M013_M014 = bool_env("DJ_EMULATE_AUTO_EMAILS__M012_M013_M014", "true")
 
-ENABLE_AUTO_EMAILS__M023 = bool_env("DJ_ENABLE_AUTO_EMAILS__M023", "false")
-EMULATE_AUTO_EMAILS__M023 = bool_env("DJ_EMULATE_AUTO_EMAILS__M023", "true")
+ENABLE_AUTO_EMAILS__M022_M023 = bool_env(
+    "DJ_ENABLE_AUTO_EMAILS__M022_M023",
+    os.environ.get("DJ_ENABLE_AUTO_EMAILS__M023", "false"),
+)
+EMULATE_AUTO_EMAILS__M022_M023 = bool_env(
+    "DJ_EMULATE_AUTO_EMAILS__M022_M023",
+    os.environ.get("DJ_EMULATE_AUTO_EMAILS__M023", "true"),
+)
 
 ENABLE_AUTO_EMAILS__M024_M025 = bool_env("DJ_ENABLE_AUTO_EMAILS__M024_M025", "false")
 EMULATE_AUTO_EMAILS__M024_M025 = bool_env("DJ_EMULATE_AUTO_EMAILS__M024_M025", "true")
@@ -1079,8 +1081,14 @@ EMULATE_AUTO_EMAILS__U072_U073_U074 = bool_env("DJ_EMULATE_AUTO_EMAILS__U072_U07
 ENABLE_AUTO_EMAILS__U081_U082_U083_U084 = bool_env("DJ_ENABLE_AUTO_EMAILS__U081_U082_U083_U084", "false")
 EMULATE_AUTO_EMAILS__U081_U082_U083_U084 = bool_env("DJ_EMULATE_AUTO_EMAILS__U081_U082_U083_U084", "true")
 
-ENABLE_AUTO_EMAILS__M043_M044_M045 = bool_env("DJ_ENABLE_AUTO_EMAILS__M042_M043_M044", "false")
-EMULATE_AUTO_EMAILS__M043_M044_M045 = bool_env("DJ_EMULATE_AUTO_EMAILS__M042_M043_M044", "true")
+ENABLE_AUTO_EMAILS__M043_M044_M045 = bool_env(
+    "DJ_ENABLE_AUTO_EMAILS__M043_M044_M045",
+    os.environ.get("DJ_ENABLE_AUTO_EMAILS__M042_M043_M044", "false"),
+)
+EMULATE_AUTO_EMAILS__M043_M044_M045 = bool_env(
+    "DJ_EMULATE_AUTO_EMAILS__M043_M044_M045",
+    os.environ.get("DJ_EMULATE_AUTO_EMAILS__M042_M043_M044", "true"),
+)
 
 ENABLE_AUTO_EMAILS__U051_U071 = bool_env("DJ_ENABLE_AUTO_EMAILS__U051_U071", "false")
 EMULATE_AUTO_EMAILS__U051_U071 = bool_env("DJ_EMULATE_AUTO_EMAILS__U051_U071", "true")
@@ -1100,7 +1108,7 @@ EMULATE_AUTO_EMAILS__M053_M054_M055 = bool_env("DJ_EMULATE_AUTO_EMAILS__M053_M05
 ENABLE_AUTO_EMAIL_LOGS = (
     ENABLE_AUTO_EMAILS__U023_U024_U025
     or ENABLE_AUTO_EMAILS__M012_M013_M014
-    or ENABLE_AUTO_EMAILS__M023
+    or ENABLE_AUTO_EMAILS__M022_M023
     or ENABLE_AUTO_EMAILS__M024_M025
     or ENABLE_AUTO_EMAILS__M031_M032_M033_M042
     or ENABLE_AUTO_EMAILS__U072_U073_U074
@@ -1161,6 +1169,19 @@ OPEN_CHAT_AUTOMATION_USER_PASSWORD = os.environ.get(
     "Test123!",
 )
 OPEN_CHAT_TOOL_API_HOST = os.environ.get("DJ_OPEN_CHAT_TOOL_API_HOST", "").strip() or None
+
+# Gates the extra reply-suggestion skills (mark_read, slack_feedback, keep_open)
+# in the Open Chat suggestion prompt. Off by default so existing bots keep the
+# plain reply behaviour until the rollout is enabled.
+OPEN_CHAT_REPLY_SUGGESTION_SKILLS_ENABLED = bool_env(
+    "DJ_OPEN_CHAT_REPLY_SUGGESTION_SKILLS_ENABLED",
+    "false",
+)
+
+# Optional override for the directory holding the committed support-context
+# markdown (handbook + message templates) injected into reply suggestions.
+# Empty → use back/open_chat/support_context/.
+OPEN_CHAT_SUPPORT_CONTEXT_DIR = os.environ.get("DJ_OPEN_CHAT_SUPPORT_CONTEXT_DIR", "").strip() or None
 
 CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION = bool_env(
     "DJ_CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION",
