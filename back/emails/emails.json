@@ -625,6 +625,13 @@
         "user"
       ]
     },
+    "activate_searching_url": {
+      "id": "activate_searching_url",
+      "lookup": "emails.api.template_lookup.activate_searching_url",
+      "depends_on": [
+        "user"
+      ]
+    },
     "verification_code": {
       "id": "verification_code",
       "lookup": "emails.api.template_lookup.verification_code",
