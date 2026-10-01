@@ -139,6 +139,7 @@ class MainFrontendRouter(View):
             "main_frontend.html",
             {
                 "user": json.dumps(user_data, cls=CoolerJson),
+                "user_lang": request.user.profile.display_language,
                 "api_options": json.dumps(
                     {
                         "profile": get_cached_data_options(),

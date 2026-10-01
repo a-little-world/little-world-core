@@ -27,6 +27,16 @@ class MainFrontendTemplateTests(TestCase):
         self.assertIsInstance(cookie_data["cookieStateDict"], dict)
         return cookie_data["hiddenCookieBanner"]
 
+    def _assert_banner_script_headers(self, response):
+        # Consent-specific payload: must never be cached or shared between users.
+        self.assertIn("no-store", response.headers.get("Cache-Control", ""))
+        self.assertIn("Cookie", response.headers.get("Vary", ""))
+
+    def _assert_early_hidden_stub(self, html: str):
+        # Synchronous stub that lets the SPA hide the banner before the async bundle loads.
+        self.assertIn("window.__lwCookieBannerHidden", html)
+        self.assertIn("window.setCookieBannerHidden", html)
+
     def test_public_login_page_loads_non_hidden_cookie_banner(self):
         response = self.client.get("/login")
         self.assertEqual(response.status_code, 200)
@@ -34,15 +44,18 @@ class MainFrontendTemplateTests(TestCase):
         content = response.content.decode()
         self.assertIn("/api/cookies/cookie_banner.js", content)
         self.assertNotIn("/api/cookies/cookie_banner.js?hidden=true", content)
+        self._assert_early_hidden_stub(content)
 
         script_url = self._extract_cookie_banner_script_url(content)
         script_response = self.client.get(script_url)
         self.assertEqual(script_response.status_code, 200)
+        self._assert_banner_script_headers(script_response)
         script_content = self._decoded_script_content(script_response.content)
         self.assertNotIn("JSON.parse(JSON.parse(", script_content)
         self.assertNotIn("JSON.parse(cookieData.cookieGroups)", script_content)
         self.assertNotIn("JSON.parse(cookieData.cookieSets)", script_content)
         self.assertNotIn("?.hiddenCookieBanner", script_content)
+        self.assertIn("window.__lwCookieBannerHidden", script_content)
         self.assertFalse(self._extract_hidden_cookie_banner_value(script_content))
 
     def test_authenticated_app_page_loads_hidden_cookie_banner(self):
@@ -57,15 +70,18 @@ class MainFrontendTemplateTests(TestCase):
 
         content = response.content.decode()
         self.assertIn("/api/cookies/cookie_banner.js?hidden=true", content)
+        self._assert_early_hidden_stub(content)
 
         script_url = self._extract_cookie_banner_script_url(content)
         script_response = self.client.get(script_url)
         self.assertEqual(script_response.status_code, 200)
+        self._assert_banner_script_headers(script_response)
         script_content = self._decoded_script_content(script_response.content)
         self.assertNotIn("JSON.parse(JSON.parse(", script_content)
         self.assertNotIn("JSON.parse(cookieData.cookieGroups)", script_content)
         self.assertNotIn("JSON.parse(cookieData.cookieSets)", script_content)
         self.assertNotIn("?.hiddenCookieBanner", script_content)
+        self.assertIn("window.__lwCookieBannerHidden", script_content)
         self.assertTrue(self._extract_hidden_cookie_banner_value(script_content))
 
     def test_authenticated_root_redirects_to_app(self):
