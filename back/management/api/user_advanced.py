@@ -376,7 +376,7 @@ class UserTableStateSerializer(serializers.Serializer):
 class UserMatchWaitingTimeSerializer(serializers.Serializer):
     number_of_days = serializers.IntegerField(allow_null=True)
     waiting_time_string = serializers.CharField()
-    first_search = serializers.DateTimeField(allow_null=True, required=False)
+    first_search = serializers.BooleanField(allow_null=True, required=False)
 
 
 class UserChatMessagesPageSerializer(serializers.Serializer):
