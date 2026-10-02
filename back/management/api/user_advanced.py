@@ -850,7 +850,7 @@ class InviteNativeAppTesterRequestSerializer(serializers.Serializer):
     retrieve=extend_schema(summary="Retrieve user", responses={200: AdvancedUserSerializer}),
 )
 class AdvancedUserViewset(viewsets.ModelViewSet):
-    queryset = User.objects.all().order_by("-date_joined")
+    queryset = User.objects.all()
 
     filter_backends = (filters.DjangoFilterBackend,)
 
@@ -880,7 +880,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         else:
             queryset = queryset.select_related("profile", "state")
 
-        return queryset
+        return queryset.order_by("-date_joined")
 
     @extend_schema(responses={200: FilterSchemaResponseSerializer})
     @action(detail=False, methods=["get"])
