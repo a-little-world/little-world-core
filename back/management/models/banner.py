@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from management.helpers import PathRename
-from management.models import custom_banner_event_filters
+from management.models.audience_filters import FILTER_FUNC_MAP, AudienceFilters
 
 
 class Banner(models.Model):
@@ -79,9 +79,9 @@ class Banner(models.Model):
     expiration_time = models.DateTimeField(null=True, blank=True, help_text=_("Expiration time"))
 
     custom_filter = models.CharField(
-        default=custom_banner_event_filters.CustomFilterChoices.NONE,
+        default=AudienceFilters.NONE,
         max_length=255,
-        choices=custom_banner_event_filters.CustomFilterChoices.choices,
+        choices=AudienceFilters.choices,
     )
     filter_priority = models.IntegerField(
         default=0
@@ -89,16 +89,12 @@ class Banner(models.Model):
 
     @classmethod
     def get_active_banner(cls, user):
-        no_filter_banners = cls.objects.filter(
-            active=True, custom_filter=custom_banner_event_filters.CustomFilterChoices.NONE
-        )
-        filter_banners = cls.objects.filter(
-            ~Q(custom_filter=custom_banner_event_filters.CustomFilterChoices.NONE), active=True
-        )
+        no_filter_banners = cls.objects.filter(active=True, custom_filter=AudienceFilters.NONE)
+        filter_banners = cls.objects.filter(~Q(custom_filter=AudienceFilters.NONE), active=True)
 
         extra_filter_banners = []
         for banner in filter_banners:
-            custom_filter_func = custom_banner_event_filters.FILTER_FUNC_MAP.get(banner.custom_filter)
+            custom_filter_func = FILTER_FUNC_MAP.get(banner.custom_filter)
             if custom_filter_func and custom_filter_func(user):
                 extra_filter_banners.append(banner.id)
 

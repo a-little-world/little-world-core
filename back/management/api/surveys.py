@@ -17,7 +17,7 @@ unnoticed for a year.
 import logging
 
 from django.core.exceptions import ValidationError
-from django.db.models import Avg, Count, Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django.urls import path
 from drf_spectacular.utils import extend_schema
@@ -187,7 +187,6 @@ class AdminSurveyCampaignSerializer(serializers.ModelSerializer):
     offered = serializers.IntegerField(read_only=True, default=0)
     answered = serializers.IntegerField(read_only=True, default=0)
     rendered = serializers.IntegerField(read_only=True, default=0)
-    mean_rating = serializers.FloatField(read_only=True, allow_null=True)
     missing_copy = serializers.SerializerMethodField()
     audience_label = serializers.SerializerMethodField()
 
@@ -218,7 +217,6 @@ class AdminSurveyCampaignSerializer(serializers.ModelSerializer):
             "offered",
             "answered",
             "rendered",
-            "mean_rating",
             "missing_copy",
         )
         read_only_fields = ("id", "created_at", "updated_at")
@@ -282,7 +280,6 @@ def _campaign_queryset():
             filter=Q(responses__shown_count__gt=0) | Q(responses__opened_at__isnull=False),
             distinct=True,
         ),
-        mean_rating=Avg("responses__rating"),
     )
 
 
@@ -352,7 +349,7 @@ def admin_survey_campaign_detail(request, pk: int):
 class AdminSurveyResponseSerializer(serializers.ModelSerializer):
     campaign_name = serializers.SerializerMethodField()
     user_email = serializers.SerializerMethodField()
-    comment = serializers.SerializerMethodField()
+    questions = serializers.SerializerMethodField()
 
     class Meta:
         model = SurveyResponse
@@ -363,9 +360,11 @@ class AdminSurveyResponseSerializer(serializers.ModelSerializer):
             "user_id",
             "user_email",
             "status",
-            "rating",
-            "comment",
+            "delivery_channel",
             "shown_count",
+            "opened_at",
+            "answers",
+            "questions",
             "created_at",
             "submitted_at",
         )
@@ -376,9 +375,9 @@ class AdminSurveyResponseSerializer(serializers.ModelSerializer):
     def get_user_email(self, obj) -> str:
         return obj.user.email or ""
 
-    def get_comment(self, obj) -> str:
-        texts = [obj.answers.get(qid) for qid in obj.campaign.text_question_ids()]
-        return " / ".join(str(text) for text in texts if text) or ""
+    def get_questions(self, obj) -> list:
+        """The campaign's questions, so the sheet can render answers without a second fetch."""
+        return obj.campaign.questions or []
 
 
 def _campaign_filter_options() -> list[dict]:
@@ -421,6 +420,14 @@ def admin_survey_responses(request):
     paginated["results"] = AdminSurveyResponseSerializer(paginated["results"], many=True).data
     paginated["campaign_options"] = _campaign_filter_options()
     paginated["status_options"] = _status_filter_options()
+    paginated["summary"] = None
+    if campaign and campaign != "all":
+        try:
+            selected = SurveyCampaign.objects.filter(pk=int(campaign)).first()
+        except ValueError:
+            selected = None
+        if selected is not None:
+            paginated["summary"] = surveys.campaign_response_summary(selected)
     return Response(paginated)
 
 

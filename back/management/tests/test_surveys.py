@@ -193,6 +193,23 @@ class SurveyCampaignValidationTests(TestCase):
         with self.assertRaises(ValidationError):
             _campaign(questions=[{"id": "reason", "type": "choice"}])
 
+    def test_rejects_multiselect_question_without_options(self):
+        with self.assertRaises(ValidationError):
+            _campaign(questions=[{"id": "topics", "type": "multiselect"}])
+
+    def test_allows_multiple_ratings_with_their_own_scale(self):
+        campaign = _campaign(
+            scale=5,
+            questions=[
+                _q("ease", "rating", required=True, scale=10),
+                _q("nps", "rating", required=False, scale=5),
+            ],
+        )
+        self.assertEqual(campaign.rating_question_id(), "ease")
+        card = campaign.card_for("de")
+        self.assertEqual(card["questions"][0]["scale"], 10)
+        self.assertEqual(card["questions"][1]["scale"], 5)
+
     def test_rating_question_is_optional(self):
         campaign = _campaign(questions=[_q("comment", "text", required=True)])
         self.assertIsNone(campaign.rating_question_id())
@@ -303,6 +320,18 @@ class AnsweredQuestionsAreImmutableTests(TestCase):
         self.campaign.save()
         self.assertEqual(self.campaign.scale, 7)
 
+    def test_cannot_change_an_answered_rating_question_scale(self):
+        self.campaign.questions = [
+            _q("rating", "rating", required=True, scale=5),
+            _q("comment", "text"),
+        ]
+        with self.assertRaises(ValidationError):
+            self.campaign.questions = [
+                _q("rating", "rating", required=True, scale=10),
+                _q("comment", "text"),
+            ]
+            self.campaign.save()
+
     def test_can_add_a_question_and_reorder(self):
         self.campaign.questions = [
             _q("comment", "text", required=True),
@@ -340,7 +369,7 @@ class SurveyOfferTests(TestCase):
         self.user.state.save()
         self.assertFalse(surveys.user_matches_audience(campaign, self.user))
 
-    def test_filter_audience_uses_the_banner_filters(self):
+    def test_filter_audience_uses_the_shared_audience_filters(self):
         campaign = _campaign(
             audience_type=SurveyCampaign.AudienceType.FILTER,
             audience_value="volunteers",
@@ -350,6 +379,25 @@ class SurveyOfferTests(TestCase):
         volunteer.profile.user_type = "volunteer"
         volunteer.profile.save()
         self.assertTrue(surveys.user_matches_audience(campaign, volunteer))
+
+    def test_onboarded_learner_audience_requires_onboarding(self):
+        campaign = _campaign(
+            audience_type=SurveyCampaign.AudienceType.FILTER,
+            audience_value="onboarded_learners",
+        )
+        self.assertFalse(surveys.user_matches_audience(campaign, self.user))
+
+        self.user.state.is_onboarded = True
+        self.user.state.save(update_fields=["is_onboarded"])
+        self.assertTrue(surveys.user_matches_audience(campaign, self.user))
+
+    def test_audience_picker_uses_shared_filter_labels(self):
+        choices = {choice["value"]: choice["label"] for choice in surveys.audience_filter_choices()}
+
+        self.assertEqual(choices["learners"], "All registered learners")
+        self.assertEqual(choices["volunteers"], "All registered volunteers")
+        self.assertEqual(choices["onboarded_learners"], "Onboarded learners")
+        self.assertEqual(choices["onboarded_volunteers"], "Onboarded volunteers")
 
     def test_first_qualifying_call_is_required(self):
         campaign = _campaign(
@@ -431,6 +479,47 @@ class SurveyOfferTests(TestCase):
         self.assertIsNotNone(first)
         self.assertEqual(first.pk, second.pk)
         self.assertEqual(SurveyResponse.objects.filter(campaign=campaign, user=self.user).count(), 1)
+
+    def test_halfway_match_success_uses_half_the_live_token_threshold(self):
+        from django.db.models import Q
+
+        from management.match_success import halfway_token_threshold, tokens_from_total_minutes
+        from management.match_success.versions.v1_total_minutes import MINUTE_TOKEN_THRESHOLDS
+        from management.models.matches import Match
+
+        Match.objects.filter(Q(user1=self.user) | Q(user2=self.user)).delete()
+        campaign = _campaign(eligible_after_event=SurveyCampaign.EligibleAfterEvent.HALFWAY_MATCH_SUCCESS)
+        tandem = register_user()
+        Match.objects.filter(Q(user1=tandem) | Q(user2=tandem)).delete()
+        match = Match.objects.create(user1=self.user, user2=tandem)
+        self.assertFalse(surveys.user_is_eligible(campaign, self.user))
+
+        half = halfway_token_threshold()
+        minutes_at_half = next(minutes for minutes, tokens in MINUTE_TOKEN_THRESHOLDS if tokens >= half)
+        minutes_below = next(minutes for minutes, tokens in reversed(MINUTE_TOKEN_THRESHOLDS) if tokens < half)
+
+        below = _finished_session(self.user, tandem, minutes=int(minutes_below))
+        Match.objects.filter(pk=match.pk).update(created_at=below.created_at - timedelta(seconds=1))
+        self.assertLess(tokens_from_total_minutes(minutes_below), half)
+        self.assertFalse(surveys.user_is_eligible(campaign, self.user))
+
+        below.delete()
+        at_half = _finished_session(self.user, tandem, minutes=int(minutes_at_half))
+        Match.objects.filter(pk=match.pk).update(created_at=at_half.created_at - timedelta(seconds=1))
+        self.assertGreaterEqual(tokens_from_total_minutes(minutes_at_half), half)
+        self.assertTrue(surveys.user_is_eligible(campaign, self.user))
+
+    def test_halfway_match_success_counts_off_platform_completion(self):
+        from django.db.models import Q
+
+        from management.models.matches import Match
+
+        Match.objects.filter(Q(user1=self.user) | Q(user2=self.user)).delete()
+        campaign = _campaign(eligible_after_event=SurveyCampaign.EligibleAfterEvent.HALFWAY_MATCH_SUCCESS)
+        tandem = register_user()
+        Match.objects.filter(Q(user1=tandem) | Q(user2=tandem)).delete()
+        Match.objects.create(user1=self.user, user2=tandem, completed_off_plattform=True)
+        self.assertTrue(surveys.user_is_eligible(campaign, self.user))
 
     def test_eligible_after_since_excludes_earlier_onboarding(self):
         self.user.state.is_onboarded = True
@@ -754,6 +843,53 @@ class SurveyAnswerValidationTests(TestCase):
         self.assertIsNone(response.rating)
         self.assertEqual(response.status, SurveyResponse.Status.SUBMITTED)
 
+    def test_rating_uses_the_question_scale_not_the_campaign(self):
+        campaign = _campaign(
+            slug="wide-scale",
+            scale=5,
+            questions=[_q("ease", "rating", required=True, scale=10)],
+        )
+        response = surveys.offer_survey(campaign, self.user)
+        surveys.submit_survey(response, {"ease": 9})
+        response.refresh_from_db()
+        self.assertEqual(response.answers, {"ease": 9})
+        self.assertEqual(response.rating, 9)
+
+    def test_multiselect_is_stored_in_option_order(self):
+        campaign = _campaign(
+            slug="multi",
+            questions=[
+                _q(
+                    "topics",
+                    "multiselect",
+                    required=True,
+                    options=[_choice("chat"), _choice("calls"), _choice("events")],
+                )
+            ],
+        )
+        response = surveys.offer_survey(campaign, self.user)
+        surveys.submit_survey(response, {"topics": ["events", "chat", "events"]})
+        response.refresh_from_db()
+        self.assertEqual(response.answers, {"topics": ["chat", "events"]})
+
+    def test_multiselect_rejects_unknown_options(self):
+        campaign = _campaign(
+            slug="multi-bad",
+            questions=[_q("topics", "multiselect", required=True, options=[_choice("chat")])],
+        )
+        response = surveys.offer_survey(campaign, self.user)
+        with self.assertRaises(ValidationError):
+            surveys.submit_survey(response, {"topics": ["weather"]})
+
+    def test_required_multiselect_needs_at_least_one(self):
+        campaign = _campaign(
+            slug="multi-required",
+            questions=[_q("topics", "multiselect", required=True, options=[_choice("chat")])],
+        )
+        response = surveys.offer_survey(campaign, self.user)
+        with self.assertRaises(ValidationError):
+            surveys.submit_survey(response, {"topics": []})
+
 
 class AdminSurveyApiTests(TestCase):
     """The admin panel is now the only way campaigns are created, so these endpoints are the
@@ -810,6 +946,43 @@ class AdminSurveyApiTests(TestCase):
         # No English was supplied, so English readers get the German.
         self.assertEqual(campaign.card_for("en")["title"], "Wie läuft es?")
 
+    def test_creates_mixed_question_types(self):
+        response = self._post(
+            self._payload(
+                questions=[
+                    {
+                        "id": "ease",
+                        "type": "rating",
+                        "required": True,
+                        "scale": 10,
+                        "label": localized(de="Einfachheit"),
+                    },
+                    {
+                        "id": "reason",
+                        "type": "choice",
+                        "required": True,
+                        "label": localized(de="Grund"),
+                        "options": [{"value": "price", "label": localized(de="Preis")}],
+                    },
+                    {
+                        "id": "topics",
+                        "type": "multiselect",
+                        "required": False,
+                        "label": localized(de="Themen"),
+                        "options": [
+                            {"value": "chat", "label": localized(de="Chat")},
+                            {"value": "calls", "label": localized(de="Calls")},
+                        ],
+                    },
+                ]
+            )
+        )
+        self.assertEqual(response.status_code, 201)
+        questions = response.json()["questions"]
+        self.assertEqual([question["type"] for question in questions], ["rating", "choice", "multiselect"])
+        self.assertEqual(questions[0]["scale"], 10)
+        self.assertEqual(response.json()["scale"], 5)
+
     def test_creates_a_campaign_without_a_rating(self):
         response = self._post(
             self._payload(
@@ -848,7 +1021,7 @@ class AdminSurveyApiTests(TestCase):
 
         row = next(item for item in self.client.get(self.ENDPOINT).json() if item["slug"] == campaign.slug)
         self.assertEqual((row["offered"], row["rendered"], row["answered"]), (1, 1, 1))
-        self.assertEqual(row["mean_rating"], 5.0)
+        self.assertNotIn("mean_rating", row)
 
     def test_link_opened_response_counts_as_rendered(self):
         campaign = _link_campaign()
@@ -957,20 +1130,38 @@ class AdminSurveyResponseApiTests(TestCase):
         self.client.force_login(register_user())
         self.assertEqual(self.client.get(self.ENDPOINT).status_code, 403)
 
-    def test_lists_responses_with_comment_and_options(self):
+    def test_lists_responses_with_answers_and_delivery(self):
         payload = self.client.get(self.ENDPOINT).json()
         self.assertEqual(payload["results_total"], 2)
+        self.assertIsNone(payload["summary"])
         submitted = next(row for row in payload["results"] if row["status"] == "submitted")
         self.assertEqual(submitted["campaign_name"], "Test campaign")
         self.assertEqual(submitted["user_email"], self.user.email)
-        self.assertEqual(submitted["rating"], 4)
-        self.assertEqual(submitted["comment"], "great call")
+        self.assertEqual(submitted["answers"], {"rating": 4, "comment": "great call"})
+        self.assertEqual(submitted["delivery_channel"], SurveyResponse.DeliveryChannel.PENDING)
         self.assertEqual(submitted["shown_count"], 1)
+        self.assertEqual([question["id"] for question in submitted["questions"]], ["rating", "comment"])
+        self.assertNotIn("comment", submitted)
+        self.assertNotIn("rating", submitted)
         campaign_ids = {option["value"] for option in payload["campaign_options"]}
         self.assertIn(str(self.campaign.pk), campaign_ids)
         self.assertIn(str(self.other.pk), campaign_ids)
         statuses = {option["value"] for option in payload["status_options"]}
         self.assertEqual(statuses, {"shown", "submitted", "dismissed", "expired"})
+
+    def test_campaign_filter_includes_rating_summary(self):
+        payload = self.client.get(self.ENDPOINT, {"campaign": self.campaign.pk}).json()
+        self.assertEqual(payload["results_total"], 1)
+        self.assertEqual(
+            payload["summary"],
+            {
+                "offered": 1,
+                "answered": 1,
+                "rating_means": [
+                    {"id": "rating", "label": "Bewertung", "scale": 5, "mean": 4.0, "n": 1},
+                ],
+            },
+        )
 
     def test_filters_by_campaign(self):
         payload = self.client.get(self.ENDPOINT, {"campaign": self.campaign.pk}).json()

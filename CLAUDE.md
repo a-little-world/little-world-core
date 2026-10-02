@@ -125,14 +125,23 @@ holds one row per *offer*, unique on `(campaign, user, context_key)`.
   stay open and are delivered once the window passes, so deferring a survey never loses it.
   `shown_at` is only written when the client confirms it rendered the card, so an offer that
   never displayed does not start the window.
-- Answered questions are immutable (id, type, referenced choice options). `scale` cannot
-  change once a rating has been submitted — growing or shrinking would change what existing
-  scores mean. Enforced in `SurveyCampaign.save()`, not in admin.
-- Audience is everyone, a company already on `state.company`, or one of the banner/event
-  filters (`CustomFilterChoices`). Picked from a single dropdown in the admin panel.
+- Answered questions are immutable (id, type, referenced choice options). A rating
+  question's `scale` cannot change once that question has been answered — growing or shrinking
+  would change what existing scores mean. Enforced in `SurveyCampaign.save()`, not in admin.
+  Rating is a question type, not a campaign setting: a campaign can have several ratings, or
+  none. Each rating carries its own scale (2–10). `SurveyCampaign.scale` is a fallback for
+  older rows and a mirror of the first rating for `mean_rating`.
+- Question types are rating (stars), text, choice (one option, `RadioGroup` on the main app)
+  and multiselect (checkboxes). Choice and multiselect share `{value, label}` options; only
+  the widget and the answer shape differ. Multiselect answers are stored as a unique JSON
+  array in **option order**, not click order — `[events, chat]` and `[chat, events]` are the
+  same answer. Empty list is unanswered.
+- Audience is everyone, a company already on `state.company`, or one of the shared
+ banner/event/survey filters (`AudienceFilters`). Picked from a single dropdown in the admin panel.
 - Trigger is when the card is presented (`on_session` vs after a call). Eligible-after is a
   named journey condition: immediately, onboarded (`state.is_onboarded`), first qualifying
-  call (standard calls only, not random, under 10 minutes, both active), match created, or match success (the shared
+  call (standard calls only, not random, under 10 minutes, both active), match created, halfway to match success
+  (half the live `management.match_success` token threshold), or match success (the shared
   `management.match_success` definition). Conditions take effect as soon as they are true.
   Optional `eligible_after_since` is a lower bound on when that condition counts — e.g.
   onboarded on or after 31 Aug 2025. Match conditions qualify if *any* of the user's matches
@@ -146,9 +155,9 @@ holds one row per *offer*, unique on `(campaign, user, context_key)`.
   `display_language` before it leaves the backend.
 - Star-rating captions (`survey.star.1`–`5`) live in the frontend locale files. They belong to
   the widget, not the campaign, so a configurable scale does not need one label per star on the
-  row. They describe the five points of a five-star scale and are only rendered when `scale`
-  is 5 — stretching five words over another scale labels values twice or shifts what each one
-  means, so any other scale shows bare stars.
+  row. They describe the five points of a five-star scale and are only rendered when that
+  question's `scale` is 5 — stretching five words over another scale labels values twice or
+  shifts what each one means, so any other scale shows bare stars.
 - Campaigns are created and edited in the admin panel (`Communications → Surveys`), not via
   management commands. Logic lives in `management/surveys.py`; a new survey is a new row.
 

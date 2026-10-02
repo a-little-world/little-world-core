@@ -23,15 +23,19 @@ from django.db import IntegrityError, transaction
 from django.db.models import DurationField, ExpressionWrapper, F, Max, Q
 from django.utils import timezone
 
-from management.models.custom_banner_event_filters import FILTER_FUNC_MAP, CustomFilterChoices
+from management.models.audience_filters import FILTER_FUNC_MAP, AudienceFilters
 from management.models.survey import (
     MAX_TEXT_ANSWER_LENGTH,
+    PRIMARY_COPY_LANGUAGE,
     QUALIFYING_CALL_MIN_DURATION,
     QuestionType,
     SurveyCampaign,
     SurveyResponse,
     build_context_key,
     option_values,
+    option_values_in_order,
+    rating_scale_for,
+    resolve_localized,
 )
 
 logger = logging.getLogger(__name__)
@@ -178,6 +182,35 @@ def _match_success_at(match):
     return min(times) if times else None
 
 
+def _match_halfway_at(match):
+    """When this match first reached half the live match-success token threshold."""
+    from management.match_success import halfway_token_threshold, tokens_from_total_minutes
+    from management.match_success.sessions import qualifying_sessions as match_sessions
+
+    half = halfway_token_threshold()
+    times = []
+    if match.completed_off_plattform:
+        times.append(match.completed_off_plattform_auto_marked_at or match.updated_at)
+    total = timedelta(0)
+    for session in match_sessions(match).order_by("end_time"):
+        total += session.end_time - session.created_at
+        if tokens_from_total_minutes(total.total_seconds() / 60) >= half:
+            times.append(session.end_time)
+            break
+    return min(times) if times else None
+
+
+def _user_has_halfway_match(user) -> bool:
+    """True if *any* tandem match has reached half the live success token target."""
+    from management.match_success import halfway_token_threshold, match_tokens_by_id
+
+    matches = _matches_for_user(user)
+    if matches.filter(completed_off_plattform=True).exists():
+        return True
+    half = halfway_token_threshold()
+    return any(count >= half for count in match_tokens_by_id(matches).values())
+
+
 def user_has_successful_match(user) -> bool:
     """True if *any* of the user's tandem matches count as successful.
 
@@ -209,15 +242,20 @@ def _eligible_event_at(event: str, user):
         times = [_match_success_at(match) for match in successful_matches(_matches_for_user(user))]
         dated = [moment for moment in times if moment is not None]
         return min(dated) if dated else None
+    if event == SurveyCampaign.EligibleAfterEvent.HALFWAY_MATCH_SUCCESS:
+        times = [_match_halfway_at(match) for match in _matches_for_user(user)]
+        dated = [moment for moment in times if moment is not None]
+        return min(dated) if dated else None
     return None
 
 
 def user_is_eligible(campaign: SurveyCampaign, user) -> bool:
     """Audience and named journey condition — repeat rules are handled per context key.
 
-    Conditions take effect as soon as they are true. Match created / match success qualify
-    if *any* tandem match satisfies the rule. ``eligible_after_since`` is a lower bound on
-    when that condition counted: older events do not qualify.
+    Conditions take effect as soon as they are true. Match created / halfway to match
+    success / match success qualify if *any* tandem match satisfies the rule.
+    ``eligible_after_since`` is a lower bound on when that condition counted: older
+    events do not qualify.
     """
     if not user_matches_audience(campaign, user):
         return False
@@ -237,6 +275,12 @@ def user_is_eligible(campaign: SurveyCampaign, user) -> bool:
         if not since:
             return matches.exists()
         return any((moment := _match_success_at(match)) is not None and moment >= since for match in matches)
+    if event == SurveyCampaign.EligibleAfterEvent.HALFWAY_MATCH_SUCCESS:
+        if not since:
+            return _user_has_halfway_match(user)
+        return any(
+            (moment := _match_halfway_at(match)) is not None and moment >= since for match in _matches_for_user(user)
+        )
 
     happened_at = _eligible_event_at(event, user)
     if happened_at is None:
@@ -255,18 +299,7 @@ def user_is_eligible(campaign: SurveyCampaign, user) -> bool:
 
 
 #: ``none`` is already "Everyone" on the audience picker.
-_HIDDEN_AUDIENCE_FILTERS = {CustomFilterChoices.NONE}
-
-AUDIENCE_FILTER_LABELS = {
-    CustomFilterChoices.LEARNERS_WITH_A1A2: "Learners with A1/A2 German",
-    CustomFilterChoices.LEARNERS_ABOVE_A1A2: "Learners above A1/A2",
-    CustomFilterChoices.VOLUNTEERS: "Volunteers",
-    CustomFilterChoices.LEARNERS: "Learners",
-    CustomFilterChoices.LEARNERS_OUTSIDE_GERMANY: "Learners outside Germany",
-    CustomFilterChoices.RANDOM_CALL_USERS: "Random-call users",
-    CustomFilterChoices.MATCH_ELIGIBLE_USERS: "Match-eligible users",
-    CustomFilterChoices.NRW_RESIDENTS: "NRW residents",
-}
+_HIDDEN_AUDIENCE_FILTERS = {AudienceFilters.NONE}
 
 
 def company_audience_values() -> list[str]:
@@ -284,8 +317,8 @@ def company_audience_values() -> list[str]:
 
 def audience_filter_choices() -> list[dict[str, str]]:
     return [
-        {"value": value, "label": AUDIENCE_FILTER_LABELS.get(value, value)}
-        for value in CustomFilterChoices.values
+        {"value": str(value), "label": str(value.label)}
+        for value in AudienceFilters
         if value not in _HIDDEN_AUDIENCE_FILTERS
     ]
 
@@ -294,7 +327,10 @@ def audience_label(campaign: SurveyCampaign) -> str:
     if campaign.audience_type == SurveyCampaign.AudienceType.COMPANY:
         return campaign.audience_value or "Company"
     if campaign.audience_type == SurveyCampaign.AudienceType.FILTER:
-        return AUDIENCE_FILTER_LABELS.get(campaign.audience_value, campaign.audience_value)
+        try:
+            return str(AudienceFilters(campaign.audience_value).label)
+        except ValueError:
+            return campaign.audience_value
     return "Everyone"
 
 
@@ -613,7 +649,9 @@ def validate_answers(campaign: SurveyCampaign, answers) -> dict:
     for question in campaign.questions:
         qid, qtype = question["id"], question["type"]
         value = answers.get(qid)
-        is_blank = value is None or (isinstance(value, str) and not value.strip())
+        is_blank = (
+            value is None or (isinstance(value, str) and not value.strip()) or (isinstance(value, list) and not value)
+        )
 
         if is_blank:
             if question.get("required"):
@@ -623,8 +661,9 @@ def validate_answers(campaign: SurveyCampaign, answers) -> dict:
         if qtype == QuestionType.RATING:
             if isinstance(value, bool) or not isinstance(value, int):
                 raise ValidationError(f"'{qid}' must be a whole number.")
-            if not 1 <= value <= campaign.scale:
-                raise ValidationError(f"'{qid}' must be between 1 and {campaign.scale}.")
+            scale = rating_scale_for(question, campaign)
+            if not 1 <= value <= scale:
+                raise ValidationError(f"'{qid}' must be between 1 and {scale}.")
             cleaned[qid] = value
         elif qtype == QuestionType.TEXT:
             if not isinstance(value, str):
@@ -637,6 +676,16 @@ def validate_answers(campaign: SurveyCampaign, answers) -> dict:
             if value not in option_values(question):
                 raise ValidationError(f"'{value}' is not an option of '{qid}'.")
             cleaned[qid] = value
+        elif qtype == QuestionType.MULTISELECT:
+            if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+                raise ValidationError(f"'{qid}' must be a list of option values.")
+            allowed = option_values(question)
+            unknown_options = [item for item in value if item not in allowed]
+            if unknown_options:
+                raise ValidationError(f"{unknown_options} are not options of '{qid}'.")
+            # Store in the question's option order, unique. Click order is not part of the answer.
+            selected = set(value)
+            cleaned[qid] = [item for item in option_values_in_order(question) if item in selected]
 
     return cleaned
 
@@ -656,3 +705,41 @@ def dismiss_survey(response: SurveyResponse) -> SurveyResponse:
     if not response.is_terminal:
         response.dismiss()
     return response
+
+
+def campaign_response_summary(campaign: SurveyCampaign) -> dict:
+    """Per-question rating means for one campaign, from submitted answers JSON.
+
+    A single campaign-level average is not meaningful once a survey can have several ratings
+    on different scales. Computed here rather than annotated on every campaign list row.
+    """
+    responses = SurveyResponse.objects.filter(campaign=campaign)
+    submitted_answers = list(responses.filter(status=SurveyResponse.Status.SUBMITTED).values_list("answers", flat=True))
+    rating_means = []
+    for question in campaign.questions:
+        if question.get("type") != QuestionType.RATING:
+            continue
+        qid = question.get("id")
+        if not qid:
+            continue
+        scores = [
+            value
+            for answers in submitted_answers
+            if isinstance(answers, dict)
+            for value in [answers.get(qid)]
+            if isinstance(value, int) and not isinstance(value, bool)
+        ]
+        rating_means.append(
+            {
+                "id": qid,
+                "label": resolve_localized(question.get("label"), PRIMARY_COPY_LANGUAGE) or qid,
+                "scale": rating_scale_for(question, campaign),
+                "mean": round(sum(scores) / len(scores), 2) if scores else None,
+                "n": len(scores),
+            }
+        )
+    return {
+        "offered": responses.count(),
+        "answered": len(submitted_answers),
+        "rating_means": rating_means,
+    }
