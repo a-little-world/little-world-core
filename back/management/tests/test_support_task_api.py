@@ -248,6 +248,52 @@ class SupportTaskApiTests(TestCase):
             {self.direct_matching_user.id, self.group_matching_user.id},
         )
 
+    def _create_reply_task(self, *, related_user=None, kind_display="General", message_preview="A"):
+        return SupportTask.create_of_type(
+            "support_reply",
+            created_by=self.admin_user,
+            related_user=related_user or self.regular_user,
+            static_parameters={"kind_display": kind_display, "message_preview": message_preview},
+            parameters={"message": ""},
+        )
+
+    def test_list_search_matches_numeric_task_title(self):
+        numeric_title_task = self._create_reply_task(kind_display="Ticket 12345", message_preview="A")
+        self._create_reply_task(kind_display="General", message_preview="B")
+
+        response = self._client_for(self.admin_user).get("/api/support_task/?search=12345")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([row["id"] for row in response.json()["results"]], [numeric_title_task.id])
+
+    def test_list_search_matches_exact_task_id(self):
+        task = self._create_reply_task()
+
+        response = self._client_for(self.admin_user).get(f"/api/support_task/?search={task.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(task.id, [row["id"] for row in response.json()["results"]])
+
+    def test_list_search_matches_related_user_full_name(self):
+        task = self._create_reply_task(related_user=self.regular_user)
+        self._create_reply_task(related_user=self.admin_user, message_preview="B")
+
+        response = self._client_for(self.admin_user).get("/api/support_task/?search=Regular User")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(task.id, [row["id"] for row in response.json()["results"]])
+
+    def test_list_results_use_lightweight_serializer(self):
+        self._create_reply_task()
+
+        response = self._client_for(self.admin_user).get("/api/support_task/")
+
+        self.assertEqual(response.status_code, 200)
+        row = response.json()["results"][0]
+        self.assertIn("action_type", row)
+        for detail_only_field in ("notes", "history", "action"):
+            self.assertNotIn(detail_only_field, row)
+
     def test_bulk_delete_support_tasks(self):
         task = SupportTask.create_of_type(
             "support_reply",
