@@ -153,17 +153,16 @@ class SurveyCampaign(models.Model):
         default=default_campaign_copy,
         help_text=_(
             "User-facing card copy per language: title, description and submit_button. "
-            "German is required to go live; English falls back to it. Star captions live in "
-            "the frontend locales — they belong to the rating widget, not the campaign."
+            "German is required to go live; English falls back to it."
         ),
     )
     scale = models.PositiveSmallIntegerField(
         default=5,
         validators=[MinValueValidator(MIN_SCALE), MaxValueValidator(MAX_SCALE)],
         help_text=_(
-            "Fallback star count for rating questions that have no scale of their own, and the "
-            "value mirrored from the first rating question for aggregates. Per-question scale "
-            "is the source of truth. Frozen on a question once that question has been answered."
+            "Fallback star count for rating questions saved without a scale of their own. "
+            "Per-question scale is the source of truth and is frozen once that question has "
+            "been answered."
         ),
     )
     questions = models.JSONField(
@@ -259,10 +258,6 @@ class SurveyCampaign(models.Model):
 
     def question_by_id(self, question_id: str) -> dict | None:
         return next((q for q in self.questions if q.get("id") == question_id), None)
-
-    def rating_question_id(self) -> str | None:
-        """Question whose answer is mirrored into ``SurveyResponse.rating``."""
-        return next((q["id"] for q in self.questions if q.get("type") == QuestionType.RATING), None)
 
     def text_question_ids(self) -> list[str]:
         """Free-text questions — the answers that must be scrubbed for deleted accounts."""
@@ -389,7 +384,7 @@ class SurveyCampaign(models.Model):
     def _validate_copy(self):
         if not isinstance(self.copy, dict):
             raise ValidationError(_("copy must be an object."))
-        # Dropped from the model: captions belong to the star widget, not the campaign row.
+        # Legacy key from when campaigns carried star captions; older rows may still have it.
         copy = dict(self.copy)
         copy.pop("rating_labels", None)
         self.copy = copy
@@ -442,8 +437,9 @@ class SurveyCampaign(models.Model):
 
         An id present in any response may not disappear from ``questions`` and its type may
         not change — which also covers renames, since a rename is indistinguishable from a
-        remove plus an add.         Choice options that appear in answers may not be removed, and
-        ``scale`` cannot change once a rating has been submitted.
+        remove plus an add. Choice options that appear in answers may not be removed, and a
+        rating question's scale cannot change once it has been answered — that check uses
+        ``rating_scale_for``, so it also covers questions that fall back to ``self.scale``.
         """
         stored = type(self).objects.filter(pk=self.pk).first() if self.pk else None
         if stored is None:
@@ -480,21 +476,8 @@ class SurveyCampaign(models.Model):
                         % {"options": sorted(in_use), "qid": qid}
                     )
 
-        if stored.scale != self.scale and responses.filter(rating__isnull=False).exists():
-            errors.append(
-                _(
-                    "scale cannot change once a rating has been submitted — existing scores would "
-                    "no longer mean the same thing."
-                )
-            )
         if errors:
             raise ValidationError(errors)
-
-    def scale_is_locked(self) -> bool:
-        """True once anybody has submitted a rating, which is when changing scale would skew results."""
-        if not self.pk:
-            return False
-        return SurveyResponse.objects.filter(campaign_id=self.pk, rating__isnull=False).exists()
 
 
 def rating_scale_for(question: dict, campaign=None) -> int:
@@ -652,9 +635,6 @@ class SurveyResponse(models.Model):
 
     #: Statuses that end the offer. Anything else is re-presentable, capped by ``max_shows``.
     TERMINAL_STATUSES = (Status.SUBMITTED, Status.DISMISSED, Status.EXPIRED)
-    #: Statuses that use up the unique slot for a link GET. Dismissed is not one of them —
-    #: closing the popup must not block answering at the campaign URL.
-    LINK_BLOCKING_STATUSES = (Status.SUBMITTED, Status.EXPIRED)
 
     campaign = models.ForeignKey(
         SurveyCampaign,
@@ -682,12 +662,6 @@ class SurveyResponse(models.Model):
     )
 
     answers = models.JSONField(default=dict, help_text=_("Complete answer record, keyed by question id."))
-    rating = models.PositiveSmallIntegerField(
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(1), MaxValueValidator(MAX_SCALE)],
-        help_text=_("Mirror of the first rating answer, so aggregates read a column not JSON."),
-    )
 
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.SHOWN)
     shown_count = models.PositiveSmallIntegerField(
@@ -739,11 +713,6 @@ class SurveyResponse(models.Model):
     def is_terminal(self) -> bool:
         return self.status in self.TERMINAL_STATUSES
 
-    @property
-    def blocks_link(self) -> bool:
-        """True when a link GET must not re-offer this row (submitted or expired)."""
-        return self.status in self.LINK_BLOCKING_STATUSES
-
     def mark_shown(self) -> None:
         """Record that the client actually rendered the card."""
         self.shown_count = (self.shown_count or 0) + 1
@@ -751,12 +720,10 @@ class SurveyResponse(models.Model):
         self.save(update_fields=["shown_count", "shown_at", "updated_at"])
 
     def submit(self, answers: dict) -> None:
-        rating_id = self.campaign.rating_question_id()
         self.answers = answers
-        self.rating = answers.get(rating_id) if rating_id else None
         self.status = self.Status.SUBMITTED
         self.submitted_at = timezone.now()
-        self.save(update_fields=["answers", "rating", "status", "submitted_at", "updated_at"])
+        self.save(update_fields=["answers", "status", "submitted_at", "updated_at"])
 
     def dismiss(self) -> None:
         self.status = self.Status.DISMISSED

@@ -11,6 +11,8 @@ poll finds it — which also removes the "only if the user is connected" limitat
 Link delivery is a second channel: ``GET /api/surveys/<slug>`` for campaigns with
 ``available_via_link``. It shares the same uniqueness rule and answer record, but ignores
 cooldown and max_shows, does not write ``shown_at``, and does not appear in the popup queue.
+Only a submitted answer closes the link: a popup offer that was dismissed or expired after
+``max_shows`` can still be answered at the URL.
 """
 
 import logging
@@ -63,7 +65,6 @@ class SurveyLinkState:
     NOT_FOUND = "not_found"
     AVAILABLE = "available"
     ALREADY_SUBMITTED = "already_submitted"
-    UNAVAILABLE = "unavailable"
     INELIGIBLE = "ineligible"
     INACTIVE = "inactive"
     MISSING_CONTEXT = "missing_context"
@@ -507,6 +508,10 @@ def pending_survey_for_user(user) -> SurveyResponse | None:
     )
     for response in open_offers:
         campaign = campaigns_by_id[response.campaign_id]
+        # Switching a campaign to "no in-app trigger" stops the popup for offers already open
+        # too; they stay answerable at the link.
+        if campaign.trigger == SurveyCampaign.Trigger.NONE:
+            continue
         if _deliverable(response, campaign):
             response.campaign = campaign
             return response
@@ -620,8 +625,6 @@ def survey_for_link(user, slug: str, *, live_session_id=None) -> tuple[str, Surv
 
     if not campaign.is_live():
         return SurveyLinkState.INACTIVE, None
-    if existing is not None and existing.status == SurveyResponse.Status.EXPIRED:
-        return SurveyLinkState.UNAVAILABLE, None
     if not user_is_eligible(campaign, user):
         return SurveyLinkState.INELIGIBLE, None
 
@@ -691,10 +694,10 @@ def validate_answers(campaign: SurveyCampaign, answers) -> dict:
 
 
 def submit_survey(response: SurveyResponse, answers, *, allow_resubmit: bool = False) -> SurveyResponse:
-    # ``blocks_link`` rather than ``is_terminal``: a dismissed popup must still be
-    # answerable at the campaign URL. ``allow_resubmit`` remains the escape hatch for
-    # SUBMITTED / EXPIRED; nothing in-tree currently passes it.
-    if response.blocks_link and not allow_resubmit:
+    # Only SUBMITTED, not ``is_terminal``: a popup that was dismissed or expired must still be
+    # answerable at the campaign URL. ``allow_resubmit`` remains the escape hatch; nothing
+    # in-tree currently passes it.
+    if response.status == SurveyResponse.Status.SUBMITTED and not allow_resubmit:
         raise ValidationError("This survey has already been answered.")
     response.submit(validate_answers(response.campaign, answers))
     return response

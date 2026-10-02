@@ -428,12 +428,11 @@ class SurveyResponseAdmin(admin.ModelAdmin):
         "user",
         "status",
         "delivery_channel",
-        "rating",
         "shown_count",
         "created_at",
         "submitted_at",
     )
-    list_filter = ("campaign", "status", "delivery_channel", "rating")
+    list_filter = ("campaign", "status", "delivery_channel")
     list_select_related = ("campaign", "user")
     search_fields = ("user__email",)
     readonly_fields = ("created_at", "updated_at", "shown_at", "opened_at", "submitted_at")

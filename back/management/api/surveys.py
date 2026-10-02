@@ -31,7 +31,13 @@ from management import surveys
 from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import get_paginated_format_v2
-from management.models.survey import PRIMARY_COPY_LANGUAGE, SurveyCampaign, SurveyResponse
+from management.models.survey import (
+    PRIMARY_COPY_LANGUAGE,
+    QuestionType,
+    SurveyCampaign,
+    SurveyResponse,
+    rating_scale_for,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -231,10 +237,9 @@ class AdminSurveyCampaignSerializer(serializers.ModelSerializer):
 
 class AdminSurveyCampaignDetailSerializer(AdminSurveyCampaignSerializer):
     locked_questions = serializers.SerializerMethodField()
-    scale_locked = serializers.SerializerMethodField()
 
     class Meta(AdminSurveyCampaignSerializer.Meta):
-        fields = (*AdminSurveyCampaignSerializer.Meta.fields, "locked_questions", "scale_locked")
+        fields = (*AdminSurveyCampaignSerializer.Meta.fields, "locked_questions")
 
     def get_locked_questions(self, campaign) -> list[str]:
         """Ids that already have answers, so the form can render them read-only instead of
@@ -247,9 +252,6 @@ class AdminSurveyCampaignDetailSerializer(AdminSurveyCampaignSerializer):
             for question in campaign.questions
             if question.get("id") and responses.filter(answers__has_key=question["id"]).exists()
         ]
-
-    def get_scale_locked(self, campaign) -> bool:
-        return campaign.scale_is_locked()
 
 
 def _choice_options(choices) -> list[dict]:
@@ -376,8 +378,17 @@ class AdminSurveyResponseSerializer(serializers.ModelSerializer):
         return obj.user.email or ""
 
     def get_questions(self, obj) -> list:
-        """The campaign's questions, so the sheet can render answers without a second fetch."""
-        return obj.campaign.questions or []
+        """The campaign's questions, so the sheet can render answers without a second fetch.
+
+        Rating questions carry their effective scale, so older rows that fall back to the
+        campaign scale are not rendered against a guessed one.
+        """
+        return [
+            {**question, "scale": rating_scale_for(question, obj.campaign)}
+            if question.get("type") == QuestionType.RATING
+            else question
+            for question in obj.campaign.questions or []
+        ]
 
 
 def _campaign_filter_options() -> list[dict]:

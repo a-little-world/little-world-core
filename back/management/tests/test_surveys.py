@@ -205,14 +205,12 @@ class SurveyCampaignValidationTests(TestCase):
                 _q("nps", "rating", required=False, scale=5),
             ],
         )
-        self.assertEqual(campaign.rating_question_id(), "ease")
         card = campaign.card_for("de")
         self.assertEqual(card["questions"][0]["scale"], 10)
         self.assertEqual(card["questions"][1]["scale"], 5)
 
     def test_rating_question_is_optional(self):
         campaign = _campaign(questions=[_q("comment", "text", required=True)])
-        self.assertIsNone(campaign.rating_question_id())
         self.assertTrue(campaign.active)
 
     def test_rejects_an_empty_question_list(self):
@@ -279,7 +277,6 @@ class AnsweredQuestionsAreImmutableTests(TestCase):
             campaign=self.campaign,
             user=self.user,
             answers={"rating": 4, "comment": "great"},
-            rating=4,
             status=SurveyResponse.Status.SUBMITTED,
         )
 
@@ -352,6 +349,16 @@ class AnsweredQuestionsAreImmutableTests(TestCase):
         self.campaign.questions = self.campaign.questions[:2]
         self.campaign.save()
         self.assertEqual([q["id"] for q in self.campaign.questions], ["rating", "comment"])
+
+    def test_new_rating_above_an_answered_one_can_use_another_scale(self):
+        self.campaign.questions = [
+            _q("ease", "rating", scale=10),
+            _q("rating", "rating", required=True, scale=5),
+            _q("comment", "text"),
+        ]
+        self.campaign.save()
+        self.campaign.refresh_from_db()
+        self.assertEqual(self.campaign.scale, 5)
 
 
 class SurveyOfferTests(TestCase):
@@ -664,6 +671,13 @@ class PendingSurveyTests(TestCase):
         _campaign(trigger=SurveyCampaign.Trigger.NONE, available_via_link=True)
         self.assertIsNone(surveys.pending_survey_for_user(self.user))
 
+    def test_switching_to_no_in_app_trigger_stops_open_offers(self):
+        campaign = _campaign()
+        self.assertIsNotNone(surveys.pending_survey_for_user(self.user))
+        _campaign(trigger=SurveyCampaign.Trigger.NONE, available_via_link=True)
+        self.assertIsNone(surveys.pending_survey_for_user(self.user))
+        self.assertEqual(SurveyResponse.objects.get(campaign=campaign).status, SurveyResponse.Status.SHOWN)
+
     def test_campaign_outside_its_window_offers_nothing(self):
         _campaign(starts_at=timezone.now() + timedelta(days=1))
         self.assertIsNone(surveys.pending_survey_for_user(self.user))
@@ -822,10 +836,10 @@ class SurveyAnswerValidationTests(TestCase):
         self.response.refresh_from_db()
         self.assertEqual(self.response.answers, {"rating": 4})
 
-    def test_rating_is_mirrored_onto_the_column(self):
+    def test_submit_stores_answers_and_marks_submitted(self):
         surveys.submit_survey(self.response, {"rating": 5, "comment": "great"})
         self.response.refresh_from_db()
-        self.assertEqual(self.response.rating, 5)
+        self.assertEqual(self.response.answers, {"rating": 5, "comment": "great"})
         self.assertEqual(self.response.status, SurveyResponse.Status.SUBMITTED)
         self.assertIsNotNone(self.response.submitted_at)
 
@@ -840,7 +854,6 @@ class SurveyAnswerValidationTests(TestCase):
         surveys.submit_survey(response, {"comment": "just text"})
         response.refresh_from_db()
         self.assertEqual(response.answers, {"comment": "just text"})
-        self.assertIsNone(response.rating)
         self.assertEqual(response.status, SurveyResponse.Status.SUBMITTED)
 
     def test_rating_uses_the_question_scale_not_the_campaign(self):
@@ -853,7 +866,6 @@ class SurveyAnswerValidationTests(TestCase):
         surveys.submit_survey(response, {"ease": 9})
         response.refresh_from_db()
         self.assertEqual(response.answers, {"ease": 9})
-        self.assertEqual(response.rating, 9)
 
     def test_multiselect_is_stored_in_option_order(self):
         campaign = _campaign(
@@ -994,7 +1006,6 @@ class AdminSurveyApiTests(TestCase):
         self.assertEqual(response.status_code, 201)
         types = [question["type"] for question in response.json()["questions"]]
         self.assertEqual(types, ["text"])
-        self.assertIsNone(SurveyCampaign.objects.get(slug="acme-checkin").rating_question_id())
 
     def test_activation_without_copy_is_rejected(self):
         payload = self._payload(copy={"title": localized(), "submit_button": localized()})
@@ -1101,13 +1112,13 @@ class AdminSurveyApiTests(TestCase):
         self.assertNotIn("capegemini", values)
         self.assertNotIn("none", values)
 
-    def test_detail_reports_scale_locked_after_a_rating(self):
+    def test_detail_reports_answered_questions_as_locked(self):
         campaign = _campaign()
         detail = self.client.get(f"{self.ENDPOINT}{campaign.pk}/").json()
-        self.assertFalse(detail["scale_locked"])
-        SurveyResponse.objects.create(campaign=campaign, user=register_user(), answers={"rating": 5}, rating=5)
+        self.assertEqual(detail["locked_questions"], [])
+        SurveyResponse.objects.create(campaign=campaign, user=register_user(), answers={"rating": 5})
         detail = self.client.get(f"{self.ENDPOINT}{campaign.pk}/").json()
-        self.assertTrue(detail["scale_locked"])
+        self.assertEqual(detail["locked_questions"], ["rating"])
 
 
 class AdminSurveyResponseApiTests(TestCase):
@@ -1148,6 +1159,12 @@ class AdminSurveyResponseApiTests(TestCase):
         self.assertIn(str(self.other.pk), campaign_ids)
         statuses = {option["value"] for option in payload["status_options"]}
         self.assertEqual(statuses, {"shown", "submitted", "dismissed", "expired"})
+
+    def test_rating_questions_carry_the_campaign_fallback_scale(self):
+        SurveyCampaign.objects.filter(pk=self.campaign.pk).update(scale=10)
+        payload = self.client.get(self.ENDPOINT, {"campaign": self.campaign.pk}).json()
+        rating = next(q for q in payload["results"][0]["questions"] if q["id"] == "rating")
+        self.assertEqual(rating["scale"], 10)
 
     def test_campaign_filter_includes_rating_summary(self):
         payload = self.client.get(self.ENDPOINT, {"campaign": self.campaign.pk}).json()
@@ -1221,7 +1238,6 @@ class SurveyApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         stored = SurveyResponse.objects.get(pk=survey_id)
         self.assertEqual(stored.answers, {"rating": 4, "comment": "good"})
-        self.assertEqual(stored.rating, 4)
 
     def test_submit_rejects_invalid_answers(self):
         survey_id = self.client.get("/api/surveys/pending").json()["survey"]["id"]
@@ -1261,14 +1277,12 @@ class DeletedUserFreeTextTests(TestCase):
             campaign=campaign,
             user=user,
             answers={"rating": 5, "comment": "I work at Acme with Jane"},
-            rating=5,
             status=SurveyResponse.Status.SUBMITTED,
         )
 
         _scrub_survey_free_text(user)
         response.refresh_from_db()
         self.assertEqual(response.answers, {"rating": 5})
-        self.assertEqual(response.rating, 5)
 
 
 def _link_campaign(**overrides) -> SurveyCampaign:
@@ -1290,6 +1304,23 @@ class SurveyLinkTests(TestCase):
     def setUp(self):
         self.user = register_user()
         self.partner = register_user()
+
+    def test_exhausted_popup_offer_is_still_answerable_at_the_link(self):
+        campaign = _link_campaign(max_shows=1)
+        offer = surveys.offer_survey(campaign, self.user)
+        offer.mark_shown()
+        state, response = surveys.survey_for_link(self.user, campaign.slug)
+        self.assertEqual(state, surveys.SurveyLinkState.AVAILABLE)
+        # The pending poll expires the popup row while the page is open; submit still works.
+        SurveyResponse.objects.filter(pk=offer.pk).update(
+            shown_at=timezone.now() - surveys.SHOW_COOLDOWN - timedelta(minutes=1)
+        )
+        self.assertIsNone(surveys.pending_survey_for_user(self.user))
+        response.refresh_from_db()
+        self.assertEqual(response.status, SurveyResponse.Status.EXPIRED)
+        surveys.submit_survey(response, {"rating": 4})
+        response.refresh_from_db()
+        self.assertEqual(response.status, SurveyResponse.Status.SUBMITTED)
 
     def test_unknown_slug_is_not_found(self):
         state, response = surveys.survey_for_link(self.user, "does-not-exist")
@@ -1335,13 +1366,13 @@ class SurveyLinkTests(TestCase):
         self.assertEqual(state, surveys.SurveyLinkState.ALREADY_SUBMITTED)
         self.assertIsNone(response)
 
-    def test_expired_then_link_is_unavailable(self):
+    def test_expired_then_link_is_available(self):
         campaign = _link_campaign()
         offer = surveys.offer_survey(campaign, self.user)
         offer.expire()
         state, response = surveys.survey_for_link(self.user, campaign.slug)
-        self.assertEqual(state, surveys.SurveyLinkState.UNAVAILABLE)
-        self.assertIsNone(response)
+        self.assertEqual(state, surveys.SurveyLinkState.AVAILABLE)
+        self.assertEqual(response.pk, offer.pk)
 
     def test_dismissed_via_popup_then_link_is_available(self):
         campaign = _link_campaign()
@@ -1361,7 +1392,6 @@ class SurveyLinkTests(TestCase):
         surveys.submit_survey(response, {"rating": 4})
         response.refresh_from_db()
         self.assertEqual(response.status, SurveyResponse.Status.SUBMITTED)
-        self.assertEqual(response.rating, 4)
 
     def test_link_open_does_not_start_popup_cooldown(self):
         popup = _campaign(slug="popup-campaign", name="Popup")
