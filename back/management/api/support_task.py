@@ -142,12 +142,12 @@ class SupportTaskListQuerySerializer(serializers.Serializer):
 
 
 def apply_support_task_search(tasks, search: str):
-    """Match by exact ID if numeric, else by title or the related user's full name ("First Second")."""
+    """Match by title or exact ID if numeric, else by title or the related user's full name ("First Second")."""
     search = search.strip()
     if not search:
         return tasks
     if search.isdigit():
-        return tasks.filter(id=int(search))
+        return tasks.filter(Q(title__icontains=search) | Q(id=int(search)))
     tasks = tasks.annotate(
         _related_user_full_name=Concat(
             "related_user__profile__first_name",
