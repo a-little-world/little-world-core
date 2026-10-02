@@ -348,16 +348,26 @@ def _serialize_related_user_profile(user) -> dict | None:
         return base
 
 
-class SupportTaskNoteSerializer(serializers.ModelSerializer):
-    history = ObjectHistorySerializer(many=True, read_only=True)
-    completed_by_profile = serializers.SerializerMethodField()
-    created_by_profile = serializers.SerializerMethodField()
+class SupportTaskProfileFieldsMixin:
+    """Shared *_profile method fields for support task serializers."""
+
+    def get_related_user_profile(self, obj):
+        return _serialize_user_profile(obj.related_user)
+
+    def get_assignee_profiles(self, obj):
+        return [profile for user in obj.assignees.all() if (profile := _serialize_user_profile(user)) is not None]
+
+    def get_created_by_profile(self, obj):
+        return _serialize_user_profile(obj.created_by)
 
     def get_completed_by_profile(self, obj):
         return _serialize_user_profile(obj.completed_by)
 
-    def get_created_by_profile(self, obj):
-        return _serialize_user_profile(obj.created_by)
+
+class SupportTaskNoteSerializer(SupportTaskProfileFieldsMixin, serializers.ModelSerializer):
+    history = ObjectHistorySerializer(many=True, read_only=True)
+    completed_by_profile = serializers.SerializerMethodField()
+    created_by_profile = serializers.SerializerMethodField()
 
     class Meta:
         model = SupportTaskNote
@@ -373,7 +383,7 @@ class SupportTaskNoteSerializer(serializers.ModelSerializer):
         ]
 
 
-class SupportTaskSerializer(serializers.ModelSerializer):
+class SupportTaskSerializer(SupportTaskProfileFieldsMixin, serializers.ModelSerializer):
     action = SupportTaskActionSerializer(read_only=True)
     notes = SupportTaskNoteSerializer(many=True, read_only=True)
     history = ObjectHistorySerializer(many=True, read_only=True)
@@ -384,12 +394,6 @@ class SupportTaskSerializer(serializers.ModelSerializer):
 
     def get_related_user_profile(self, obj):
         return _serialize_related_user_profile(obj.related_user)
-
-    def get_assignee_profiles(self, obj):
-        return [profile for user in obj.assignees.all() if (profile := _serialize_user_profile(user)) is not None]
-
-    def get_created_by_profile(self, obj):
-        return _serialize_user_profile(obj.created_by)
 
     def validate_assignee_ids(self, value):
         from management.models.user import User
@@ -438,20 +442,11 @@ class SupportTaskSerializer(serializers.ModelSerializer):
         ]
 
 
-class SupportTaskListSerializer(serializers.ModelSerializer):
+class SupportTaskListSerializer(SupportTaskProfileFieldsMixin, serializers.ModelSerializer):
     action_type = serializers.CharField(source="action.action_type", read_only=True)
     related_user_profile = serializers.SerializerMethodField()
     assignee_profiles = serializers.SerializerMethodField()
     created_by_profile = serializers.SerializerMethodField()
-
-    def get_related_user_profile(self, obj):
-        return _serialize_user_profile(obj.related_user)
-
-    def get_assignee_profiles(self, obj):
-        return [profile for user in obj.assignees.all() if (profile := _serialize_user_profile(user)) is not None]
-
-    def get_created_by_profile(self, obj):
-        return _serialize_user_profile(obj.created_by)
 
     class Meta:
         model = SupportTask
