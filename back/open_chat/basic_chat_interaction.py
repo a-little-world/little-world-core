@@ -34,7 +34,6 @@ from open_chat.tool_definitions_management import (
     GET_USER_DETAIL_REST_TOOL_NAME,
     LIST_USER_FILTERS_REST_TOOL_NAME,
     MANAGEMENT_REST_TOOL_NAMES,
-    QUERY_USERS_REST_TOOL_NAME,
     build_management_tool_init,
 )
 
