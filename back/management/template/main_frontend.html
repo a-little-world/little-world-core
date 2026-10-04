@@ -21,6 +21,10 @@
     {% include "react_app_head_base.html" with app_name='main_frontend' title='Little World' %}
     {% if use_cookie_banner %}
         {% get_base_page_url as BASE_PAGE_URL %}
+        <script type="text/javascript">
+          window.__lwCookieBannerHidden = null;
+          window.setCookieBannerHidden = function (hidden) { window.__lwCookieBannerHidden = hidden; };
+        </script>
         {% if hidden_cookie_banner %}
         <script type='text/javascript' async src='{{ BASE_PAGE_URL }}/api/cookies/cookie_banner.js?hidden=true'></script>
         {% else %}

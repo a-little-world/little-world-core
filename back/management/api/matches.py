@@ -123,8 +123,8 @@ class GetMatchResponseSerializer(serializers.Serializer):
     description="Make a match between two users",
     request=MakeMatchSerializer,
 )
-@permission_classes([IsAdminOrMatchingUser])
 @api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
 def make_match(request):
     assert request.user.is_staff or request.user.has_perm(ManagementPermission.MATCHING_USER), (
         "User is not allowed to match users"

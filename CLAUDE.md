@@ -109,13 +109,23 @@ Tasks are the unit of work for the support team. Key invariants:
 ### Survey campaigns
 
 In-app surveys are configuration, not code. `SurveyCampaign` declares audience, active window,
-trigger, eligible-after condition, `repeat_scope`, rating `scale` and `questions`; `SurveyResponse`
-holds one row per *offer*, unique on `(campaign, user, context_key)`.
+trigger, eligible-after condition, `repeat_scope`, `available_via_link` and `questions`;
+`SurveyResponse` holds one row per *offer*, unique on `(campaign, user, context_key)`.
 
 - `context_key` is `""` for once-per-user campaigns and `live_session:<uuid>` for once-per-call
   ones — one field lets both kinds share one table and one uniqueness rule. It is never `NULL`.
-- Delivery is `GET /api/surveys/pending` only. There is deliberately no WebSocket path: the old
-  post-call survey used one and failed silently for a year.
+- There are two delivery channels, and both are plain HTTP GETs. There is deliberately no
+  WebSocket delivery path: the old post-call survey used one and failed silently for a year.
+  - **Popup:** `GET /api/surveys/pending`, polled by the main app.
+  - **Link:** `GET /api/surveys/<slug>` for campaigns with `available_via_link`, rendered at
+    `/app/surveys/<slug>` with the same `Survey` card. A campaign can be a popup, a link, or
+    both. With trigger `none` it is link-only (`clean()` requires `available_via_link`).
+- Both channels share the one offer row. A link visit creates it with
+  `delivery_channel=link` and sets `opened_at`; pending delivery skips link rows, so a link
+  visit never turns into a popup later. Link visits never touch `shown_at` / `shown_count`, so
+  they do not start the cooldown or count toward `max_shows`. Only a submitted answer closes
+  the link: a popup that was dismissed, or expired after `max_shows`, can still be answered at
+  the URL. Switching a campaign to trigger `none` also stops popups for offers already open.
 - Rows are created when the survey is offered, never bulk-inserted at launch, so eligibility
   stays dynamic and `shown_count` staying flat is a visible delivery failure.
 - A user is shown at most one card per `SHOW_COOLDOWN` (12h), across *every* campaign, not
@@ -125,14 +135,25 @@ holds one row per *offer*, unique on `(campaign, user, context_key)`.
   stay open and are delivered once the window passes, so deferring a survey never loses it.
   `shown_at` is only written when the client confirms it rendered the card, so an offer that
   never displayed does not start the window.
-- Answered questions are immutable (id, type, referenced choice options). `scale` cannot
-  change once a rating has been submitted — growing or shrinking would change what existing
-  scores mean. Enforced in `SurveyCampaign.save()`, not in admin.
-- Audience is everyone, a company already on `state.company`, or one of the banner/event
-  filters (`CustomFilterChoices`). Picked from a single dropdown in the admin panel.
-- Trigger is when the card is presented (`on_session` vs after a call). Eligible-after is a
+- Answered questions are immutable (id, type, referenced choice options). A rating
+  question's `scale` cannot change once that question has been answered — growing or shrinking
+  would change what existing scores mean. Enforced in `SurveyCampaign.save()`, not in admin.
+  Rating is a question type, not a campaign setting: a campaign can have several ratings, or
+  none. Each rating carries its own scale (2–10). `SurveyCampaign.scale` is only a fallback for
+  older rating questions saved without a scale. There is no rating column on `SurveyResponse`;
+  answers live in `answers` JSON and means are computed per rating question.
+- Question types are rating (stars), text, choice (one option, `RadioGroup` on the main app)
+  and multiselect (checkboxes). Choice and multiselect share `{value, label}` options; only
+  the widget and the answer shape differ. Multiselect answers are stored as a unique JSON
+  array in **option order**, not click order — `[events, chat]` and `[chat, events]` are the
+  same answer. Empty list is unanswered.
+- Audience is everyone, a company already on `state.company`, or one of the shared
+ banner/event/survey filters (`AudienceFilters`). Picked from a single dropdown in the admin panel.
+- Trigger is when the popup is offered: `on_session`, after a non-qualifying call (under 10
+  minutes), after a qualifying call (10 minutes or longer), or `none` (link only). Eligible-after is a
   named journey condition: immediately, onboarded (`state.is_onboarded`), first qualifying
-  call (standard calls only, not random, under 10 minutes, both active), match created, or match success (the shared
+  call (standard calls only, not random, 10 minutes or longer, both active), match created, halfway to match success
+  (half the live `management.match_success` token threshold), or match success (the shared
   `management.match_success` definition). Conditions take effect as soon as they are true.
   Optional `eligible_after_since` is a lower bound on when that condition counts — e.g.
   onboarded on or after 31 Aug 2025. Match conditions qualify if *any* of the user's matches
@@ -144,11 +165,13 @@ holds one row per *offer*, unique on `(campaign, user, context_key)`.
   falls back to it. Completeness is validated in `SurveyCampaign.save()` only on activation, so
   drafts can be saved half-finished. The pending endpoint resolves copy for the user's
   `display_language` before it leaves the backend.
-- Star-rating captions (`survey.star.1`–`5`) live in the frontend locale files. They belong to
-  the widget, not the campaign, so a configurable scale does not need one label per star on the
-  row. They describe the five points of a five-star scale and are only rendered when `scale`
-  is 5 — stretching five words over another scale labels values twice or shifts what each one
-  means, so any other scale shows bare stars.
+- On the main app, the card validates on submit (react-hook-form): required questions show a
+  field error rather than a disabled button. Closing the popup submits only if at least one
+  question is answered and every required one is; otherwise it dismisses. A failed submit also
+  falls back to dismissing. Clicking the backdrop does not close it.
+- Responses are read in the admin panel's Responses view: one sheet of answers per row, and,
+  with a campaign filter, answered/offered plus a mean per rating question computed from
+  `answers` JSON.
 - Campaigns are created and edited in the admin panel (`Communications → Surveys`), not via
   management commands. Logic lives in `management/surveys.py`; a new survey is a new row.
 

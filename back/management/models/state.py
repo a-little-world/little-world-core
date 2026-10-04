@@ -144,6 +144,9 @@ class State(models.Model):
     # This is used to ensure no user can manipulate the responses of the still in contact form
     still_in_contact_form_access_token_user = models.UUIDField(default=uuid.uuid4)
 
+    # Token for the public one-click "activate searching" outreach link
+    search_activation_token = models.UUIDField(default=uuid.uuid4)
+
     """
     This contains a list of matches the user has not yet confirmed
     this can be used by the frontend to display them as 'new'

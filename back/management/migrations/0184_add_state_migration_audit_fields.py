@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('management', '0179_support_task_scheduled_at_note_author'),
+        ('management', '0183_surveycampaign_halfway_match_success'),
     ]
 
     operations = [
