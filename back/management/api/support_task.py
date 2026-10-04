@@ -1,4 +1,5 @@
-from django.db.models import Case, Count, IntegerField, Q, Value, When
+from django.db.models import Case, CharField, Count, IntegerField, Q, Value, When
+from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.urls import path
 from django.utils import timezone
@@ -23,6 +24,7 @@ from management.models.support_task import (
     SupportTask,
     SupportTaskAction,
     SupportTaskActionSerializer,
+    SupportTaskListSerializer,
     SupportTaskNote,
     SupportTaskNoteSerializer,
     SupportTaskSerializer,
@@ -139,6 +141,24 @@ class SupportTaskListQuerySerializer(serializers.Serializer):
     search = serializers.CharField(required=False, allow_blank=True)
 
 
+def apply_support_task_search(tasks, search: str):
+    """Match by title or exact ID if numeric, else by title or the related user's full name ("First Second")."""
+    search = search.strip()
+    if not search:
+        return tasks
+    if search.isdigit():
+        return tasks.filter(Q(title__icontains=search) | Q(id=int(search)))
+    tasks = tasks.annotate(
+        _related_user_full_name=Concat(
+            "related_user__profile__first_name",
+            Value(" "),
+            "related_user__profile__second_name",
+            output_field=CharField(),
+        )
+    )
+    return tasks.filter(Q(title__icontains=search) | Q(_related_user_full_name__icontains=search))
+
+
 @extend_schema(responses={200: PaginatedSupportTaskResponse})
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
@@ -146,12 +166,7 @@ class SupportTaskListQuerySerializer(serializers.Serializer):
 def support_task_list(request):
     tasks = (
         SupportTask.objects.select_related("action", "related_user__profile", "created_by__profile")
-        .prefetch_related(
-            "assignees__profile",
-            "notes__completed_by__profile",
-            "notes__created_by__profile",
-            "notes__history__changed_by__profile",
-        )
+        .prefetch_related("assignees__profile")
         .all()
     )
 
@@ -188,11 +203,7 @@ def support_task_list(request):
             pass
 
     search = query.get("search", "").strip()
-    if search:
-        q = Q(title__icontains=search)
-        if search.isdigit():
-            q |= Q(id=int(search))
-        tasks = tasks.filter(q)
+    tasks = apply_support_task_search(tasks, search)
 
     sort_by = query["sort_by"]
     sort_order = query["sort_order"]
@@ -213,8 +224,8 @@ def support_task_list(request):
         tasks = tasks.order_by(f"{order_prefix}{sort_by}")
 
     paginator = DetailedPagination()
-    page_data = paginator.paginate_queryset(tasks.distinct(), request)
-    return paginator.get_paginated_response(SupportTaskSerializer(page_data, many=True).data)
+    page_data = paginator.paginate_queryset(tasks, request)
+    return paginator.get_paginated_response(SupportTaskListSerializer(page_data, many=True).data)
 
 
 @api_view(["POST"])

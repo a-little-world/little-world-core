@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 
-from management.models.support_task import SupportTaskSerializer
+from management.models.support_task import SupportTaskListSerializer
 
 
 class DetailedPaginatedResponseSerializer(serializers.Serializer):
@@ -21,7 +21,7 @@ class DetailedPaginatedResponseSerializer(serializers.Serializer):
 
 
 class PaginatedSupportTaskResponse(DetailedPaginatedResponseSerializer):
-    results = SupportTaskSerializer(many=True)
+    results = SupportTaskListSerializer(many=True)
 
 
 class SupportTaskStatsSerializer(serializers.Serializer):
