@@ -220,13 +220,20 @@ class SupportTaskApiTests(TestCase):
         self.assertEqual([row["id"] for row in assigned_response.json()["results"]], [assigned_task.id])
         self.assertEqual([row["id"] for row in unassigned_response.json()["results"]], [unassigned_task.id])
 
-    def test_assignee_users_only_lists_active_effective_matching_users(self):
+    def test_assignee_users_lists_active_support_users(self):
         response = self._client_for(self.admin_user).get("/api/support_task/assignee_users/")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             {row["id"] for row in response.json()},
-            {self.direct_matching_user.id, self.group_matching_user.id, self.superuser.id},
+            {
+                self.admin_user.id,
+                self.superuser.id,
+                self.direct_matching_user.id,
+                self.group_matching_user.id,
+                self.direct_reply_user.id,
+                self.group_reply_user.id,
+            },
         )
 
     def test_manual_create_accepts_multiple_assignees(self):
@@ -294,6 +301,71 @@ class SupportTaskApiTests(TestCase):
         for detail_only_field in ("notes", "history", "action"):
             self.assertNotIn(detail_only_field, row)
 
+    def test_support_only_user_can_access_tasks_and_notes(self):
+        task = SupportTask.create_of_type(
+            "support_reply",
+            created_by=self.admin_user,
+            related_user=self.regular_user,
+            static_parameters={"kind_display": "General", "message_preview": "A"},
+            parameters={"message": ""},
+        )
+        client = self._client_for(self.direct_reply_user)
+
+        list_response = client.get("/api/support_task/")
+        detail_response = client.get(f"/api/support_task/{task.id}/")
+        note_response = client.post(f"/api/support_task/{task.id}/notes/", {"text": "Looks good"}, format="json")
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(note_response.status_code, 201)
+        task.refresh_from_db()
+        self.assertEqual(set(task.assignees.values_list("id", flat=True)), {self.direct_reply_user.id})
+
+    def test_manual_task_can_be_executed(self):
+        create_response = self._client_for(self.admin_user).post(
+            "/api/support_task/create_manual/",
+            {"title": "Manual TODO", "assignee_ids": [self.direct_matching_user.id]},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201)
+        task_id = create_response.json()["id"]
+
+        response = self._client_for(self.admin_user).post(f"/api/support_task/{task_id}/action/execute/", format="json")
+
+        self.assertEqual(response.status_code, 200)
+        task = SupportTask.objects.get(pk=task_id)
+        self.assertEqual(task.action.status, task.action.Status.EXECUTED)
+        self.assertEqual(task.status, task.Status.COMPLETED)
+
+    def test_manual_task_bulk_complete(self):
+        create_response = self._client_for(self.admin_user).post(
+            "/api/support_task/create_manual/",
+            {"title": "Manual TODO"},
+            format="json",
+        )
+        task_id = create_response.json()["id"]
+
+        response = self._client_for(self.admin_user).post(
+            "/api/support_task/bulk/",
+            {"task_ids": [task_id], "action": "complete"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"succeeded": [task_id], "failed": []})
+        task = SupportTask.objects.get(pk=task_id)
+        self.assertEqual(task.action.status, task.action.Status.EXECUTED)
+        self.assertEqual(task.status, task.Status.COMPLETED)
+
+    def test_manual_create_rejects_unknown_related_user(self):
+        response = self._client_for(self.admin_user).post(
+            "/api/support_task/create_manual/",
+            {"title": "Manual TODO", "related_user_id": 999999},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
     def test_bulk_delete_support_tasks(self):
         task = SupportTask.create_of_type(
             "support_reply",
@@ -348,6 +420,7 @@ class SupportTaskRegistryTests(TestCase):
                     "support_reply",
                     "message_action_change_user_type",
                     "profile_change_action_country_of_residence",
+                    "manual",
                 }
             ),
         )

@@ -19,7 +19,7 @@ from management.api.schema import (
     SupportTaskUserSearchEntrySerializer,
 )
 from management.authentication import NativeOnlyJWTAuthentication
-from management.helpers import DetailedPagination, IsAdminOrMatchingUser
+from management.helpers import DetailedPagination, IsAdminOrMatchingUser, IsAdminOrSupportUser
 from management.models.support_task import (
     SupportTask,
     SupportTaskAction,
@@ -30,7 +30,7 @@ from management.models.support_task import (
     SupportTaskSerializer,
 )
 from management.models.user import User
-from management.permissions import ManagementPermission, users_with_effective_permission
+from management.permissions import support_users_queryset
 from management.support_reply_outcomes import log_support_reply_outcome
 
 
@@ -105,7 +105,7 @@ def _apply_bulk_support_task_action(task, action, user):
 )
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrSupportUser])
 def support_task_bulk(request):
     serializer = BulkSupportTaskSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -162,7 +162,7 @@ def apply_support_task_search(tasks, search: str):
 @extend_schema(responses={200: PaginatedSupportTaskResponse})
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrSupportUser])
 def support_task_list(request):
     tasks = (
         SupportTask.objects.select_related("action", "related_user__profile", "created_by__profile")
@@ -244,7 +244,7 @@ def support_task_create(request):
 @extend_schema(responses={200: SupportTaskSerializer})
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrSupportUser])
 def support_task_detail(request, pk):
     try:
         task = (
@@ -264,7 +264,7 @@ def support_task_detail(request, pk):
 
 @api_view(["PATCH"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrSupportUser])
 def support_task_update(request, pk):
     try:
         task = SupportTask.objects.select_related("action").get(pk=pk)
@@ -291,7 +291,7 @@ def support_task_update(request, pk):
 )
 @api_view(["PATCH"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrSupportUser])
 def support_task_action_update(request, task_pk):
     """Update dynamic parameters of a pending action (e.g. edit AI-generated draft)."""
     try:
@@ -326,7 +326,7 @@ def _support_reply_outcome_note(action: SupportTaskAction) -> str | None:
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrSupportUser])
 def support_task_action_execute(request, task_pk):
     """Approve an action — executes the underlying function after human confirmation."""
     try:
@@ -355,7 +355,7 @@ def support_task_action_execute(request, task_pk):
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrSupportUser])
 def support_task_action_keep_open(request, task_pk):
     """Keep a support-reply task open for further processing, optionally rescheduling it."""
     try:
@@ -419,7 +419,7 @@ def support_task_slack_threads(request):
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrSupportUser])
 def support_task_action_cancel(request, task_pk):
     """Skip an action without executing it."""
     try:
@@ -439,7 +439,7 @@ def support_task_action_cancel(request, task_pk):
 @extend_schema(responses={200: SupportTaskStatsSerializer})
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrSupportUser])
 def support_task_stats(request):
     rows = SupportTask.objects.values("status").annotate(count=Count("id"))
     counts = {row["status"]: row["count"] for row in rows}
@@ -455,7 +455,7 @@ def support_task_stats(request):
 @extend_schema(responses={200: SupportTaskOpenCountSerializer})
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrSupportUser])
 def open_assigned_support_task_count(request, user_pk=None):
     user = request.user if user_pk is None else get_object_or_404(User, pk=user_pk)
     return Response({"count": user.open_assigned_support_task_count})
@@ -464,11 +464,9 @@ def open_assigned_support_task_count(request, user_pk=None):
 @extend_schema(responses={200: SupportAssigneeUserEntrySerializer(many=True)})
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrSupportUser])
 def assignee_users(request):
-    users = users_with_effective_permission(ManagementPermission.MATCHING_USER).order_by(
-        "first_name", "last_name", "email"
-    )
+    users = support_users_queryset().order_by("first_name", "last_name", "email")
     users = users.values("id", "email", "first_name", "last_name")
     return Response(list(users))
 
@@ -483,13 +481,15 @@ class CreateManualSupportTaskSerializer(serializers.Serializer):
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrSupportUser])
 def support_task_create_manual(request):
     serializer = CreateManualSupportTaskSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     d = serializer.validated_data
 
     related_user_id = d.get("related_user_id")
+    if related_user_id is not None and not User.objects.filter(pk=related_user_id).exists():
+        return Response({"error": "Related user does not exist"}, status=status.HTTP_400_BAD_REQUEST)
     assignees = _users_for_ids(d["assignee_ids"])
 
     from django.db import transaction
@@ -503,7 +503,7 @@ def support_task_create_manual(request):
             related_user_id=related_user_id,
         )
         task.save(changed_by=request.user)
-        task.assignees.set(assignees)
+        task.set_assignees(assignees, changed_by=request.user)
         action = SupportTaskAction(task=task, action_type="manual")
         action.save()
 
@@ -514,7 +514,7 @@ def support_task_create_manual(request):
 @extend_schema(responses={200: SupportTaskUserSearchEntrySerializer(many=True)})
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrSupportUser])
 def user_search(request):
     q = request.query_params.get("q", "").strip()
     if not q:
@@ -538,7 +538,7 @@ def user_search(request):
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrSupportUser])
 def support_task_note_create(request, task_pk):
     try:
         task = SupportTask.objects.get(pk=task_pk)
@@ -551,12 +551,13 @@ def support_task_note_create(request, task_pk):
 
     note = SupportTaskNote(task=task, text=text, created_by=request.user)
     note.save(changed_by=request.user)
+    task.claim_if_unassigned(request.user)
     return Response(SupportTaskNoteSerializer(note).data, status=status.HTTP_201_CREATED)
 
 
 @api_view(["PATCH"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrSupportUser])
 def support_task_note_detail(request, note_pk):
     """Edit a note's text and/or completion. Returns the updated note."""
     try:
