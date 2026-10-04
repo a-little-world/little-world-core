@@ -5,6 +5,8 @@ queryset-shaped helpers are the ones to reach for in a list view or an export â€
 per-match helpers cost a query each unless the queryset was annotated first.
 """
 
+import math
+
 from django.db.models import QuerySet
 
 from management.match_success.sessions import annotate_total_call_minutes, total_call_minutes
@@ -24,6 +26,15 @@ def success_token_threshold(version: str | None = None) -> int:
     if resolved.success_token_threshold is None:
         raise ValueError(f"Match-success version {resolved.id!r} has no token target (use match_is_successful).")
     return resolved.success_token_threshold
+
+
+def halfway_token_threshold(version: str | None = None) -> int:
+    """Tokens that count as halfway to success under the active (or given) version.
+
+    Reads the live success target rather than a hard-coded 4: if the threshold moves,
+    halfway moves with it. Odd targets round up so this is never short of half.
+    """
+    return max(1, math.ceil(success_token_threshold(version) / 2))
 
 
 def match_tokens(match, version: str | None = None) -> int:
@@ -80,6 +91,7 @@ __all__ = [
     "annotate_match_tokens",
     "documentation",
     "get_version",
+    "halfway_token_threshold",
     "list_versions",
     "match_is_successful",
     "match_tokens",

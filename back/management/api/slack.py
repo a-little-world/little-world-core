@@ -125,9 +125,9 @@ def process_slack_ai_response(message):
     notify_communication_channel(response_message)
 
 
+@api_view(["GET", "POST"])
 @permission_classes([])
 @authentication_classes([])
-@api_view(["GET", "POST"])
 def slack_callbacks(request, secret="false"):
     if secret != settings.SLACK_CALLBACK_SECRET:
         return Response("Invalid secret", status=403)
