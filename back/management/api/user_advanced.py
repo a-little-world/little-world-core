@@ -1,9 +1,10 @@
 import logging
+from collections import defaultdict
 from typing import Literal, cast
 
 from chat.helpers import MatchSendForbidden, MessageSendValidationError
 from chat.models import Chat, ChatConnections, ChatSerializer, Message, MessageSerializer
-from django.db.models import CharField, Max, Q, Value
+from django.db.models import CharField, Max, OuterRef, Q, Subquery, Value
 from django.db.models.functions import Concat
 from django.urls import path
 from django.utils import timezone
@@ -48,7 +49,7 @@ from management.models.scores import TwoUserMatchingScore
 from management.models.sms import SmsModel, SmsSerializer
 from management.models.state import State, StateSerializer
 from management.models.support_task import SupportTask, SupportTaskAction
-from management.models.unconfirmed_matches import ProposedMatch, serialize_proposed_matches
+from management.models.unconfirmed_matches import MatchType, ProposedMatch, serialize_proposed_matches
 from management.models.user import User
 from management.permissions import (
     MANAGEMENT_PERMISSION_LABELS,
@@ -56,6 +57,10 @@ from management.permissions import (
     user_can_edit_management_permissions,
     user_can_grant_apply_management_permissions,
     user_can_manage_user_management_permissions,
+)
+from management.self_onboarding_progress import (
+    self_onboarding_completed_at_for_user,
+    self_onboarding_progress_prefetch,
 )
 from management.tasks import matching_algo_v2
 
@@ -86,9 +91,13 @@ def get_user_bucket_label(bucket_name: str | None) -> str:
     return slug.replace("_", " ").strip().title()
 
 
+_NOT_ANNOTATED = object()
+
+
 def serialize_user_last_seen(user) -> str | None:
-    last_seen = getattr(user, "last_online", None)
-    if last_seen is None:
+    # A NULL annotation (no chat connections) must not re-run the aggregate per row.
+    last_seen = getattr(user, "last_online", _NOT_ANNOTATED)
+    if last_seen is _NOT_ANNOTATED:
         last_seen = ChatConnections.get_last_seen_for_user(user)
     return last_seen.isoformat() if last_seen else None
 
@@ -121,6 +130,16 @@ def determine_user_buckets(user_pk, all_lists: bool = False) -> list[str]:
             logger.exception("User bucket list %r failed for user %s; treating as no match", name, user_pk)
             continue
     return buckets
+
+
+def _waiting_time_payload(waiting_since, first_search: bool):
+    number_of_days = (timezone.now() - waiting_since).days
+    if number_of_days == 0:
+        waiting_time_string = "Waiting less than a day"
+    else:
+        day_text = "day" if number_of_days == 1 else "days"
+        waiting_time_string = f"Waiting {number_of_days} {day_text}"
+    return {"number_of_days": number_of_days, "waiting_time_string": waiting_time_string, "first_search": first_search}
 
 
 def get_match_waiting_time(user):
@@ -159,21 +178,7 @@ def get_match_waiting_time(user):
             # Earliest completion
             waiting_since = min(candidates)
 
-    # Calculate waiting time
-    now = timezone.now()
-    number_of_days = (now - waiting_since).days
-
-    if number_of_days == 0:
-        waiting_time_string = "Waiting less than a day"
-    else:
-        day_text = "day" if number_of_days == 1 else "days"
-        waiting_time_string = f"Waiting {number_of_days} {day_text}"
-
-    return {
-        "number_of_days": number_of_days,
-        "waiting_time_string": waiting_time_string,
-        "first_search": not already_matched,
-    }
+    return _waiting_time_payload(waiting_since, first_search=not already_matched)
 
 
 class ExportUserSerializer(serializers.ModelSerializer):
@@ -195,13 +200,21 @@ class ListUserSerializer(serializers.ModelSerializer):
         fields = ["id", "email", "date_joined", "last_login"]
 
 
+class MatchPreviewProfileSerializer(serializers.ModelSerializer):
+    """Only what the match icons render — MinimalProfileSerializer sends 23 fields per partner."""
+
+    class Meta:
+        model = Profile
+        fields = ["first_name", "image_type", "avatar_config", "image"]
+
+
 def _serialize_user_match_preview_row(user):
     return {
         "id": str(user.uuid),
         "partner": {
             "id": user.id,
             "has_match_priority": user.state.has_match_priority,
-            **MinimalProfileSerializer(user.profile).data,
+            **MatchPreviewProfileSerializer(user.profile).data,
         },
     }
 
@@ -248,6 +261,116 @@ def _serialize_user_match_previews(user: User):
     }
 
 
+def build_user_table_batch(users):
+    """Per-page maps for UserTableSerializer: match previews and waiting times in a handful of queries."""
+    ids = [u.id for u in users]
+    id_set = set(ids)
+    preview_limit = 3
+
+    confirmed: dict = defaultdict(list)
+    unconfirmed: dict = defaultdict(list)
+    match_rows = (
+        Match.objects.filter(Q(user1_id__in=ids) | Q(user2_id__in=ids), active=True, support_matching=False)
+        .exclude(match_type=MatchType.TEMPORARY)
+        .select_related("user1__profile", "user1__state", "user2__profile", "user2__state")
+    )
+    confirmed_by_map: dict = defaultdict(set)
+    match_rows = list(match_rows)
+    if match_rows:
+        confirmed_rows = Match.confirmed_by.through.objects.filter(match_id__in=[m.id for m in match_rows]).values(
+            "match_id", "user_id"
+        )
+        for row in confirmed_rows:
+            confirmed_by_map[row["match_id"]].add(row["user_id"])
+
+    for match in match_rows:
+        confirmers = confirmed_by_map.get(match.id, ())
+        for uid, partner in ((match.user1_id, match.user2), (match.user2_id, match.user1)):
+            if uid not in id_set:
+                continue
+            if uid in confirmers:
+                confirmed[uid].append((match.created_at, partner))
+            else:
+                unconfirmed[uid].append((match.created_at, partner))
+
+    proposed: dict = defaultdict(list)
+    open_proposals = ProposedMatch.objects.filter(
+        Q(user1_id__in=ids) | Q(user2_id__in=ids), closed=False
+    ).select_related("user1__profile", "user1__state", "user2__profile", "user2__state")
+    for proposal in open_proposals:
+        proposal.is_expired(close_if_expired=True, send_mail_if_expired=True)
+        if proposal.closed or proposal.match_type == MatchType.TEMPORARY:
+            continue
+        for uid, partner in ((proposal.user1_id, proposal.user2), (proposal.user2_id, proposal.user1)):
+            if uid in id_set:
+                proposed[uid].append((proposal.potential_matching_created_at, partner))
+
+    def _preview(pairs, newest_first):
+        pairs.sort(key=lambda pair: pair[0], reverse=newest_first)
+        return {"results": [_serialize_user_match_preview_row(partner) for _, partner in pairs[:preview_limit]]}
+
+    matches_map = {
+        uid: {
+            "confirmed": _preview(confirmed[uid], newest_first=True),
+            "unconfirmed": _preview(unconfirmed[uid], newest_first=False),
+            "proposed": _preview(proposed[uid], newest_first=False),
+        }
+        for uid in ids
+    }
+
+    waiting_time_map: dict = {}
+    searching = [
+        u
+        for u in users
+        if u.state is not None
+        and u.state.is_onboarded
+        and u.state.searching_state == State.SearchingStateChoices.SEARCHING
+    ]
+    if searching:
+        searching_ids = [u.id for u in searching]
+        matched_ids: set = set()
+        journey_rows = Match.objects.filter(
+            Match.journey_q(), Q(user1_id__in=searching_ids) | Q(user2_id__in=searching_ids)
+        ).values("user1_id", "user2_id")
+        for row in journey_rows:
+            matched_ids.update((row["user1_id"], row["user2_id"]))
+
+        appointment_end: dict = {}
+        unmatched_ids = [u.id for u in searching if u.id not in matched_ids]
+        if unmatched_ids:
+            appointment_rows = (
+                PreMatchingAppointment.objects.filter(user_id__in=unmatched_ids)
+                .order_by("user_id", "-created")
+                .values("user_id", "end_time")
+            )
+            for row in appointment_rows:
+                appointment_end.setdefault(row["user_id"], row["end_time"])
+
+        for user in searching:
+            if user.id in matched_ids:
+                waiting_since = user.state.searching_state_last_updated
+            elif user.id in appointment_end:
+                waiting_since = appointment_end[user.id]
+            else:
+                candidates = []
+                if user.state.onboarding_call_completed_at is not None:
+                    candidates.append(user.state.onboarding_call_completed_at)
+                self_completed_at = self_onboarding_completed_at_for_user(user)
+                if self_completed_at is not None:
+                    candidates.append(self_completed_at)
+                if not candidates:
+                    waiting_time_map[user.id] = {
+                        "number_of_days": None,
+                        "waiting_time_string": "No onboarding completion date found",
+                        "first_search": None,
+                    }
+                    continue
+                waiting_since = min(candidates)
+            waiting_time_map[user.id] = _waiting_time_payload(waiting_since, first_search=user.id not in matched_ids)
+
+    return {"matches": matches_map, "waiting_time": waiting_time_map}
+
+
 class UserTableStateSerializer(serializers.Serializer):
     company = serializers.CharField(allow_null=True, required=False)
     has_match_priority = serializers.BooleanField()
@@ -256,7 +379,7 @@ class UserTableStateSerializer(serializers.Serializer):
 class UserMatchWaitingTimeSerializer(serializers.Serializer):
     number_of_days = serializers.IntegerField(allow_null=True)
     waiting_time_string = serializers.CharField()
-    first_search = serializers.DateTimeField(allow_null=True, required=False)
+    first_search = serializers.BooleanField(allow_null=True, required=False)
 
 
 class UserChatMessagesPageSerializer(serializers.Serializer):
@@ -277,8 +400,25 @@ class UserMessagesResponseSerializer(serializers.Serializer):
     messages = UserChatMessagesPageSerializer()
 
 
+class UserTableProfileSerializer(serializers.ModelSerializer):
+    """Only the profile columns the users table renders."""
+
+    class Meta:
+        model = Profile
+        fields = [
+            "first_name",
+            "second_name",
+            "user_type",
+            "country_of_residence",
+            "target_groups",
+            "image_type",
+            "avatar_config",
+            "image",
+        ]
+
+
 class UserTableSerializer(serializers.ModelSerializer):
-    profile = MinimalProfileSerializer(read_only=True)
+    profile = UserTableProfileSerializer(read_only=True)
     state = UserTableStateSerializer(read_only=True)
     last_seen = serializers.SerializerMethodField()
 
@@ -295,10 +435,14 @@ class UserTableSerializer(serializers.ModelSerializer):
             "company": instance.state.company,
             "has_match_priority": instance.state.has_match_priority,
         }
-        representation["waiting_time"] = get_match_waiting_time(instance)
-        representation["matches"] = _serialize_user_match_previews(instance)
-
         context = getattr(self, "context", {})
+        batch = context.get("user_table_batch")
+        if batch is not None:
+            representation["waiting_time"] = batch["waiting_time"].get(instance.id) or get_match_waiting_time(instance)
+            representation["matches"] = batch["matches"][instance.id]
+        else:
+            representation["waiting_time"] = get_match_waiting_time(instance)
+            representation["matches"] = _serialize_user_match_previews(instance)
         determine_bucket = context.get("determine_bucket", False)
         all_buckets = context.get("all_buckets", False)
         if determine_bucket or all_buckets:
@@ -709,7 +853,7 @@ class InviteNativeAppTesterRequestSerializer(serializers.Serializer):
     retrieve=extend_schema(summary="Retrieve user", responses={200: AdvancedUserSerializer}),
 )
 class AdvancedUserViewset(viewsets.ModelViewSet):
-    queryset = User.objects.all().order_by("-date_joined")
+    queryset = User.objects.all()
 
     filter_backends = (filters.DjangoFilterBackend,)
 
@@ -722,15 +866,24 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         is_staff = self.request.user.is_staff
         if is_staff:
-            queryset = User.objects.all().select_related("profile", "state")
+            queryset = User.objects.all()
         else:
             management_user = cast(User, self.request.user)
-            queryset = management_user.managed_users_queryset(active_only=True).select_related("profile", "state")
+            queryset = management_user.managed_users_queryset(active_only=True)
 
         if self.action == "list":
-            queryset = queryset.annotate(last_online=Max("chatconnections__last_seen"))
+            # A Max() aggregate groups the whole table before the LIMIT applies; a correlated
+            # subquery only runs for the page. Profile/state are prefetched per page row rather
+            # than joined into every candidate row (profile is ~1 KB wide).
+            queryset = queryset.annotate(
+                last_online=Subquery(
+                    ChatConnections.objects.filter(user=OuterRef("pk")).order_by("-last_seen").values("last_seen")[:1]
+                )
+            ).prefetch_related("profile", "state", self_onboarding_progress_prefetch())
+        else:
+            queryset = queryset.select_related("profile", "state")
 
-        return queryset
+        return queryset.order_by("-date_joined")
 
     @extend_schema(responses={200: FilterSchemaResponseSerializer})
     @action(detail=False, methods=["get"])
@@ -753,17 +906,24 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if self.action == "retrieve":
             determine_bucket = True
 
+        context = {}
+        batch = getattr(self, "_user_table_batch", None)
+        if batch is not None:
+            context["user_table_batch"] = batch
+
         if self.action in {"list", "retrieve"} and (determine_bucket or all_buckets):
-            context = {"determine_bucket": determine_bucket, "all_buckets": all_buckets}
+            context["determine_bucket"] = determine_bucket
+            context["all_buckets"] = all_buckets
             bucket_map = getattr(self, "_bucket_map", None)
             if bucket_map is not None:
                 context["bucket_map"] = bucket_map
-            return context
-        return {}
+        return context
 
     def paginate_queryset(self, queryset):
-        """Classify the page's buckets in one pass, once the page rows are known."""
+        """Build the page's batched lookups once the page rows are known."""
         page = super().paginate_queryset(queryset)
+        if page is not None and self.action == "list":
+            self._user_table_batch = build_user_table_batch(page)
         if page is not None and self.get_serializer_context().get("determine_bucket"):
             self._bucket_map = user_bucket_map([u.pk for u in page])
         return page
