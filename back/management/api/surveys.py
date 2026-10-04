@@ -1,18 +1,23 @@
 """User-facing survey endpoints.
 
-``pending`` is the whole delivery mechanism. It works for offline users, works for native via
-the same JWT auth as every other endpoint, and fails loudly — a survey that stops appearing is
-a request returning nothing rather than silence.
+``pending`` is popup delivery. It works for offline users, works for native via the same
+JWT auth as every other endpoint, and fails loudly — a survey that stops appearing is a
+request returning nothing rather than silence.
 
-``shown`` is separate from ``pending`` on purpose: the pending response proves the *backend*
-offered the survey, while ``shown`` proves the client actually rendered it. Offers piling up
-with ``shown_count`` stuck at zero is precisely the failure that went unnoticed for a year.
+``GET /api/surveys/<slug>`` is the link channel for campaigns with ``available_via_link``.
+Submit still goes through ``/api/surveys/<id>/submit``. The page must not call ``shown``
+or ``dismiss``.
+
+``shown`` is separate from ``pending`` on purpose: the pending response proves the
+*backend* offered the survey, while ``shown`` proves the client actually rendered it.
+Offers piling up with ``shown_count`` stuck at zero is precisely the failure that went
+unnoticed for a year.
 """
 
 import logging
 
 from django.core.exceptions import ValidationError
-from django.db.models import Avg, Count, Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django.urls import path
 from drf_spectacular.utils import extend_schema
@@ -26,7 +31,13 @@ from management import surveys
 from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import get_paginated_format_v2
-from management.models.survey import PRIMARY_COPY_LANGUAGE, SurveyCampaign, SurveyResponse
+from management.models.survey import (
+    PRIMARY_COPY_LANGUAGE,
+    QuestionType,
+    SurveyCampaign,
+    SurveyResponse,
+    rating_scale_for,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +157,32 @@ def dismiss_survey(request, response_id: int):
     return Response({"status": "ok"})
 
 
+@extend_schema(
+    description=(
+        "The survey at this campaign slug for the current user. "
+        "Optional ?live_session=<uuid> for live-session-scoped campaigns. "
+        "Unknown slugs, campaigns that are not available_via_link, and live_session "
+        "values that are missing, unfinished, or not the user's all 404."
+    ),
+    responses={200: PendingSurveySerializer(many=False)},
+)
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def survey_by_slug(request, slug: str):
+    state, response = surveys.survey_for_link(
+        request.user,
+        slug,
+        live_session_id=request.query_params.get("live_session") or None,
+    )
+    if state == surveys.SurveyLinkState.NOT_FOUND:
+        return Response({"status": "error", "message": "Survey not found"}, status=404)
+    survey_payload = None
+    if state == surveys.SurveyLinkState.AVAILABLE and response is not None:
+        survey_payload = PendingSurveySerializer(response, context={"language": _display_language(request.user)}).data
+    return Response({"state": state, "survey": survey_payload})
+
+
 #: ---------------------------------------------------------------------------------------
 #: Admin panel: campaigns are created and edited here rather than in code, which is why the
 #: copy lives on the row. Validation is the model's — these views only translate its errors.
@@ -156,7 +193,6 @@ class AdminSurveyCampaignSerializer(serializers.ModelSerializer):
     offered = serializers.IntegerField(read_only=True, default=0)
     answered = serializers.IntegerField(read_only=True, default=0)
     rendered = serializers.IntegerField(read_only=True, default=0)
-    mean_rating = serializers.FloatField(read_only=True, allow_null=True)
     missing_copy = serializers.SerializerMethodField()
     audience_label = serializers.SerializerMethodField()
 
@@ -181,12 +217,12 @@ class AdminSurveyCampaignSerializer(serializers.ModelSerializer):
             "starts_at",
             "ends_at",
             "max_shows",
+            "available_via_link",
             "created_at",
             "updated_at",
             "offered",
             "answered",
             "rendered",
-            "mean_rating",
             "missing_copy",
         )
         read_only_fields = ("id", "created_at", "updated_at")
@@ -201,10 +237,9 @@ class AdminSurveyCampaignSerializer(serializers.ModelSerializer):
 
 class AdminSurveyCampaignDetailSerializer(AdminSurveyCampaignSerializer):
     locked_questions = serializers.SerializerMethodField()
-    scale_locked = serializers.SerializerMethodField()
 
     class Meta(AdminSurveyCampaignSerializer.Meta):
-        fields = (*AdminSurveyCampaignSerializer.Meta.fields, "locked_questions", "scale_locked")
+        fields = (*AdminSurveyCampaignSerializer.Meta.fields, "locked_questions")
 
     def get_locked_questions(self, campaign) -> list[str]:
         """Ids that already have answers, so the form can render them read-only instead of
@@ -217,9 +252,6 @@ class AdminSurveyCampaignDetailSerializer(AdminSurveyCampaignSerializer):
             for question in campaign.questions
             if question.get("id") and responses.filter(answers__has_key=question["id"]).exists()
         ]
-
-    def get_scale_locked(self, campaign) -> bool:
-        return campaign.scale_is_locked()
 
 
 def _choice_options(choices) -> list[dict]:
@@ -245,8 +277,11 @@ def _campaign_queryset():
             filter=Q(responses__status=SurveyResponse.Status.SUBMITTED),
             distinct=True,
         ),
-        rendered=Count("responses", filter=Q(responses__shown_count__gt=0), distinct=True),
-        mean_rating=Avg("responses__rating"),
+        rendered=Count(
+            "responses",
+            filter=Q(responses__shown_count__gt=0) | Q(responses__opened_at__isnull=False),
+            distinct=True,
+        ),
     )
 
 
@@ -316,7 +351,7 @@ def admin_survey_campaign_detail(request, pk: int):
 class AdminSurveyResponseSerializer(serializers.ModelSerializer):
     campaign_name = serializers.SerializerMethodField()
     user_email = serializers.SerializerMethodField()
-    comment = serializers.SerializerMethodField()
+    questions = serializers.SerializerMethodField()
 
     class Meta:
         model = SurveyResponse
@@ -327,9 +362,11 @@ class AdminSurveyResponseSerializer(serializers.ModelSerializer):
             "user_id",
             "user_email",
             "status",
-            "rating",
-            "comment",
+            "delivery_channel",
             "shown_count",
+            "opened_at",
+            "answers",
+            "questions",
             "created_at",
             "submitted_at",
         )
@@ -340,9 +377,18 @@ class AdminSurveyResponseSerializer(serializers.ModelSerializer):
     def get_user_email(self, obj) -> str:
         return obj.user.email or ""
 
-    def get_comment(self, obj) -> str:
-        texts = [obj.answers.get(qid) for qid in obj.campaign.text_question_ids()]
-        return " / ".join(str(text) for text in texts if text) or ""
+    def get_questions(self, obj) -> list:
+        """The campaign's questions, so the sheet can render answers without a second fetch.
+
+        Rating questions carry their effective scale, so older rows that fall back to the
+        campaign scale are not rendered against a guessed one.
+        """
+        return [
+            {**question, "scale": rating_scale_for(question, obj.campaign)}
+            if question.get("type") == QuestionType.RATING
+            else question
+            for question in obj.campaign.questions or []
+        ]
 
 
 def _campaign_filter_options() -> list[dict]:
@@ -385,11 +431,20 @@ def admin_survey_responses(request):
     paginated["results"] = AdminSurveyResponseSerializer(paginated["results"], many=True).data
     paginated["campaign_options"] = _campaign_filter_options()
     paginated["status_options"] = _status_filter_options()
+    paginated["summary"] = None
+    if campaign and campaign != "all":
+        try:
+            selected = SurveyCampaign.objects.filter(pk=int(campaign)).first()
+        except ValueError:
+            selected = None
+        if selected is not None:
+            paginated["summary"] = surveys.campaign_response_summary(selected)
     return Response(paginated)
 
 
 api_urls = [
     path("api/surveys/pending", pending_survey, name="pending_survey_api"),
+    path("api/surveys/<slug:slug>", survey_by_slug, name="survey_by_slug_api"),
     path("api/surveys/<int:response_id>/shown", mark_survey_shown, name="mark_survey_shown_api"),
     path("api/surveys/<int:response_id>/submit", submit_survey, name="submit_survey_api"),
     path("api/surveys/<int:response_id>/dismiss", dismiss_survey, name="dismiss_survey_api"),
