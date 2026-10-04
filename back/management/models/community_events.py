@@ -6,7 +6,7 @@ from rest_framework import serializers
 from translations import get_translation
 
 from management.helpers import PathRename
-from management.models import custom_banner_event_filters
+from management.models.audience_filters import FILTER_FUNC_MAP, AudienceFilters
 
 
 class CommunityEvent(models.Model):
@@ -24,9 +24,9 @@ class CommunityEvent(models.Model):
     link = models.CharField(default="", max_length=255)
 
     custom_filter = models.CharField(
-        default=custom_banner_event_filters.CustomFilterChoices.NONE,
+        default=AudienceFilters.NONE,
         max_length=255,
-        choices=custom_banner_event_filters.CustomFilterChoices.choices,
+        choices=AudienceFilters.choices,
     )
 
     class EventFrequencyChoices(models.TextChoices):
@@ -53,7 +53,7 @@ class CommunityEvent(models.Model):
         filter_events = cls.objects.all().filter(~Q(custom_filter="none"), active=True)
         extra_events = []
         for event in filter_events:
-            filter_func = custom_banner_event_filters.FILTER_FUNC_MAP.get(event.custom_filter)
+            filter_func = FILTER_FUNC_MAP.get(event.custom_filter)
             if filter_func and filter_func(user):
                 extra_events.append(event.id)
         extra_events_qs = cls.objects.filter(id__in=extra_events)

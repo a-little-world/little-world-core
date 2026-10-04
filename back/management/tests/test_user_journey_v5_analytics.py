@@ -15,8 +15,8 @@ from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
 from django.utils import timezone
 from video.models import LivekitSession
 
-from management.analytics.core import display_time
 from management.analytics.core.catalog import CatalogEntry
+from management.analytics.core.display_time import today
 from management.analytics.core.roles import CatalogRole
 from management.analytics.registry import (
     ALL_CATALOG,
@@ -890,7 +890,7 @@ class JourneyV5PartitionBalanceTests(TestCase):
     # -- helpers -----------------------------------------------------------
 
     def _cohort(self):
-        return PartitionCohort(start_date="2000-01-01", end_date=display_time.today()).apply(User.objects.all())
+        return PartitionCohort(start_date="2000-01-01", end_date=today()).apply(User.objects.all())
 
     def _members_by_bucket(self):
         """Every bucket's member IDs, computed once per test.
@@ -1063,7 +1063,7 @@ class JourneyV5PartitionBalanceTests(TestCase):
     def _typed_cohort(self, user_type):
         return PartitionCohort(
             start_date="2000-01-01",
-            end_date=display_time.today(),
+            end_date=today(),
             user_type=user_type,
         ).apply(User.objects.all())
 
@@ -1184,7 +1184,7 @@ class PartitionCohortUserTypeTests(TestCase):
         return set(
             PartitionCohort(
                 start_date="2000-01-01",
-                end_date=display_time.today(),
+                end_date=today(),
                 user_type=user_type,
             )
             .apply(User.objects.all())

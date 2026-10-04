@@ -84,6 +84,11 @@ class QuestionType(models.TextChoices):
     RATING = "rating", _("Rating")
     TEXT = "text", _("Text")
     CHOICE = "choice", _("Choice")
+    MULTISELECT = "multiselect", _("Multi select")
+
+
+#: Choice and multi-select both store option values; only the widget and the answer shape differ.
+OPTIONS_QUESTION_TYPES = {QuestionType.CHOICE, QuestionType.MULTISELECT}
 
 
 def build_context_key(context_type: str, value) -> str:
@@ -113,6 +118,9 @@ class SurveyCampaign(models.Model):
             _("After a qualifying call (%(minutes)s min or longer; excludes random calls)")
             % {"minutes": _QUALIFYING_MINUTES},
         )
+        #: Not offered by pending or post-call. Requires ``available_via_link`` — otherwise
+        #: the campaign has no delivery path at all.
+        NONE = "none", _("No in-app trigger")
 
     class EligibleAfterEvent(models.TextChoices):
         NONE = "", _("Immediately")
@@ -123,6 +131,7 @@ class SurveyCampaign(models.Model):
             % {"minutes": _QUALIFYING_MINUTES},
         )
         MATCH_CREATED = "match_created", _("Match created")
+        HALFWAY_MATCH_SUCCESS = "halfway_match_success", _("Halfway to match success")
         MATCH_SUCCESS = "match_success", _("Match success")
 
     class RepeatScope(models.TextChoices):
@@ -144,23 +153,24 @@ class SurveyCampaign(models.Model):
         default=default_campaign_copy,
         help_text=_(
             "User-facing card copy per language: title, description and submit_button. "
-            "German is required to go live; English falls back to it. Star captions live in "
-            "the frontend locales — they belong to the rating widget, not the campaign."
+            "German is required to go live; English falls back to it."
         ),
     )
     scale = models.PositiveSmallIntegerField(
         default=5,
         validators=[MinValueValidator(MIN_SCALE), MaxValueValidator(MAX_SCALE)],
         help_text=_(
-            "Number of stars (2–10). Frozen once a rating has been submitted: growing or shrinking "
-            "would change what existing scores mean."
+            "Fallback star count for rating questions saved without a scale of their own. "
+            "Per-question scale is the source of truth and is frozen once that question has "
+            "been answered."
         ),
     )
     questions = models.JSONField(
         default=list,
         help_text=_(
-            "Ordered list of {id, type, required, label, placeholder?, options?}. Ids and types "
-            "are immutable once answered; labels can always be edited."
+            "Ordered list of {id, type, required, label, placeholder?, options?, scale?}. "
+            "Ids and types are immutable once answered; labels can always be edited. "
+            "Rating questions may set scale (2–10); choice and multiselect need options."
         ),
     )
 
@@ -170,7 +180,7 @@ class SurveyCampaign(models.Model):
         blank=True,
         default="",
         help_text=_(
-            "Company name when audience_type is 'company', or a CustomFilterChoices value when "
+            "Company name when audience_type is 'company', or an AudienceFilters value when "
             "it is 'filter'. Empty for everyone."
         ),
     )
@@ -214,6 +224,14 @@ class SurveyCampaign(models.Model):
         default=3,
         help_text=_("How many times an unanswered offer may be presented before it expires."),
     )
+    available_via_link = models.BooleanField(
+        default=False,
+        help_text=_(
+            "If true, an authenticated user can open this campaign at /api/surveys/{slug}. "
+            "Independent of trigger: a campaign can be a popup and a page. Match-scoped "
+            "campaigns cannot use this yet — there is no resolver for match context."
+        ),
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -241,10 +259,6 @@ class SurveyCampaign(models.Model):
     def question_by_id(self, question_id: str) -> dict | None:
         return next((q for q in self.questions if q.get("id") == question_id), None)
 
-    def rating_question_id(self) -> str | None:
-        """Question whose answer is mirrored into ``SurveyResponse.rating``."""
-        return next((q["id"] for q in self.questions if q.get("type") == QuestionType.RATING), None)
-
     def text_question_ids(self) -> list[str]:
         """Free-text questions — the answers that must be scrubbed for deleted accounts."""
         return [q["id"] for q in self.questions if q.get("type") == QuestionType.TEXT]
@@ -264,17 +278,18 @@ class SurveyCampaign(models.Model):
             "questions": [self._resolve_question(question, language) for question in self.questions],
         }
 
-    @staticmethod
-    def _resolve_question(question: dict, language: str) -> dict:
+    def _resolve_question(self, question: dict, language: str) -> dict:
         resolved = {
             "id": question.get("id"),
             "type": question.get("type"),
             "required": bool(question.get("required", False)),
             "label": resolve_localized(question.get("label"), language),
         }
-        if question.get("type") == QuestionType.TEXT:
+        if question.get("type") == QuestionType.RATING:
+            resolved["scale"] = rating_scale_for(question, self)
+        elif question.get("type") == QuestionType.TEXT:
             resolved["placeholder"] = resolve_localized(question.get("placeholder"), language)
-        elif question.get("type") == QuestionType.CHOICE:
+        elif question.get("type") in OPTIONS_QUESTION_TYPES:
             resolved["options"] = [
                 {"value": option.get("value"), "label": resolve_localized(option.get("label"), language)}
                 for option in question.get("options") or []
@@ -308,7 +323,7 @@ class SurveyCampaign(models.Model):
         texts = [(self.copy.get(field) or {}).get(language, "") for field in REQUIRED_CAMPAIGN_COPY_FIELDS]
         texts += [(question.get("label") or {}).get(language, "") for question in self.questions]
         for question in self.questions:
-            if question.get("type") == QuestionType.CHOICE:
+            if question.get("type") in OPTIONS_QUESTION_TYPES:
                 texts += [(option.get("label") or {}).get(language, "") for option in question.get("options") or []]
         return texts
 
@@ -369,7 +384,7 @@ class SurveyCampaign(models.Model):
     def _validate_copy(self):
         if not isinstance(self.copy, dict):
             raise ValidationError(_("copy must be an object."))
-        # Dropped from the model: captions belong to the star widget, not the campaign row.
+        # Legacy key from when campaigns carried star captions; older rows may still have it.
         copy = dict(self.copy)
         copy.pop("rating_labels", None)
         self.copy = copy
@@ -392,9 +407,15 @@ class SurveyCampaign(models.Model):
             raise ValidationError(
                 _("A context-scoped campaign needs an event trigger — there is no context to offer it against.")
             )
+        if self.available_via_link and self.context_type == self.ContextType.MATCH:
+            raise ValidationError(_("Link delivery for match-scoped campaigns isn't supported yet."))
+        if self.trigger == self.Trigger.NONE and not self.available_via_link:
+            raise ValidationError(
+                _("A campaign with no in-app trigger needs link delivery — otherwise nobody can take it.")
+            )
 
     def _validate_audience(self):
-        from management.models.custom_banner_event_filters import FILTER_FUNC_MAP
+        from management.models.audience_filters import FILTER_FUNC_MAP
 
         value = (self.audience_value or "").strip()
         if self.audience_type == self.AudienceType.ALL:
@@ -416,8 +437,9 @@ class SurveyCampaign(models.Model):
 
         An id present in any response may not disappear from ``questions`` and its type may
         not change — which also covers renames, since a rename is indistinguishable from a
-        remove plus an add.         Choice options that appear in answers may not be removed, and
-        ``scale`` cannot change once a rating has been submitted.
+        remove plus an add. Choice options that appear in answers may not be removed, and a
+        rating question's scale cannot change once it has been answered — that check uses
+        ``rating_scale_for``, so it also covers questions that fall back to ``self.scale``.
         """
         stored = type(self).objects.filter(pk=self.pk).first() if self.pk else None
         if stored is None:
@@ -441,41 +463,60 @@ class SurveyCampaign(models.Model):
             if new_question.get("type") != old_question.get("type"):
                 errors.append(_("Question '%(qid)s' has answers, so its type is fixed.") % {"qid": qid})
                 continue
-            if new_question.get("type") == QuestionType.CHOICE:
+            if new_question.get("type") == QuestionType.RATING:
+                if rating_scale_for(old_question, stored) != rating_scale_for(new_question, self):
+                    errors.append(_("Question '%(qid)s' has answers, so its scale cannot change.") % {"qid": qid})
+            if new_question.get("type") in OPTIONS_QUESTION_TYPES:
                 # Only the values are frozen; option labels are copy and stay editable.
                 removed = option_values(old_question) - option_values(new_question)
-                used = {
-                    value
-                    for value in responses.filter(answers__has_key=qid).values_list(f"answers__{qid}", flat=True)
-                    if value is not None
-                }
-                in_use = removed & used
+                in_use = removed & answered_option_values(responses, qid)
                 if in_use:
                     errors.append(
                         _("Options %(options)s of '%(qid)s' appear in answers and cannot be removed.")
                         % {"options": sorted(in_use), "qid": qid}
                     )
 
-        if stored.scale != self.scale and responses.filter(rating__isnull=False).exists():
-            errors.append(
-                _(
-                    "scale cannot change once a rating has been submitted — existing scores would "
-                    "no longer mean the same thing."
-                )
-            )
         if errors:
             raise ValidationError(errors)
 
-    def scale_is_locked(self) -> bool:
-        """True once anybody has submitted a rating, which is when changing scale would skew results."""
-        if not self.pk:
-            return False
-        return SurveyResponse.objects.filter(campaign_id=self.pk, rating__isnull=False).exists()
+
+def rating_scale_for(question: dict, campaign=None) -> int:
+    """Stars this rating question uses. Falls back to the campaign so older rows still work."""
+    raw = question.get("scale")
+    if isinstance(raw, int) and MIN_SCALE <= raw <= MAX_SCALE:
+        return raw
+    if campaign is not None:
+        return campaign.scale
+    return 5
 
 
 def option_values(question: dict) -> set[str]:
-    """The stored answer values of a choice question, ignoring their copy."""
+    """The stored answer values of a choice/multiselect question, ignoring their copy."""
     return {option.get("value") for option in question.get("options") or [] if isinstance(option, dict)}
+
+
+def option_values_in_order(question: dict) -> list[str]:
+    """Declared option values in card order — the canonical order for a multiselect answer."""
+    return [
+        option.get("value")
+        for option in question.get("options") or []
+        if isinstance(option, dict) and option.get("value")
+    ]
+
+
+def answered_option_values(responses, qid: str) -> set:
+    """Option values that appear in any answer for ``qid``.
+
+    Choice stores a string; multiselect stores a list. Flattening both here means option
+    immutability does not care which widget produced the answer.
+    """
+    used: set = set()
+    for raw in responses.filter(answers__has_key=qid).values_list(f"answers__{qid}", flat=True):
+        if isinstance(raw, list):
+            used.update(value for value in raw if value is not None)
+        elif raw is not None:
+            used.add(raw)
+    return used
 
 
 def validate_localized(value, label: str) -> None:
@@ -522,7 +563,7 @@ def validate_question_set(questions) -> None:
         if not isinstance(question.get("required", False), bool):
             raise ValidationError(_("Question '%(qid)s' has a non-boolean 'required'.") % {"qid": qid})
 
-        unexpected = set(question) - {"id", "type", "required", "label", "placeholder", "options"}
+        unexpected = set(question) - {"id", "type", "required", "label", "placeholder", "options", "scale"}
         if unexpected:
             raise ValidationError(
                 _("Question '%(qid)s' has unsupported keys: %(keys)s.") % {"qid": qid, "keys": sorted(unexpected)}
@@ -534,18 +575,36 @@ def validate_question_set(questions) -> None:
                 raise ValidationError(_("Only text questions take a placeholder ('%(qid)s').") % {"qid": qid})
             validate_localized(question["placeholder"], f"placeholder of '{qid}'")
 
-        options = question.get("options")
-        if qtype == QuestionType.CHOICE:
-            _validate_choice_options(options, qid)
-        elif options is not None:
-            raise ValidationError(_("Only choice questions take options ('%(qid)s').") % {"qid": qid})
+        if qtype == QuestionType.RATING:
+            if "scale" in question:
+                scale = question["scale"]
+                if not isinstance(scale, int) or isinstance(scale, bool) or not MIN_SCALE <= scale <= MAX_SCALE:
+                    raise ValidationError(
+                        _("Question '%(qid)s' scale must be a whole number between %(min)s and %(max)s.")
+                        % {"qid": qid, "min": MIN_SCALE, "max": MAX_SCALE}
+                    )
+            if question.get("options") is not None:
+                raise ValidationError(
+                    _("Only choice and multi-select questions take options ('%(qid)s').") % {"qid": qid}
+                )
+        elif qtype in OPTIONS_QUESTION_TYPES:
+            if "scale" in question:
+                raise ValidationError(_("Only rating questions take a scale ('%(qid)s').") % {"qid": qid})
+            _validate_choice_options(question.get("options"), qid)
+        else:
+            if "scale" in question:
+                raise ValidationError(_("Only rating questions take a scale ('%(qid)s').") % {"qid": qid})
+            if question.get("options") is not None:
+                raise ValidationError(
+                    _("Only choice and multi-select questions take options ('%(qid)s').") % {"qid": qid}
+                )
 
 
 def _validate_choice_options(options, qid: str) -> None:
     """Options are ``{"value": ..., "label": {...}}``: the value is stored in answers and
     immutable, the label is copy and editable."""
     if not isinstance(options, list) or not options:
-        raise ValidationError(_("Choice question '%(qid)s' needs options.") % {"qid": qid})
+        raise ValidationError(_("Question '%(qid)s' needs options.") % {"qid": qid})
 
     values = []
     for index, option in enumerate(options):
@@ -569,6 +628,10 @@ class SurveyResponse(models.Model):
         SUBMITTED = "submitted", _("Submitted")
         DISMISSED = "dismissed", _("Dismissed")
         EXPIRED = "expired", _("Expired")
+
+    class DeliveryChannel(models.TextChoices):
+        PENDING = "pending", _("Pending (in-app popup)")
+        LINK = "link", _("Link")
 
     #: Statuses that end the offer. Anything else is re-presentable, capped by ``max_shows``.
     TERMINAL_STATUSES = (Status.SUBMITTED, Status.DISMISSED, Status.EXPIRED)
@@ -599,12 +662,6 @@ class SurveyResponse(models.Model):
     )
 
     answers = models.JSONField(default=dict, help_text=_("Complete answer record, keyed by question id."))
-    rating = models.PositiveSmallIntegerField(
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(1), MaxValueValidator(MAX_SCALE)],
-        help_text=_("Mirror of the first rating answer, so aggregates read a column not JSON."),
-    )
 
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.SHOWN)
     shown_count = models.PositiveSmallIntegerField(
@@ -612,6 +669,20 @@ class SurveyResponse(models.Model):
         help_text=_("Times the client confirmed it displayed the card. Flat at 0 means delivery is broken."),
     )
     shown_at = models.DateTimeField(null=True, blank=True)
+    opened_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "Set on the first link GET, never on popup delivery — kept separate from shown_at "
+            "so it cannot affect cooldown or max_shows."
+        ),
+    )
+    delivery_channel = models.CharField(
+        max_length=16,
+        choices=DeliveryChannel.choices,
+        default=DeliveryChannel.PENDING,
+        help_text=_("How this offer was first created. Link-created rows are excluded from popup delivery."),
+    )
     submitted_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -649,12 +720,10 @@ class SurveyResponse(models.Model):
         self.save(update_fields=["shown_count", "shown_at", "updated_at"])
 
     def submit(self, answers: dict) -> None:
-        rating_id = self.campaign.rating_question_id()
         self.answers = answers
-        self.rating = answers.get(rating_id) if rating_id else None
         self.status = self.Status.SUBMITTED
         self.submitted_at = timezone.now()
-        self.save(update_fields=["answers", "rating", "status", "submitted_at", "updated_at"])
+        self.save(update_fields=["answers", "status", "submitted_at", "updated_at"])
 
     def dismiss(self) -> None:
         self.status = self.Status.DISMISSED
