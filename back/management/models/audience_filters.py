@@ -5,15 +5,17 @@ from management.models.profile import Profile
 from management.permissions import ManagementPermission
 
 
-class CustomFilterChoices(models.TextChoices):
-    LEARNERS_WITH_A1A2 = "learners_with_a1a2", "learners_with_a1a2"
-    LEARNERS_ABOVE_A1A2 = "learners_above_a1a2", "learners_above_a1a2"
-    VOLUNTEERS = "volunteers", "volunteers"
-    LEARNERS = "learners", "learners"
-    LEARNERS_OUTSIDE_GERMANY = "learners_outside_germany", "learners_outside_germany"
-    RANDOM_CALL_USERS = "random_call_users", "random_call_users"
-    MATCH_ELIGIBLE_USERS = "match_eligible_users", "match_eligible_users"
-    NRW_RESIDENTS = "nrw_residents", "nrw_residents"
+class AudienceFilters(models.TextChoices):
+    LEARNERS_WITH_A1A2 = "learners_with_a1a2", "Learners with A1/A2 German"
+    LEARNERS_ABOVE_A1A2 = "learners_above_a1a2", "Learners above A1/A2"
+    VOLUNTEERS = "volunteers", "All registered volunteers"
+    LEARNERS = "learners", "All registered learners"
+    ONBOARDED_VOLUNTEERS = "onboarded_volunteers", "Onboarded volunteers"
+    ONBOARDED_LEARNERS = "onboarded_learners", "Onboarded learners"
+    LEARNERS_OUTSIDE_GERMANY = "learners_outside_germany", "Learners outside Germany"
+    RANDOM_CALL_USERS = "random_call_users", "Random-call users"
+    MATCH_ELIGIBLE_USERS = "match_eligible_users", "Match-eligible users"
+    NRW_RESIDENTS = "nrw_residents", "NRW residents"
     NONE = "none", "None"
 
 
@@ -40,6 +42,14 @@ def filter__volunteers(user):
 
 def filter__learners(user):
     return user.profile.user_type == Profile.TypeChoices.LEARNER
+
+
+def filter__onboarded_volunteers(user):
+    return filter__volunteers(user) and user.state.is_onboarded
+
+
+def filter__onboarded_learners(user):
+    return filter__learners(user) and user.state.is_onboarded
 
 
 def filter__learners_outside_germany(user):
@@ -75,12 +85,14 @@ def filter__match_eligible_users(user):
 
 
 FILTER_FUNC_MAP = {
-    CustomFilterChoices.LEARNERS_WITH_A1A2: filter__learners_with_a1a2,
-    CustomFilterChoices.LEARNERS_ABOVE_A1A2: filter__learners_above_a1a2,
-    CustomFilterChoices.VOLUNTEERS: filter__volunteers,
-    CustomFilterChoices.LEARNERS: filter__learners,
-    CustomFilterChoices.LEARNERS_OUTSIDE_GERMANY: filter__learners_outside_germany,
-    CustomFilterChoices.RANDOM_CALL_USERS: filter__random_call_users,
-    CustomFilterChoices.MATCH_ELIGIBLE_USERS: filter__match_eligible_users,
-    CustomFilterChoices.NRW_RESIDENTS: filter__nrw_residents,
+    AudienceFilters.LEARNERS_WITH_A1A2: filter__learners_with_a1a2,
+    AudienceFilters.LEARNERS_ABOVE_A1A2: filter__learners_above_a1a2,
+    AudienceFilters.VOLUNTEERS: filter__volunteers,
+    AudienceFilters.LEARNERS: filter__learners,
+    AudienceFilters.ONBOARDED_VOLUNTEERS: filter__onboarded_volunteers,
+    AudienceFilters.ONBOARDED_LEARNERS: filter__onboarded_learners,
+    AudienceFilters.LEARNERS_OUTSIDE_GERMANY: filter__learners_outside_germany,
+    AudienceFilters.RANDOM_CALL_USERS: filter__random_call_users,
+    AudienceFilters.MATCH_ELIGIBLE_USERS: filter__match_eligible_users,
+    AudienceFilters.NRW_RESIDENTS: filter__nrw_residents,
 }

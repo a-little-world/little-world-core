@@ -35,6 +35,7 @@ Public surface::
         match_tokens_by_id,
         success_token_threshold,
         get_version,
+        halfway_token_threshold,
         list_versions,
         # documentation — admin panel Match Success page
         documentation,
@@ -47,6 +48,7 @@ from management.match_success.service import (
     annotate_match_tokens,
     documentation,
     get_version,
+    halfway_token_threshold,
     list_versions,
     match_is_successful,
     match_tokens,
@@ -64,6 +66,7 @@ __all__ = [
     "annotate_match_tokens",
     "documentation",
     "get_version",
+    "halfway_token_threshold",
     "list_versions",
     "match_is_successful",
     "match_tokens",

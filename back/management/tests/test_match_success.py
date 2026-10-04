@@ -72,6 +72,16 @@ class V1TotalMinutesBandingTests(SimpleTestCase):
             with self.subTest(minutes=minutes):
                 self.assertEqual(tokens_from_total_minutes(minutes), expected)
 
+    def test_halfway_token_threshold_is_half_the_live_success_target(self):
+        import math
+
+        from management.match_success import halfway_token_threshold
+
+        self.assertEqual(
+            halfway_token_threshold(),
+            max(1, math.ceil(SUCCESS_TOKEN_THRESHOLD / 2)),
+        )
+
     def test_tokens_keep_accruing_past_success(self):
         """Success is the threshold, not the top of the scale."""
         cases = (
