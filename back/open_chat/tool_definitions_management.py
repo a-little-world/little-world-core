@@ -322,8 +322,9 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
     MgmtGetToolSpec(
         QUERY_USERS_REST_TOOL_NAME,
         "Search and list Little World users with filters, saved lists, search, and pagination."
-        " Each result includes profile.interests; interests/hobbies cannot be filtered server-side — "
-        "paginate with page_size=5 and inspect rows, or call get_user_detail for one user."
+        " List rows do not include profile.interests; interests/hobbies cannot be filtered server-side — "
+        "call get_user_detail for a user's interests. Paginate the list with page_size=5 and inspect rows "
+        "using get_user_detail for details."
         + _QUERY_USERS_USAGE_HINT
         + _LIST_SLUG_HINT
         + _USERS_LIST_PANEL_LINK_HINT

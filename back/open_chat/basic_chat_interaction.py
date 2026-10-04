@@ -34,7 +34,6 @@ from open_chat.tool_definitions_management import (
     GET_USER_DETAIL_REST_TOOL_NAME,
     LIST_USER_FILTERS_REST_TOOL_NAME,
     MANAGEMENT_REST_TOOL_NAMES,
-    QUERY_USERS_REST_TOOL_NAME,
     build_management_tool_init,
 )
 
@@ -70,7 +69,7 @@ Rules:
 - Before building non-trivial query_* filters, call `{LIST_USER_FILTERS_REST_TOOL_NAME}` (or the matching list_*_filters tool) to read valid filter names and choice values. Pass query params as scalars, never JSON arrays; omit order_by unless you need a non-default sort.
 - Use `{GET_USER_DETAIL_REST_TOOL_NAME}` with path param `id` (numeric id, uuid, or email) to load one user's full profile (including interests).
 - Use `{GET_MATCH_DETAIL_REST_TOOL_NAME}` with path param `id` (match id or uuid) to load one match's full detail.
-- List filters do not cover interests/hobbies. After narrowing with `{QUERY_USERS_REST_TOOL_NAME}`, read `profile.interests` from result rows (paginate if needed) or call `{GET_USER_DETAIL_REST_TOOL_NAME}` per user.
+- List filters and rows do not cover interests/hobbies. Call `{GET_USER_DETAIL_REST_TOOL_NAME}` for a user's interests.
 - When including admin panel links, wrap each in `<a {{"href": "...", "target": "_blank"}}>label</a>` using the base URL below. Never paste bare URLs.
 - List links with page_size must use page_size=20 or higher — never below 20.
 - For one specific user, link `/matching/user/{{numeric_id}}` (optionally `?tab=chat|emails|calls|matches|stats|notes|actions`). Never link `/matching/users/?search=…` when you know the user's id.
