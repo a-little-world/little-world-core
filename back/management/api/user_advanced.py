@@ -28,9 +28,12 @@ from management.api.utils_advanced import (
     parse_bool_query_param,
 )
 from management.controller import (
+    change_user_email,
     delete_user,
     get_base_management_user,
     make_tim_support_user,
+    migrate_user,
+    set_user_company,
 )
 from management.helpers import DetailedPagination, DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import get_paginated_format_v2
@@ -1654,6 +1657,136 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @extend_schema(
         request=inline_serializer(
+            name="AdminChangeEmailRequest",
+            fields={
+                "email": serializers.EmailField(required=True),
+                "send_verification_email": serializers.BooleanField(default=False),
+            },
+        )
+    )
+    @action(detail=True, methods=["post"])
+    def change_email(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        if not request.user.has_perm(ManagementPermission.MATCHING_USER):
+            return Response(
+                {"msg": "You are not allowed to change user emails!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        if obj.is_staff or obj.is_superuser:
+            return Response({"msg": "You can't change the email of a staff or superuser!"}, status=401)
+
+        serializer = inline_serializer(
+            name="AdminChangeEmailRequest",
+            fields={
+                "email": serializers.EmailField(required=True),
+                "send_verification_email": serializers.BooleanField(default=False),
+            },
+            data=request.data,
+        )
+        serializer.is_valid(raise_exception=True)
+
+        change_user_email(
+            obj,
+            serializer.validated_data["email"],
+            send_verification_mail=serializer.validated_data.get("send_verification_email", False),
+        )
+        return Response({"msg": "Email changed"})
+
+    @extend_schema(
+        request=inline_serializer(
+            name="AdminSetCompanyRequest",
+            fields={"company": serializers.CharField(required=True, allow_null=True, allow_blank=True, max_length=255)},
+        )
+    )
+    @action(detail=True, methods=["post"])
+    def set_company(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        if not request.user.has_perm(ManagementPermission.MATCHING_USER):
+            return Response(
+                {"msg": "You are not allowed to change a user's company!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        serializer = inline_serializer(
+            name="AdminSetCompanyRequest",
+            fields={"company": serializers.CharField(required=True, allow_null=True, allow_blank=True, max_length=255)},
+            data=request.data,
+        )
+        serializer.is_valid(raise_exception=True)
+
+        state = set_user_company(obj, serializer.validated_data["company"], changed_by=request.user)
+        return Response({"msg": "Company changed", "company": state.company})
+
+    @extend_schema(
+        request=inline_serializer(
+            name="AdminMigrateUserRequest",
+            fields={
+                "new_email": serializers.EmailField(required=False, allow_null=True),
+                "remove_company": serializers.BooleanField(default=False),
+                "censor": serializers.BooleanField(default=True),
+                "send_deletion_email": serializers.BooleanField(default=False),
+            },
+        )
+    )
+    @action(detail=True, methods=["post"])
+    def migrate_user(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        if not request.user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS):
+            return Response(
+                {"msg": "You are not allowed to migrate users!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        if obj.is_staff or obj.is_superuser:
+            return Response({"msg": "You can't migrate a staff or superuser!"}, status=401)
+
+        if obj.has_perm(ManagementPermission.MATCHING_USER):
+            return Response({"msg": "You can't migrate a matching user!"}, status=401)
+
+        serializer = inline_serializer(
+            name="AdminMigrateUserRequest",
+            fields={
+                "new_email": serializers.EmailField(required=False, allow_null=True),
+                "remove_company": serializers.BooleanField(default=False),
+                "censor": serializers.BooleanField(default=True),
+                "send_deletion_email": serializers.BooleanField(default=False),
+            },
+            data=request.data,
+        )
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+
+        migrate_user(
+            obj,
+            new_email=payload.get("new_email"),
+            remove_company=payload.get("remove_company", False),
+            censor=payload.get("censor", True),
+            management_user=request.user,
+            send_deletion_email=payload.get("send_deletion_email", False),
+        )
+        return Response({"msg": "User migrated"})
+
+    @extend_schema(
+        request=inline_serializer(
             name="ChangeSearchingStateRequest",
             fields={
                 "searching_state": serializers.ChoiceField(
@@ -1819,6 +1952,18 @@ viewset_actions = [
     path(
         "api/matching/users/<pk>/delete_user/",
         AdvancedUserViewset.as_view({"post": "delete_user"}),
+    ),
+    path(
+        "api/matching/users/<pk>/change_email/",
+        AdvancedUserViewset.as_view({"post": "change_email"}),
+    ),
+    path(
+        "api/matching/users/<pk>/set_company/",
+        AdvancedUserViewset.as_view({"post": "set_company"}),
+    ),
+    path(
+        "api/matching/users/<pk>/migrate_user/",
+        AdvancedUserViewset.as_view({"post": "migrate_user"}),
     ),
     path(
         "api/matching/users/<pk>/change_searching_state/",
