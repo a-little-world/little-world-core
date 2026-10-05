@@ -261,6 +261,10 @@ class CourseDetailSerializer(serializers.ModelSerializer):
 
 class UserCourseProgressSerializer(serializers.ModelSerializer):
     course_slug = serializers.CharField(source="course.slug", read_only=True)
+    progress_fraction = serializers.SerializerMethodField()
+
+    def get_progress_fraction(self, obj) -> float:
+        return obj.progress_fraction()
 
     class Meta:
         model = UserCourseProgress
@@ -271,6 +275,7 @@ class UserCourseProgressSerializer(serializers.ModelSerializer):
             "current_step_index",
             "completed",
             "completed_at",
+            "progress_fraction",
         ]
 
 

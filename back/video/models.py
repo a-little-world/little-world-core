@@ -4,6 +4,7 @@ from uuid import uuid4
 from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
+from management.models.event_frequency import EventFrequencyChoices
 from management.models.profile import CensoredProfileSerializer
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
@@ -146,6 +147,12 @@ class RandomCallLobby(models.Model):
     match_rejection_confirmation_timeout = models.IntegerField(default=10)  # 10 seconds to confirm a rejection
     video_call_timeout = models.IntegerField(default=60 * 10)  # 10 minutes video calls
     match_accept_timeout = models.IntegerField(default=30)  # 10 seconds to accept a match
+    frequency = models.CharField(
+        max_length=20,
+        choices=EventFrequencyChoices.choices,
+        default=EventFrequencyChoices.ONCE,
+    )
+    recurrence_group = models.UUIDField(null=True, blank=True, db_index=True)
 
 
 class RandomCallLobbyUser(models.Model):

@@ -541,6 +541,9 @@ class RandomCallLobbySerializer(serializers.Serializer):
     name = serializers.CharField()
     start_time = serializers.DateTimeField()
     end_time = serializers.DateTimeField()
+    match_proposal_timeout = serializers.IntegerField()
+    frequency = serializers.CharField()
+    recurrence_group = serializers.UUIDField(allow_null=True)
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)

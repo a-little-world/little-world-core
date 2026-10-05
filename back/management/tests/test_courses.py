@@ -86,6 +86,29 @@ class CourseProgressApiTests(TestCase):
         self.assertEqual(progress.status_code, 200)
         self.assertEqual(progress.data["current_chapter_id"], "self_onboarding_c1")
 
+    def test_get_progress_is_404_until_started_and_does_not_create_a_row(self):
+        self.client.force_authenticate(user=self.volunteer)
+        missing = self.client.get(f"/api/courses/{self.training.slug}/progress/")
+        self.assertEqual(missing.status_code, 404)
+        self.assertFalse(UserCourseProgress.objects.filter(user=self.volunteer, course=self.training).exists())
+
+        self.client.post(f"/api/courses/{self.training.slug}/start/")
+        found = self.client.get(f"/api/courses/{self.training.slug}/progress/")
+        self.assertEqual(found.status_code, 200)
+        self.assertEqual(found.data["course_slug"], self.training.slug)
+        self.assertFalse(found.data["completed"])
+        self.assertIn("progress_fraction", found.data)
+
+    def test_get_progress_returns_completed_course(self):
+        self.client.force_authenticate(user=self.volunteer)
+        self.client.post(f"/api/courses/{self.training.slug}/start/")
+        self.client.post(f"/api/courses/{self.training.slug}/complete/")
+
+        found = self.client.get(f"/api/courses/{self.training.slug}/progress/")
+        self.assertEqual(found.status_code, 200)
+        self.assertTrue(found.data["completed"])
+        self.assertEqual(found.data["progress_fraction"], 1.0)
+
     def test_learner_cannot_take_self_onboarding_course(self):
         self.client.force_authenticate(user=self.learner)
         self.assertEqual(self.client.get(f"/api/courses/{Course.SELF_ONBOARDING_SLUG}/").status_code, 404)

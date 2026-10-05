@@ -3,10 +3,10 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
-from translations import get_translation
 
 from management.helpers import PathRename
 from management.models.audience_filters import FILTER_FUNC_MAP, AudienceFilters
+from management.models.event_frequency import EventFrequencyChoices
 
 
 class CommunityEvent(models.Model):
@@ -29,11 +29,7 @@ class CommunityEvent(models.Model):
         choices=AudienceFilters.choices,
     )
 
-    class EventFrequencyChoices(models.TextChoices):
-        MONTHLY = "monthly", get_translation("model.community_event.frequency.monthly")
-        WEEKLY = "weekly", get_translation("model.community_event.frequency.weekly")
-        FORTNIGHTLY = "fortnightly", get_translation("model.community_event.frequency.fortnightly")
-        ONCE = "once", get_translation("model.community_event.frequency.once")
+    EventFrequencyChoices = EventFrequencyChoices
 
     frequency = models.CharField(
         max_length=255,

@@ -111,18 +111,24 @@ def course_start(request, slug: str):
     return Response(UserCourseProgressSerializer(progress).data, status=status.HTTP_200_OK)
 
 
-@api_view(["PATCH"])
+@api_view(["GET", "PATCH"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def course_progress_update(request, slug: str):
     """
-    Updates the user's progress within a course.
-    Accepts: { "current_chapter_id": str, "current_step_index": int }
+    GET the current user's progress, or PATCH to update it.
+
+    GET returns 404 if they have not started — it does not create a row, so a
+    listing or promo card can tell “not started” from “in progress”.
+    PATCH accepts: { "current_chapter_id": str, "current_step_index": int }
     When advancing to a new chapter, pass current_step_index: 0.
     """
     course = _get_takable_course(request, slug)
 
     progress = get_object_or_404(UserCourseProgress, user=request.user, course=course)
+
+    if request.method == "GET":
+        return Response(UserCourseProgressSerializer(progress).data)
 
     if progress.completed:
         return Response({"detail": "Course already completed."}, status=status.HTTP_400_BAD_REQUEST)
