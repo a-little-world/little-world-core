@@ -1,5 +1,5 @@
 from calendar import monthrange
-from datetime import timedelta
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 from django.db import transaction
@@ -19,14 +19,14 @@ from rest_framework.decorators import (
 )
 from rest_framework.response import Response
 
-from video.lobby_resolution import InvalidLobbyUuid, resolve_lobby_instance
+from video.analytics.display_time import DISPLAY_TZ
+from video.lobby_resolution import InvalidLobbyUuid, get_active_lobby, resolve_lobby_instance
 from video.models import (
     RandomCallLobby,
     RandomCallLobbyUser,
     RandomCallMatching,
     RandomCallProposalUserStatus,
 )
-from video.random_calls import is_lobby_active
 
 
 class RandomCallTaskSerializer(serializers.Serializer):
@@ -150,20 +150,20 @@ def reset_default_lobby(request, lobby_name="default"):
     Deletes all lobby users, matchings, and recreates the lobby with current time.
     Only resets if the existing lobby is active.
     """
-    # Get the most recent lobby with this name
-    existing_lobby = RandomCallLobby.objects.filter(name=lobby_name).order_by("-id").first()
+    existing_lobby = get_active_lobby(lobby_name)
+
+    # Only reset an active lobby. With none active, a reset is only allowed when the
+    # name has never been used, which bootstraps the first lobby.
+    if existing_lobby is None and RandomCallLobby.objects.filter(name=lobby_name).exists():
+        return Response(
+            {
+                "success": False,
+                "message": f"Lobby '{lobby_name}' is not active and cannot be reset",
+            },
+            status=400,
+        )
 
     if existing_lobby:
-        # Only reset if the lobby is active
-        if not is_lobby_active(existing_lobby):
-            return Response(
-                {
-                    "success": False,
-                    "message": f"Lobby '{lobby_name}' is not active and cannot be reset",
-                },
-                status=400,
-            )
-
         # Clear all lobby users
         RandomCallLobbyUser.objects.filter(lobby=existing_lobby).delete()
 
@@ -209,16 +209,38 @@ class CreateLobbySerializer(serializers.Serializer):
     )
 
 
+def _error_message(detail) -> str:
+    """The first readable message in a DRF error detail.
+
+    The admin panel shows ``error`` as an alert, and only does so when it is a string; a
+    field dict reaches the admin as the bare "Bad Request".
+    """
+    if isinstance(detail, dict):
+        if not detail:
+            return "Invalid request"
+        field, value = next(iter(detail.items()))
+        message = _error_message(value)
+        return message if field == "non_field_errors" else f"{field}: {message}"
+    if isinstance(detail, list):
+        return _error_message(detail[0]) if detail else "Invalid request"
+    return str(detail)
+
+
+def _local(value: datetime) -> datetime:
+    """``value`` in the schedule timezone. The server runs in UTC, the admins do not."""
+    return timezone.localtime(value, DISPLAY_TZ)
+
+
 def _validate_lobby_times(start_time, end_time, *, require_future_start=False):
     current_time = timezone.now()
     if require_future_start and start_time <= current_time:
-        raise serializers.ValidationError({"start_time": "Start time must be in the future"})
-    if not require_future_start and start_time.date() < current_time.date():
-        raise serializers.ValidationError({"start_time": "Start time must be today or in the future"})
+        raise serializers.ValidationError("Start time must be in the future")
+    if not require_future_start and _local(start_time).date() < _local(current_time).date():
+        raise serializers.ValidationError("Start time must be today or in the future")
     if end_time <= start_time:
-        raise serializers.ValidationError({"end_time": "End time must be after start time"})
-    if timezone.localtime(start_time).date() != timezone.localtime(end_time).date():
-        raise serializers.ValidationError({"end_time": "Start and end time must be on the same date"})
+        raise serializers.ValidationError("End time must be after start time")
+    if _local(start_time).date() != _local(end_time).date():
+        raise serializers.ValidationError("Start and end time must be on the same date")
 
 
 def _add_months(value, months):
@@ -230,36 +252,41 @@ def _add_months(value, months):
 
 
 def _recurring_lobby_times(start_time, end_time, frequency):
-    duration = end_time - start_time
-    occurrence = 0
+    """Start and end of every occurrence from ``start_time`` to the end of its year.
+
+    Steps are taken on Berlin wall-clock time, not in UTC, so a weekly 18:00 session stays
+    at 18:00 when the clocks change instead of moving to 17:00 or 19:00.
+    """
+    yield start_time, end_time
+    if frequency == EventFrequencyChoices.ONCE:
+        return
+
+    local_start = _local(start_time).replace(tzinfo=None)
+    duration = _local(end_time).replace(tzinfo=None) - local_start
+    occurrence = 1
     while True:
-        if frequency == EventFrequencyChoices.ONCE:
-            occurrence_start = start_time
-        elif frequency == EventFrequencyChoices.WEEKLY:
-            occurrence_start = start_time + timedelta(weeks=occurrence)
+        if frequency == EventFrequencyChoices.WEEKLY:
+            wall_start = local_start + timedelta(weeks=occurrence)
         elif frequency == EventFrequencyChoices.FORTNIGHTLY:
-            occurrence_start = start_time + timedelta(weeks=2 * occurrence)
+            wall_start = local_start + timedelta(weeks=2 * occurrence)
         else:
-            occurrence_start = _add_months(start_time, occurrence)
+            wall_start = _add_months(local_start, occurrence)
 
-        if timezone.localtime(occurrence_start).year != timezone.localtime(start_time).year:
-            break
+        if wall_start.year != local_start.year:
+            return
 
-        yield occurrence_start, occurrence_start + duration
-        if frequency == EventFrequencyChoices.ONCE:
-            break
+        yield wall_start.replace(tzinfo=DISPLAY_TZ), (wall_start + duration).replace(tzinfo=DISPLAY_TZ)
         occurrence += 1
 
 
 def _validate_recurrence_year(start_time, frequency):
-    if frequency != EventFrequencyChoices.ONCE and timezone.localtime(start_time).year != timezone.localtime().year:
-        raise serializers.ValidationError(
-            {"frequency": "Recurring lobbies can only be created within the current calendar year"}
-        )
+    if frequency != EventFrequencyChoices.ONCE and _local(start_time).year != _local(timezone.now()).year:
+        raise serializers.ValidationError("Recurring lobbies can only be created within the current calendar year")
 
 
-def _create_lobby_occurrences(
+def _sync_lobby_occurrences(
     *,
+    existing,
     lobby_name,
     start_time,
     end_time,
@@ -267,10 +294,29 @@ def _create_lobby_occurrences(
     frequency,
     recurrence_group=None,
 ):
-    if frequency != EventFrequencyChoices.ONCE and recurrence_group is None:
-        recurrence_group = uuid4()
+    """Make ``existing`` (ordered by start) match the schedule, and return its lobbies.
 
-    return RandomCallLobby.objects.bulk_create(
+    Existing lobbies are re-timed in place and only the difference is created or deleted,
+    so a lobby keeps its uuid and anything attached to it when its series is edited.
+    """
+    recurrence_group = None if frequency == EventFrequencyChoices.ONCE else recurrence_group or uuid4()
+    times = list(_recurring_lobby_times(start_time, end_time, frequency))
+    existing = list(existing)
+
+    kept = existing[: len(times)]
+    for lobby, (occurrence_start, occurrence_end) in zip(kept, times):
+        lobby.start_time = occurrence_start
+        lobby.end_time = occurrence_end
+        lobby.match_proposal_timeout = match_proposal_timeout
+        lobby.frequency = frequency
+        lobby.recurrence_group = recurrence_group
+    RandomCallLobby.objects.bulk_update(
+        kept,
+        ["start_time", "end_time", "match_proposal_timeout", "frequency", "recurrence_group"],
+    )
+    RandomCallLobby.objects.filter(pk__in=[lobby.pk for lobby in existing[len(times) :]]).delete()
+
+    created = RandomCallLobby.objects.bulk_create(
         [
             RandomCallLobby(
                 name=lobby_name,
@@ -282,9 +328,22 @@ def _create_lobby_occurrences(
                 frequency=frequency,
                 recurrence_group=recurrence_group,
             )
-            for occurrence_start, occurrence_end in _recurring_lobby_times(start_time, end_time, frequency)
+            for occurrence_start, occurrence_end in times[len(kept) :]
         ]
     )
+    return kept + created
+
+
+def _lobby_payload(lobby):
+    return {
+        "name": lobby.name,
+        "uuid": str(lobby.uuid),
+        "start_time": lobby.start_time.isoformat(),
+        "end_time": lobby.end_time.isoformat(),
+        "match_proposal_timeout": lobby.match_proposal_timeout,
+        "frequency": lobby.frequency,
+        "recurrence_group": str(lobby.recurrence_group) if lobby.recurrence_group else None,
+    }
 
 
 @api_view(["POST"])
@@ -296,7 +355,7 @@ def create_lobby(request, lobby_name):
     """
     serializer = CreateLobbySerializer(data=request.data)
     if not serializer.is_valid():
-        return Response({"error": serializer.errors}, status=400)
+        return Response({"error": _error_message(serializer.errors)}, status=400)
 
     start_time = serializer.validated_data["start_time"]
     end_time = serializer.validated_data["end_time"]
@@ -307,30 +366,24 @@ def create_lobby(request, lobby_name):
         _validate_lobby_times(start_time, end_time)
         _validate_recurrence_year(start_time, frequency)
     except serializers.ValidationError as error:
-        return Response({"error": error.detail}, status=400)
+        return Response({"error": _error_message(error.detail)}, status=400)
 
-    lobbies = _create_lobby_occurrences(
-        lobby_name=lobby_name,
-        start_time=start_time,
-        end_time=end_time,
-        match_proposal_timeout=match_proposal_timeout,
-        frequency=frequency,
-    )
+    with transaction.atomic():
+        lobbies = _sync_lobby_occurrences(
+            existing=[],
+            lobby_name=lobby_name,
+            start_time=start_time,
+            end_time=end_time,
+            match_proposal_timeout=match_proposal_timeout,
+            frequency=frequency,
+        )
     lobby = lobbies[0]
 
     return Response(
         {
             "success": True,
             "message": f"Lobby '{lobby_name}' has been created",
-            "lobby": {
-                "name": lobby.name,
-                "uuid": str(lobby.uuid),
-                "start_time": lobby.start_time.isoformat(),
-                "end_time": lobby.end_time.isoformat(),
-                "match_proposal_timeout": lobby.match_proposal_timeout,
-                "frequency": lobby.frequency,
-                "recurrence_group": str(lobby.recurrence_group) if lobby.recurrence_group else None,
-            },
+            "lobby": _lobby_payload(lobby),
             "created_count": len(lobbies),
         },
         status=201,
@@ -353,32 +406,34 @@ def manage_upcoming_lobby(request, lobby_uuid):
     if scope not in {"single", "future"}:
         return Response({"error": "Scope must be 'single' or 'future'"}, status=400)
 
+    if scope == "future" and lobby.recurrence_group:
+        series = RandomCallLobby.objects.filter(
+            recurrence_group=lobby.recurrence_group,
+            start_time__gte=lobby.start_time,
+        ).order_by("start_time")
+    else:
+        series = RandomCallLobby.objects.filter(pk=lobby.pk)
+
     if request.method == "DELETE":
-        if scope == "future" and lobby.recurrence_group:
-            targets = RandomCallLobby.objects.filter(
-                recurrence_group=lobby.recurrence_group,
-                start_time__gte=lobby.start_time,
-            )
-        else:
-            targets = RandomCallLobby.objects.filter(pk=lobby.pk)
-        deleted_count = targets.count()
-        targets.delete()
+        deleted_count = series.count()
+        series.delete()
         return Response({"success": True, "deleted_count": deleted_count})
 
     serializer = CreateLobbySerializer(data=request.data)
     if not serializer.is_valid():
-        return Response({"error": serializer.errors}, status=400)
+        return Response({"error": _error_message(serializer.errors)}, status=400)
 
     start_time = serializer.validated_data["start_time"]
     end_time = serializer.validated_data["end_time"]
-    frequency = serializer.validated_data["frequency"]
+    # An edit that leaves frequency out keeps the lobby's own, rather than the "once" default.
+    frequency = serializer.validated_data["frequency"] if "frequency" in request.data else lobby.frequency
+    match_proposal_timeout = serializer.validated_data.get("match_proposal_timeout", 60)
     try:
         _validate_lobby_times(start_time, end_time, require_future_start=True)
         _validate_recurrence_year(start_time, frequency)
     except serializers.ValidationError as error:
-        return Response({"error": error.detail}, status=400)
+        return Response({"error": _error_message(error.detail)}, status=400)
 
-    match_proposal_timeout = serializer.validated_data.get("match_proposal_timeout", 60)
     if scope == "single":
         if frequency != lobby.frequency:
             return Response(
@@ -391,22 +446,15 @@ def manage_upcoming_lobby(request, lobby_uuid):
         lobby.save(update_fields=["start_time", "end_time", "match_proposal_timeout"])
         updated_lobbies = [lobby]
     else:
-        recurrence_group = lobby.recurrence_group
         with transaction.atomic():
-            if recurrence_group:
-                RandomCallLobby.objects.filter(
-                    recurrence_group=recurrence_group,
-                    start_time__gte=lobby.start_time,
-                ).delete()
-            else:
-                lobby.delete()
-            updated_lobbies = _create_lobby_occurrences(
+            updated_lobbies = _sync_lobby_occurrences(
+                existing=series,
                 lobby_name=lobby.name,
                 start_time=start_time,
                 end_time=end_time,
                 match_proposal_timeout=match_proposal_timeout,
                 frequency=frequency,
-                recurrence_group=recurrence_group,
+                recurrence_group=lobby.recurrence_group,
             )
         lobby = updated_lobbies[0]
 
@@ -414,15 +462,7 @@ def manage_upcoming_lobby(request, lobby_uuid):
         {
             "success": True,
             "message": f"Lobby '{lobby.name}' has been updated",
-            "lobby": {
-                "name": lobby.name,
-                "uuid": str(lobby.uuid),
-                "start_time": lobby.start_time.isoformat(),
-                "end_time": lobby.end_time.isoformat(),
-                "match_proposal_timeout": lobby.match_proposal_timeout,
-                "frequency": lobby.frequency,
-                "recurrence_group": str(lobby.recurrence_group) if lobby.recurrence_group else None,
-            },
+            "lobby": _lobby_payload(lobby),
             "updated_count": len(updated_lobbies),
         }
     )
@@ -436,15 +476,10 @@ def end_lobby(request, lobby_name="default"):
     Admin API to end an active lobby by setting end_time to current time.
     Only ends the lobby if it is currently active.
     """
-    try:
-        lobby = RandomCallLobby.objects.filter(name=lobby_name).order_by("-id").first()
-        if lobby is None:
-            raise RandomCallLobby.DoesNotExist
-    except RandomCallLobby.DoesNotExist:
-        return Response({"error": "Lobby not found"}, status=404)
-
-    # Check if the lobby is active
-    if not is_lobby_active(lobby):
+    lobby = get_active_lobby(lobby_name)
+    if lobby is None:
+        if not RandomCallLobby.objects.filter(name=lobby_name).exists():
+            return Response({"error": "Lobby not found"}, status=404)
         return Response(
             {
                 "success": False,
