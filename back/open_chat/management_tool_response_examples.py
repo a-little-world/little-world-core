@@ -80,7 +80,7 @@ def swagger_example_is_trustworthy(path: str, example: Any) -> bool:
         row = example["results"][0] if example.get("results") else {}
         if path == "/api/matching/users/" and isinstance(row, dict):
             profile = row.get("profile")
-            return isinstance(profile, dict) and "interests" in profile
+            return isinstance(profile, dict) and "first_name" in profile and "interests" not in profile
         return True
 
     if isinstance(example, dict):

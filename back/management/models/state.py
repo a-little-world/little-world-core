@@ -179,6 +179,14 @@ class State(models.Model):
     # Stores a users past emails ...
     past_emails = models.JSONField(blank=True, default=list)
 
+    # Stores a users past companies (mirrors past_emails) ...
+    past_companies = models.JSONField(blank=True, default=list)
+
+    # Migration audit: when a user was migrated (email/company change + censoring)
+    # and which company they were attributed to before the migration.
+    migrated_at = models.DateTimeField(default=None, null=True, blank=True)
+    migrated_from_company = models.CharField(max_length=255, null=True, blank=True)
+
     notes = models.TextField(blank=True, null=True)
 
     class ExtraUserPermissionChoices(models.TextChoices):

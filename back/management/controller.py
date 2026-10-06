@@ -656,10 +656,11 @@ def ensure_base_management_open_chat_setup(open_chat_automation_user: User | Non
     return automation_user
 
 
-def delete_user(user, management_user=None, send_deletion_email=False):
-    if send_deletion_email:
-        user.send_email("account-deleted")
-
+def censor_user(user):
+    """
+    Censor a user *in place*, keeping the row (and therefore every FK pointing at it)
+    resolvable. Used by `delete_user` and by `migrate_user`.
+    """
     Match.update_deleted_user_matches(user)
     ProposedMatch.close_open_proposals_for_deleted_user(user)
 
@@ -679,3 +680,100 @@ def delete_user(user, management_user=None, send_deletion_email=False):
     user.profile.avatar_config = {}
     user.profile.phone_mobile = f"deleted, {user.profile.phone_mobile}"
     user.profile.save()
+    return user
+
+
+def delete_user(user, management_user=None, send_deletion_email=False):
+    if send_deletion_email:
+        user.send_email("account-deleted")
+
+    return censor_user(user)
+
+
+def set_user_company(user, company, changed_by=None):
+    """
+    Set or clear a user's company attribution, archiving the previous value in
+    `state.past_companies` so the history is not lost.
+    """
+    previous_company = user.state.company
+    normalized_company = company or None
+
+    if previous_company == normalized_company:
+        return user.state
+
+    if previous_company:
+        user.state.past_companies = [*user.state.past_companies, previous_company]
+
+    user.state.company = normalized_company
+    user.state.save()
+    return user.state
+
+
+def change_user_email(user, new_email, send_verification_mail=False):
+    """
+    Change a user's email from the admin/management side.
+
+    Validates the address with the same serializer the self-service flow uses and
+    rejects duplicates and staff/superuser accounts. Old addresses are archived in
+    `state.past_emails` by `User.change_email`.
+    """
+    from rest_framework import serializers
+
+    from management.api.user import ChangeEmailSerializer
+
+    serializer = ChangeEmailSerializer(data=dict(email=new_email))  # type: ignore
+    serializer.is_valid(raise_exception=True)
+    new_email = serializer.validated_data["email"]
+
+    if user.is_staff or user.is_superuser:
+        raise serializers.ValidationError({"email": "You can't change the email of a staff or superuser!"})
+
+    if new_email == user.email:
+        raise serializers.ValidationError({"email": "The new email is the same as the current one!"})
+
+    if User.objects.filter(email=new_email).exclude(pk=user.pk).exists():
+        raise serializers.ValidationError({"email": "A user with this email already exists!"})
+
+    user.change_email(new_email, send_verification_mail=send_verification_mail)
+    return user
+
+
+def migrate_user(
+    user,
+    *,
+    new_email=None,
+    company=None,
+    remove_company=False,
+    censor=True,
+    management_user=None,
+    send_deletion_email=False,
+):
+    """
+    Admin "migrate user" flow: optionally change the email and/or the company
+    attribution and (by default) censor the profile in place.
+
+    The row is never deleted so all references (matches, chats, LiveKit
+    rooms/sessions, scores, ...) stay resolvable. When censoring, the profile is
+    replaced by a stale ghost that still records where the user came from via
+    `state.migrated_from_company` / `state.migrated_at`.
+    """
+    if send_deletion_email:
+        user.send_email("account-deleted")
+
+    migrated_from_company = user.state.company
+
+    if new_email is not None:
+        change_user_email(user, new_email, send_verification_mail=False)
+
+    if remove_company:
+        set_user_company(user, None, changed_by=management_user)
+    elif company is not None:
+        set_user_company(user, company, changed_by=management_user)
+
+    if censor:
+        censor_user(user)
+
+    user.state.migrated_at = timezone.now()
+    user.state.migrated_from_company = migrated_from_company
+    user.state.save()
+    return user

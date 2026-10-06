@@ -415,19 +415,27 @@ class SurveyCampaignAdmin(admin.ModelAdmin):
     """Inspection only. Campaigns are created and edited in the admin panel under
     Communications → Surveys, which is also where the delivery and answer stats live."""
 
-    list_display = ("slug", "name", "active", "trigger", "repeat_scope", "created_at")
-    list_filter = ("active", "trigger", "repeat_scope")
+    list_display = ("slug", "name", "active", "trigger", "repeat_scope", "available_via_link", "created_at")
+    list_filter = ("active", "trigger", "repeat_scope", "available_via_link")
     search_fields = ("slug", "name")
     readonly_fields = ("created_at", "updated_at")
 
 
 @admin.register(survey.SurveyResponse)
 class SurveyResponseAdmin(admin.ModelAdmin):
-    list_display = ("campaign", "user", "status", "rating", "shown_count", "created_at", "submitted_at")
-    list_filter = ("campaign", "status", "rating")
+    list_display = (
+        "campaign",
+        "user",
+        "status",
+        "delivery_channel",
+        "shown_count",
+        "created_at",
+        "submitted_at",
+    )
+    list_filter = ("campaign", "status", "delivery_channel")
     list_select_related = ("campaign", "user")
     search_fields = ("user__email",)
-    readonly_fields = ("created_at", "updated_at", "shown_at", "submitted_at")
+    readonly_fields = ("created_at", "updated_at", "shown_at", "opened_at", "submitted_at")
     date_hierarchy = "created_at"
 
 

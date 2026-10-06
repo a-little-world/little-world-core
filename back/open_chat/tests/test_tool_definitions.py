@@ -146,11 +146,12 @@ class RestToolDefinitionTests(SimpleTestCase):
         self.assertEqual(definition["safety_policy"]["timeout_seconds"], 30)
         self.assertEqual(definition["safety_policy"]["max_response_body_bytes"], 512_000)
 
-    def test_build_mgmt_query_users_rest_tool_definition_includes_interests_hint(self):
+    def test_build_mgmt_query_users_rest_tool_definition_points_to_detail_for_interests(self):
         spec = next(item for item in MANAGEMENT_GET_TOOL_SPECS if item.name == QUERY_USERS_REST_TOOL_NAME)
         definition = build_mgmt_get_rest_tool_definition(spec, "https://app.example.com").build()
 
-        self.assertIn("profile.interests", definition["description"])
+        self.assertIn("rows do not include profile.interests", definition["description"])
+        self.assertIn("call get_user_detail for a user's interests", definition["description"])
         self.assertIn("get_user_detail", definition["description"])
         self.assertIn("/matching/user/", definition["description"])
         self.assertIn("never `/matching/users/?search=", definition["description"])

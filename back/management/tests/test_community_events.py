@@ -6,8 +6,9 @@ from django.test import TestCase
 from django.utils import timezone
 
 from management.helpers.detailed_pagination import get_paginated_format_v2
+from management.models.audience_filters import AudienceFilters
 from management.models.community_events import CommunityEvent
-from management.models.custom_banner_event_filters import CustomFilterChoices
+from management.models.profile import Profile
 from management.tests.helpers import register_user
 
 
@@ -17,7 +18,7 @@ def _event(**overrides) -> CommunityEvent:
         "description": "Description",
         "time": timezone.now(),
         "active": True,
-        "custom_filter": CustomFilterChoices.NONE,
+        "custom_filter": AudienceFilters.NONE,
     }
     fields.update(overrides)
     return CommunityEvent.objects.create(**fields)
@@ -57,8 +58,8 @@ class CommunityEventOrderingTest(TestCase):
     def test_filter_events_stay_ordered_after_combine(self):
         base = timezone.now()
         no_filter = _event(time=base + timedelta(hours=1))
-        matching = _event(time=base, custom_filter=CustomFilterChoices.LEARNERS)
-        _event(time=base + timedelta(hours=2), custom_filter=CustomFilterChoices.VOLUNTEERS)
+        matching = _event(time=base, custom_filter=AudienceFilters.LEARNERS)
+        _event(time=base + timedelta(hours=2), custom_filter=AudienceFilters.VOLUNTEERS)
 
         events = list(CommunityEvent.get_active_events_for_user(self.user))
         self.assertIn(no_filter, events)
@@ -72,3 +73,23 @@ class CommunityEventOrderingTest(TestCase):
 
         events = list(CommunityEvent.get_active_events_for_user(self.user))
         self.assertEqual([e.id for e in events], [first.id, second.id])
+
+    def test_onboarded_filters_require_matching_type_and_onboarding(self):
+        learner_event = _event(custom_filter=AudienceFilters.ONBOARDED_LEARNERS)
+        volunteer_event = _event(custom_filter=AudienceFilters.ONBOARDED_VOLUNTEERS)
+
+        self.assertNotIn(learner_event, CommunityEvent.get_active_events_for_user(self.user))
+
+        self.user.state.is_onboarded = True
+        self.user.state.save(update_fields=["is_onboarded"])
+        self.assertIn(learner_event, CommunityEvent.get_active_events_for_user(self.user))
+        self.assertNotIn(volunteer_event, CommunityEvent.get_active_events_for_user(self.user))
+
+        self.user.profile.user_type = Profile.TypeChoices.VOLUNTEER
+        self.user.profile.save(update_fields=["user_type"])
+        self.assertNotIn(learner_event, CommunityEvent.get_active_events_for_user(self.user))
+        self.assertIn(volunteer_event, CommunityEvent.get_active_events_for_user(self.user))
+
+    def test_registered_filter_labels_are_unambiguous(self):
+        self.assertEqual(AudienceFilters.LEARNERS.label, "All registered learners")
+        self.assertEqual(AudienceFilters.VOLUNTEERS.label, "All registered volunteers")

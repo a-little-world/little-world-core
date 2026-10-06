@@ -16,6 +16,7 @@ from open_chat.tool_definitions_management import (
     MANAGEMENT_GET_TOOL_SPECS,
     QUERY_USERS_REST_TOOL_NAME,
     SUPPORT_TASK_STATS_PATH,
+    USERS_DETAIL_PATH,
     USERS_FILTERS_PATH,
     USERS_LIST_PATH,
     build_mgmt_get_rest_tool_definition,
@@ -45,7 +46,7 @@ class OpenApiResponseExampleTests(SimpleTestCase):
         )
         self.assertTrue(swagger_example_is_trustworthy(USERS_FILTERS_PATH, example))
 
-    def test_extract_query_users_response_example_includes_profile_interests(self):
+    def test_extract_query_users_response_example_has_table_profile_without_interests(self):
         example = extract_openapi_response_example(
             spectacular_schema(),
             path=USERS_LIST_PATH,
@@ -57,7 +58,19 @@ class OpenApiResponseExampleTests(SimpleTestCase):
         self.assertIn("items_total", example)
         self.assertLessEqual(len(example["results"]), 1)
         if example["results"]:
-            self.assertIn("interests", example["results"][0].get("profile", {}))
+            profile = example["results"][0].get("profile", {})
+            self.assertIn("first_name", profile)
+            self.assertNotIn("interests", profile)
+
+    def test_extract_user_detail_response_example_includes_profile_interests(self):
+        example = extract_openapi_response_example(
+            spectacular_schema(),
+            path=USERS_DETAIL_PATH,
+            method="get",
+        )
+
+        self.assertIsInstance(example, dict)
+        self.assertIn("interests", example.get("profile", {}))
 
     def test_extract_support_task_stats_response_example(self):
         rendered = describe_openapi_response_example(

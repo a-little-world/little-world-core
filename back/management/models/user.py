@@ -454,7 +454,8 @@ class User(AbstractUser):
         # self.username = prms.email  # <- so the user can login with that email now
         self.email = prms.email.lower()
         self.save()
-        self.send_email("automatic-emails-u001")
+        if send_verification_mail:
+            self.send_email("automatic-emails-u001")
 
     def message(
         self,
