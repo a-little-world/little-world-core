@@ -5,7 +5,7 @@ from typing import Callable, Type
 
 _registry: dict[str, "ActionDefinition"] = {}
 _task_type_registry: dict[str, "TaskTypeDefinition"] = {}
-_ENABLED_ACTION_MODULES = frozenset({"change_profile_value", "support_reply"})
+_ENABLED_ACTION_MODULES = frozenset({"change_profile_value", "support_reply", "manual"})
 
 
 @dataclass

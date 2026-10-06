@@ -59,6 +59,34 @@ def users_with_effective_permission(permission: ManagementPermission):
     )
 
 
+SUPPORT_USER_PERMISSIONS = (
+    ManagementPermission.MATCHING_USER,
+    ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES,
+    ManagementPermission.IS_MAIN_SUPPORT_ACCOUNT,
+)
+
+
+def support_users_queryset():
+    """Return active users who can work on support tasks.
+
+    Includes staff/superusers and holders of any support-related management
+    permission, granted directly or through a group.
+    """
+    from management.models.user import User
+
+    permission_objects = [obj for perm in SUPPORT_USER_PERMISSIONS if (obj := perm.get_permission_object()) is not None]
+    return (
+        User.objects.filter(is_active=True)
+        .filter(
+            Q(is_staff=True)
+            | Q(is_superuser=True)
+            | Q(user_permissions__in=permission_objects)
+            | Q(groups__permissions__in=permission_objects)
+        )
+        .distinct()
+    )
+
+
 def user_can_edit_management_permissions(user) -> bool:
     return bool(user.is_staff or user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS))
 
