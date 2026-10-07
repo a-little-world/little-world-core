@@ -127,15 +127,20 @@ class RandomCallsTests(TestCase):
         self.assertEqual(RandomCallLobby.objects.count(), 1)
         self.assertEqual(self.lobby.name, "default")
 
+    # Fixed midday Berlin times: building these from `timezone.now()` made the test fail
+    # whenever the run's Berlin wall clock was late enough for `new_start + 3h` to cross
+    # midnight, since the endpoint rejects start/end on different Berlin dates (#1267).
+    @freeze_time("2026-03-02 09:00:00")
     def test_admin_can_update_upcoming_lobby(self):
         self.client.force_authenticate(user=self._create_admin_user("update_upcoming"))
+        upcoming_start = datetime(2026, 3, 3, 12, 0, tzinfo=DISPLAY_TZ)
         upcoming = RandomCallLobby.objects.create(
             name="default",
-            start_time=timezone.now() + timezone.timedelta(days=1),
-            end_time=timezone.now() + timezone.timedelta(days=1, hours=2),
+            start_time=upcoming_start,
+            end_time=upcoming_start + timezone.timedelta(hours=2),
             match_proposal_timeout=60,
         )
-        new_start = timezone.now() + timezone.timedelta(days=2)
+        new_start = datetime(2026, 3, 4, 12, 0, tzinfo=DISPLAY_TZ)
         new_end = new_start + timezone.timedelta(hours=3)
 
         response = self.client.patch(
