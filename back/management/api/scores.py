@@ -151,10 +151,16 @@ class ScoringBase:
         Table based scores amount overlaps
         `{"<=0": unmatchable, "=1: 15, "=2": 25, "=3": 29, "=4": 32, "=5": 35, ">=6": 37}
         """
-        companies_with_disabled_overlap = set(settings.SCORES_DISABLED_TIME_OVERLAP)
         user1_company = self.user1.state.company
         user2_company = self.user2.state.company
-        if user1_company in companies_with_disabled_overlap and user2_company in companies_with_disabled_overlap:
+        disabled_company_prefixes = settings.SCORES_DISABLED_TIME_OVERLAP
+        user1_overlap_disabled = user1_company and any(
+            user1_company.startswith(prefix) for prefix in disabled_company_prefixes
+        )
+        user2_overlap_disabled = user2_company and any(
+            user2_company.startswith(prefix) for prefix in disabled_company_prefixes
+        )
+        if user1_overlap_disabled and user2_overlap_disabled:
             return ScoringFuctionResult(
                 matchable=True,
                 score=0,
