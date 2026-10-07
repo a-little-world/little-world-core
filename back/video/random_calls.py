@@ -546,8 +546,9 @@ class RandomCallLobbySerializer(serializers.Serializer):
     frequency = serializers.CharField()
     recurrence_group = serializers.UUIDField(allow_null=True)
 
-    # Scheduling details for the admin panel's schedule editor; regular users don't need them.
-    MANAGER_ONLY_FIELDS = ("match_proposal_timeout", "frequency", "recurrence_group")
+    # Matching internals for the admin panel's schedule editor. Frequency and recurrence
+    # group stay public: the main app groups a series into one row by them.
+    MANAGER_ONLY_FIELDS = ("match_proposal_timeout",)
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)

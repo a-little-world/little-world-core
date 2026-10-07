@@ -180,14 +180,27 @@ class SurveyCampaignValidationTests(TestCase):
         with self.assertRaises(ValidationError):
             _campaign(questions=[{"id": "rating", "type": "starz"}])
 
-    def test_rejects_duplicate_question_ids(self):
-        with self.assertRaises(ValidationError):
-            _campaign(
-                questions=[
-                    {"id": "rating", "type": "rating"},
-                    {"id": "rating", "type": "text"},
-                ]
-            )
+    def test_deduplicates_question_ids_keeping_the_first(self):
+        campaign = _campaign(questions=[_q("rating", "rating", required=True), _q("rating", "text")])
+        ids = [question["id"] for question in campaign.questions]
+        self.assertEqual(ids[0], "rating")
+        self.assertNotEqual(ids[1], "rating")
+        self.assertRegex(ids[1], r"^q_[0-9a-f]{12}$")
+
+    def test_assigns_ids_when_missing_or_invalid(self):
+        missing = _q("comment", "text")
+        missing.pop("id")
+        invalid = _q("other", "text")
+        invalid["id"] = "Not Valid!"
+        campaign = _campaign(questions=[missing, invalid])
+        ids = [question["id"] for question in campaign.questions]
+        self.assertEqual(len(set(ids)), 2)
+        for qid in ids:
+            self.assertRegex(qid, r"^q_[0-9a-f]{12}$")
+
+    def test_keeps_valid_question_ids(self):
+        campaign = _campaign()
+        self.assertEqual([question["id"] for question in campaign.questions], ["rating", "comment"])
 
     def test_rejects_choice_question_without_options(self):
         with self.assertRaises(ValidationError):
