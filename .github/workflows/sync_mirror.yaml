@@ -21,6 +21,7 @@ jobs:
       - name: Checkout source repository
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
           fetch-tags: true
           token: ${{ secrets.BOT_PAT }}
@@ -30,19 +31,20 @@ jobs:
           git config user.name "littleworld-bot"
           git config user.email "littleworld-bot@users.noreply.github.com"
 
-      - name: Promote fetched branches to local refs
+      - name: Restrict mirror to the main branch
         run: |
-          # actions/checkout only fetches other branches as remote-tracking refs.
-          # Promote them to real branches so the mirror is published one-to-one.
-          git for-each-ref --format='%(refname:lstrip=3) %(objectname)' refs/remotes/origin | while read -r branch sha; do
-            [ "$branch" = "HEAD" ] && continue
-            git update-ref "refs/heads/$branch" "$sha"
-          done
+          # Only the main branch is mirrored. actions/checkout fetches every branch
+          # as a remote-tracking ref; drop them and any other local branch so the
+          # subsequent --all rewrite and --mirror push only ever publish main (+ tags).
+          git checkout -B main origin/main
           git for-each-ref --format='%(refname)' refs/remotes | while read -r ref; do
             git update-ref -d "$ref"
           done
+          git for-each-ref --format='%(refname:short)' refs/heads | grep -vx main | while read -r branch; do
+            git branch -D "$branch"
+          done
 
-      - name: Remove internal .github folder from all branches
+      - name: Remove internal .github folder from main
         run: |
           # Strip internal CI configuration from every commit so it never reaches the public mirror.
           git filter-branch --force --index-filter \
