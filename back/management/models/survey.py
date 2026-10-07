@@ -16,6 +16,7 @@ one uniqueness rule.
 """
 
 import re
+import secrets
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
@@ -24,8 +25,9 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-#: Question ids are effectively a public API for analytics and are immutable once answered,
-#: so they are constrained to readable snake_case rather than anything the admin types.
+#: Answer-JSON keys. Frozen once a question has been answered. The admin never types these —
+#: ``assign_question_ids`` mints ``q_<hex>`` when an id is missing, invalid, or duplicated.
+#: The pattern still rejects anything that would not be a stable JSON key.
 QUESTION_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
 
 MIN_SCALE = 2
@@ -337,6 +339,8 @@ class SurveyCampaign(models.Model):
         except ValidationError as e:
             errors["slug"] = e.messages
         try:
+            if isinstance(self.questions, list):
+                self.questions = assign_question_ids(self.questions)
             validate_question_set(self.questions)
         except ValidationError as e:
             errors["questions"] = e.messages
@@ -533,6 +537,38 @@ def validate_localized(value, label: str) -> None:
             raise ValidationError(
                 _("%(label)s.%(language)s must be a string.") % {"label": label, "language": language}
             )
+
+
+def _is_question_id(value) -> bool:
+    return isinstance(value, str) and bool(QUESTION_ID_PATTERN.match(value))
+
+
+def _new_question_id(used: set[str]) -> str:
+    while True:
+        candidate = f"q_{secrets.token_hex(6)}"
+        if candidate not in used:
+            return candidate
+
+
+def assign_question_ids(questions: list) -> list:
+    """Keep valid unique ids; mint ``q_<hex>`` for missing, invalid, or duplicate ones.
+
+    Copy is not a source of ids — the same wording is normal across (and inside) campaigns.
+    Answered ids stay addressable because ``clean`` still refuses to drop or reshape them
+    after this runs.
+    """
+    used: set[str] = set()
+    assigned = []
+    for question in questions:
+        if not isinstance(question, dict):
+            assigned.append(question)
+            continue
+        qid = question.get("id")
+        if not _is_question_id(qid) or qid in used:
+            qid = _new_question_id(used)
+        used.add(qid)
+        assigned.append({**question, "id": qid})
+    return assigned
 
 
 def validate_question_set(questions) -> None:

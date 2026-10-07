@@ -284,6 +284,27 @@ def _validate_recurrence_year(start_time, frequency):
         raise serializers.ValidationError("Recurring lobbies can only be created within the current calendar year")
 
 
+def _validate_no_overlap(lobby_name, times, *, exclude_pks=()):
+    """Reject a schedule that overlaps another lobby with the same name.
+
+    Lobbies of one name are a single queue: users join "the active default lobby", so two
+    running at once would split them, and End/Reset could only ever act on one.
+    """
+    overlaps = Q()
+    for occurrence_start, occurrence_end in times:
+        overlaps |= Q(start_time__lt=occurrence_end, end_time__gt=occurrence_start)
+    clash = (
+        RandomCallLobby.objects.filter(overlaps, name=lobby_name)
+        .exclude(pk__in=list(exclude_pks))
+        .order_by("start_time")
+        .first()
+    )
+    if clash:
+        clash_start = _local(clash.start_time).strftime("%d.%m.%Y %H:%M")
+        clash_end = _local(clash.end_time).strftime("%H:%M")
+        raise serializers.ValidationError(f"Overlaps the existing '{lobby_name}' session on {clash_start}-{clash_end}")
+
+
 def _sync_lobby_occurrences(
     *,
     existing,
@@ -292,14 +313,17 @@ def _sync_lobby_occurrences(
     end_time,
     match_proposal_timeout,
     frequency,
-    recurrence_group=None,
 ):
     """Make ``existing`` (ordered by start) match the schedule, and return its lobbies.
 
     Existing lobbies are re-timed in place and only the difference is created or deleted,
     so a lobby keeps its uuid and anything attached to it when its series is edited.
+
+    The lobbies always get a fresh recurrence group. Editing "this and future" splits the
+    series at the edited lobby, as calendars do: the earlier part keeps the old group and
+    ends where it now ends, instead of sharing one group with a schedule it no longer has.
     """
-    recurrence_group = None if frequency == EventFrequencyChoices.ONCE else recurrence_group or uuid4()
+    recurrence_group = None if frequency == EventFrequencyChoices.ONCE else uuid4()
     times = list(_recurring_lobby_times(start_time, end_time, frequency))
     existing = list(existing)
 
@@ -365,6 +389,7 @@ def create_lobby(request, lobby_name):
     try:
         _validate_lobby_times(start_time, end_time)
         _validate_recurrence_year(start_time, frequency)
+        _validate_no_overlap(lobby_name, _recurring_lobby_times(start_time, end_time, frequency))
     except serializers.ValidationError as error:
         return Response({"error": _error_message(error.detail)}, status=400)
 
@@ -428,9 +453,14 @@ def manage_upcoming_lobby(request, lobby_uuid):
     # An edit that leaves frequency out keeps the lobby's own, rather than the "once" default.
     frequency = serializer.validated_data["frequency"] if "frequency" in request.data else lobby.frequency
     match_proposal_timeout = serializer.validated_data.get("match_proposal_timeout", 60)
+    # A single edit only re-times this lobby; a series edit replaces the whole series.
+    new_times = (
+        [(start_time, end_time)] if scope == "single" else _recurring_lobby_times(start_time, end_time, frequency)
+    )
     try:
         _validate_lobby_times(start_time, end_time, require_future_start=True)
         _validate_recurrence_year(start_time, frequency)
+        _validate_no_overlap(lobby.name, new_times, exclude_pks=series.values_list("pk", flat=True))
     except serializers.ValidationError as error:
         return Response({"error": _error_message(error.detail)}, status=400)
 
@@ -454,7 +484,6 @@ def manage_upcoming_lobby(request, lobby_uuid):
                 end_time=end_time,
                 match_proposal_timeout=match_proposal_timeout,
                 frequency=frequency,
-                recurrence_group=lobby.recurrence_group,
             )
         lobby = updated_lobbies[0]
 
