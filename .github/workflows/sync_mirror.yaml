@@ -6,6 +6,13 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: sync_mirror
+  cancel-in-progress: false
+
+env:
+  MIRROR_REPO: a-little-world/little-world-core
+
 jobs:
   sync_mirror:
     runs-on: ubuntu-latest
@@ -14,7 +21,9 @@ jobs:
       - name: Checkout source repository
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
+          fetch-tags: true
           token: ${{ secrets.BOT_PAT }}
 
       - name: Configure git
@@ -22,25 +31,40 @@ jobs:
           git config user.name "littleworld-bot"
           git config user.email "littleworld-bot@users.noreply.github.com"
 
-      - name: Remove .github folder from all branches
+      - name: Restrict mirror to the main branch
         run: |
-          # Remove .github from all branches using git filter-branch
+          # Only the main branch is mirrored. actions/checkout fetches every branch
+          # as a remote-tracking ref; drop them and any other local branch so the
+          # subsequent --all rewrite and --mirror push only ever publish main (+ tags).
+          git checkout -B main origin/main
+          git for-each-ref --format='%(refname)' refs/remotes | while read -r ref; do
+            git update-ref -d "$ref"
+          done
+          git for-each-ref --format='%(refname:short)' refs/heads | grep -vx main | while read -r branch; do
+            git branch -D "$branch"
+          done
+
+      - name: Remove internal .github folder from main
+        run: |
+          # Strip internal CI configuration from every commit so it never reaches the public mirror.
           git filter-branch --force --index-filter \
             "git rm -rf --cached --ignore-unmatch .github" \
             --prune-empty --tag-name-filter cat -- --all
 
-      - name: Clean up filter-branch backups
+      - name: Clean up rewritten refs
         run: |
           rm -rf .git/refs/original/
           git reflog expire --expire=now --all
           git gc --prune=now --aggressive
 
-      - name: Add target repository as remote
+      - name: Verify .github is stripped
         run: |
-          git remote add mirror https://${{ secrets.BOT_PAT }}@github.com/a-little-world/little-world-core-oss-test.git || true
-          git remote set-url mirror https://${{ secrets.BOT_PAT }}@github.com/a-little-world/little-world-core-oss-test.git
+          if git log --branches --tags --oneline -- .github | grep -q .; then
+            echo "::error::.github is still present in the mirror history, refusing to publish"
+            exit 1
+          fi
 
-      - name: Push to mirror repository
+      - name: Push one-to-one mirror to ${{ env.MIRROR_REPO }}
         run: |
-          git push --mirror --force mirror
-
+          git push --mirror --force \
+            "https://${{ secrets.BOT_PAT }}@github.com/${MIRROR_REPO}.git"
