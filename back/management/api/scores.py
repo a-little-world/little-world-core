@@ -123,6 +123,21 @@ class ScoringFunctionsEnum(Enum):
     target_group = "target_group"
 
 
+def _time_overlap_disabled(company):
+    """
+    A company in `SCORES_DISABLED_TIME_OVERLAP` also covers its cohorts,
+    e.g. "fh-aachen" covers "fh-aachen-so26" but not "fh-aachenxyz".
+    """
+    if not company:
+        return False
+    company = company.lower()
+    for base in settings.SCORES_DISABLED_TIME_OVERLAP:
+        base = base.lower()
+        if company == base or company.startswith(f"{base}-"):
+            return True
+    return False
+
+
 class ScoringBase:
     def __init__(
         self,
@@ -153,14 +168,7 @@ class ScoringBase:
         """
         user1_company = self.user1.state.company
         user2_company = self.user2.state.company
-        disabled_company_prefixes = settings.SCORES_DISABLED_TIME_OVERLAP
-        user1_overlap_disabled = user1_company and any(
-            user1_company.startswith(prefix) for prefix in disabled_company_prefixes
-        )
-        user2_overlap_disabled = user2_company and any(
-            user2_company.startswith(prefix) for prefix in disabled_company_prefixes
-        )
-        if user1_overlap_disabled and user2_overlap_disabled:
+        if _time_overlap_disabled(user1_company) and _time_overlap_disabled(user2_company):
             return ScoringFuctionResult(
                 matchable=True,
                 score=0,

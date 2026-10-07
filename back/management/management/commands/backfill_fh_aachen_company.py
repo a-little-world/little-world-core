@@ -1,10 +1,11 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from management.models.state import State
+from management.controller import set_user_company
+from management.models.user import User
 
 SOURCE_COMPANY = "fh-aachen"
-TARGET_COMPANY = "fh-aachen-Wi2627"
+TARGET_COMPANY = "fh-aachen-wi2627"
 
 
 class Command(BaseCommand):
@@ -22,15 +23,15 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
-        states = State.objects.filter(company=SOURCE_COMPANY).order_by("id")
-        count = states.count()
+        users = User.objects.filter(state__company=SOURCE_COMPANY).select_related("state").order_by("id")
+        count = users.count()
 
-        if not dry_run:
-            with transaction.atomic():
-                for state in states.iterator():
-                    state.past_companies = [*state.past_companies, SOURCE_COMPANY]
-                    state.company = TARGET_COMPANY
-                    state.save(update_fields=["company", "past_companies", "updated_at"])
+        if dry_run:
+            self.stdout.write(self.style.SUCCESS(f"DRY RUN: would_change={count}"))
+            return
 
-        mode = "DRY RUN" if dry_run else "DONE"
-        self.stdout.write(self.style.SUCCESS(f"{mode}: changed={count}"))
+        with transaction.atomic():
+            for user in users.iterator():
+                set_user_company(user, TARGET_COMPANY)
+
+        self.stdout.write(self.style.SUCCESS(f"DONE: changed={count}"))

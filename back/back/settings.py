@@ -1130,8 +1130,8 @@ EXTRA_CUSTOM_ONBOARDING_COMPANIES = string_list_env("DJ_EXTRA_CUSTOM_ONBOARDING_
 CUSTOM_ONBOARDING_COMPANIES = [
     "lingoda",
     "fh-aachen",
-    "fh-aachen-So26",
-    "fh-aachen-Wi2627",
+    "fh-aachen-so26",
+    "fh-aachen-wi2627",
     "self-organized-kaiserslautern",
 ] + EXTRA_CUSTOM_ONBOARDING_COMPANIES
 EXTRA_SKIP_EMAIL_VERIFICATION_COMPANIES = string_list_env("DJ_EXTRA_SKIP_EMAIL_VERIFICATION_COMPANIES", [])
@@ -1146,13 +1146,14 @@ MATCH_PRIORITY_COMPANIES = [
     "generali",
     "lingoda",
     "fh-aachen",
-    "fh-aachen-So26",
-    "fh-aachen-Wi2627",
+    "fh-aachen-so26",
+    "fh-aachen-wi2627",
     "dl-ukr",
     "clubdialog",
 ] + EXTRA_MATCH_PRIORITY_COMPANIES
 
 # Scoring Related Settings
+# Each entry also covers its cohort companies, e.g. "fh-aachen" covers "fh-aachen-so26"
 SCORES_DISABLED_TIME_OVERLAP = ["fh-aachen"]
 
 PUSH_NOTIFICATIONS_SETTINGS = {
