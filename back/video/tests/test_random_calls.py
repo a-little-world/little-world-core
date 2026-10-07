@@ -1,9 +1,12 @@
+from datetime import datetime
 from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
 from back.celery import app
 from chat.models import Message
 from django.test import TestCase, override_settings
 from django.utils import timezone
+from freezegun import freeze_time
 from management.models.matches import Match
 from management.models.profile import Profile
 from management.models.state import State
@@ -12,6 +15,7 @@ from management.models.user import User
 from management.tests.helpers import register_user
 from rest_framework.test import APIClient
 
+from video.analytics.display_time import DISPLAY_TZ
 from video.models import (
     LivekitSession,
     RandomCallLobby,
@@ -122,6 +126,344 @@ class RandomCallsTests(TestCase):
         self.assertTrue(User.objects.filter(pk=self.user2.pk).exists())
         self.assertEqual(RandomCallLobby.objects.count(), 1)
         self.assertEqual(self.lobby.name, "default")
+
+    # Fixed midday Berlin times: building these from `timezone.now()` made the test fail
+    # whenever the run's Berlin wall clock was late enough for `new_start + 3h` to cross
+    # midnight, since the endpoint rejects start/end on different Berlin dates (#1267).
+    @freeze_time("2026-03-02 09:00:00")
+    def test_admin_can_update_upcoming_lobby(self):
+        self.client.force_authenticate(user=self._create_admin_user("update_upcoming"))
+        upcoming_start = datetime(2026, 3, 3, 12, 0, tzinfo=DISPLAY_TZ)
+        upcoming = RandomCallLobby.objects.create(
+            name="default",
+            start_time=upcoming_start,
+            end_time=upcoming_start + timezone.timedelta(hours=2),
+            match_proposal_timeout=60,
+        )
+        new_start = datetime(2026, 3, 4, 12, 0, tzinfo=DISPLAY_TZ)
+        new_end = new_start + timezone.timedelta(hours=3)
+
+        response = self.client.patch(
+            f"/api/random_calls/lobby/{upcoming.uuid}/management",
+            {
+                "start_time": new_start.isoformat(),
+                "end_time": new_end.isoformat(),
+                "match_proposal_timeout": 90,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        upcoming.refresh_from_db()
+        self.assertEqual(upcoming.start_time, new_start)
+        self.assertEqual(upcoming.end_time, new_end)
+        self.assertEqual(upcoming.match_proposal_timeout, 90)
+
+    # Fixed dates: "tomorrow" on 31 December is next year, which recurrence rejects.
+    @freeze_time("2026-03-02 09:00:00")
+    def test_admin_can_create_recurring_lobbies_until_year_end(self):
+        self.client.force_authenticate(user=self._create_admin_user("create_recurring"))
+        # setUp's live lobby runs on the real clock and could overlap the pinned series.
+        self.lobby.delete()
+        start = datetime(2026, 3, 3, 12, 0, tzinfo=DISPLAY_TZ)
+
+        response = self.client.post(
+            "/api/random_calls/lobby/default/management/create",
+            {
+                "start_time": start.isoformat(),
+                "end_time": (start + timezone.timedelta(hours=2)).isoformat(),
+                "match_proposal_timeout": 90,
+                "frequency": "weekly",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        recurrence_group = response.data["lobby"]["recurrence_group"]
+        occurrences = RandomCallLobby.objects.filter(recurrence_group=recurrence_group).order_by("start_time")
+        # Every Tuesday from 3 March to 29 December 2026.
+        self.assertEqual(response.data["created_count"], 44)
+        self.assertEqual(occurrences.count(), 44)
+        self.assertTrue(all(lobby.frequency == "weekly" for lobby in occurrences))
+        local_starts = [timezone.localtime(lobby.start_time, DISPLAY_TZ) for lobby in occurrences]
+        self.assertEqual(local_starts[-1].date(), datetime(2026, 12, 29).date())
+
+    @freeze_time("2026-03-02 09:00:00")
+    def test_recurring_lobbies_keep_berlin_wall_clock_time_across_dst(self):
+        self.client.force_authenticate(user=self._create_admin_user("recurring_dst"))
+        # setUp's live lobby runs on the real clock and could overlap the pinned series.
+        self.lobby.delete()
+        start = datetime(2026, 3, 3, 18, 0, tzinfo=DISPLAY_TZ)
+
+        response = self.client.post(
+            "/api/random_calls/lobby/default/management/create",
+            {
+                "start_time": start.isoformat(),
+                "end_time": (start + timezone.timedelta(hours=2)).isoformat(),
+                "frequency": "weekly",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        occurrences = RandomCallLobby.objects.filter(recurrence_group=response.data["lobby"]["recurrence_group"])
+        local_times = {
+            (timezone.localtime(lobby.start_time, DISPLAY_TZ).hour, timezone.localtime(lobby.end_time, DISPLAY_TZ).hour)
+            for lobby in occurrences
+        }
+        # 18:00-20:00 Berlin in winter (17:00 UTC) and in summer (16:00 UTC) alike.
+        self.assertEqual(local_times, {(18, 20)})
+        self.assertEqual(
+            {lobby.start_time.astimezone(DISPLAY_TZ).utcoffset().seconds // 3600 for lobby in occurrences}, {1, 2}
+        )
+
+    def test_lobbies_with_the_same_name_cannot_overlap(self):
+        self.client.force_authenticate(user=self._create_admin_user("overlap_create"))
+        # Midday tomorrow, so the sessions never cross midnight in Berlin.
+        start = timezone.localtime(timezone.now() + timezone.timedelta(days=1), DISPLAY_TZ).replace(
+            hour=12, minute=0, second=0, microsecond=0
+        )
+        RandomCallLobby.objects.create(name="default", start_time=start, end_time=start + timezone.timedelta(hours=2))
+
+        response = self.client.post(
+            "/api/random_calls/lobby/default/management/create",
+            {
+                "start_time": (start + timezone.timedelta(hours=1)).isoformat(),
+                "end_time": (start + timezone.timedelta(hours=3)).isoformat(),
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Overlaps the existing 'default' session", response.data["error"])
+        self.assertEqual(RandomCallLobby.objects.filter(start_time__gt=timezone.now()).count(), 1)
+
+        other_name = self.client.post(
+            "/api/random_calls/lobby/other/management/create",
+            {
+                "start_time": (start + timezone.timedelta(hours=1)).isoformat(),
+                "end_time": (start + timezone.timedelta(hours=3)).isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(other_name.status_code, 201)
+
+    def test_editing_a_lobby_cannot_move_it_onto_another(self):
+        self.client.force_authenticate(user=self._create_admin_user("overlap_edit"))
+        # Midday tomorrow, so the sessions never cross midnight in Berlin.
+        start = timezone.localtime(timezone.now() + timezone.timedelta(days=1), DISPLAY_TZ).replace(
+            hour=12, minute=0, second=0, microsecond=0
+        )
+        first = RandomCallLobby.objects.create(
+            name="default", start_time=start, end_time=start + timezone.timedelta(hours=2)
+        )
+        second = RandomCallLobby.objects.create(
+            name="default",
+            start_time=start + timezone.timedelta(days=1),
+            end_time=start + timezone.timedelta(days=1, hours=2),
+        )
+
+        # Re-timing a lobby within its own slot is not an overlap with itself.
+        own_slot = self.client.patch(
+            f"/api/random_calls/lobby/{first.uuid}/management",
+            {
+                "start_time": (start + timezone.timedelta(minutes=30)).isoformat(),
+                "end_time": (start + timezone.timedelta(hours=2)).isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(own_slot.status_code, 200)
+
+        onto_second = self.client.patch(
+            f"/api/random_calls/lobby/{first.uuid}/management",
+            {
+                "start_time": second.start_time.isoformat(),
+                "end_time": second.end_time.isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(onto_second.status_code, 400)
+        self.assertIn("Overlaps", onto_second.data["error"])
+
+    def test_invalid_lobby_times_return_a_readable_error(self):
+        self.client.force_authenticate(user=self._create_admin_user("readable_error"))
+        start = timezone.now() + timezone.timedelta(days=1)
+
+        response = self.client.post(
+            "/api/random_calls/lobby/default/management/create",
+            {"start_time": start.isoformat(), "end_time": start.isoformat()},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"], "End time must be after start time")
+
+    def test_end_lobby_ends_the_live_lobby_when_future_sessions_exist(self):
+        self.client.force_authenticate(user=self._create_admin_user("end_live"))
+        # Created after the live lobby, so it has the highest id for the name.
+        future = RandomCallLobby.objects.create(
+            name="default",
+            start_time=timezone.now() + timezone.timedelta(days=7),
+            end_time=timezone.now() + timezone.timedelta(days=7, hours=2),
+        )
+
+        response = self.client.post("/api/random_calls/lobby/default/management/end")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["lobby"]["uuid"], str(self.lobby.uuid))
+        self.lobby.refresh_from_db()
+        future.refresh_from_db()
+        self.assertLessEqual(self.lobby.end_time, timezone.now())
+        self.assertGreater(future.end_time, timezone.now())
+
+    def test_reset_lobby_resets_the_live_lobby_when_future_sessions_exist(self):
+        self.client.force_authenticate(user=self._create_admin_user("reset_live"))
+        future = RandomCallLobby.objects.create(
+            name="default",
+            start_time=timezone.now() + timezone.timedelta(days=7),
+            end_time=timezone.now() + timezone.timedelta(days=7, hours=2),
+        )
+
+        response = self.client.post("/api/random_calls/lobby/default/management/reset")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(RandomCallLobby.objects.filter(pk=self.lobby.pk).exists())
+        self.assertTrue(RandomCallLobby.objects.filter(pk=future.pk).exists())
+
+    def test_match_proposal_timeout_is_only_shown_to_managers(self):
+        self.client.force_authenticate(user=self.user1)
+        user_view = self.client.get("/api/random_calls/upcoming?name=default").data[0]
+        self.assertNotIn("match_proposal_timeout", user_view)
+        # The main app groups a series into one row by these.
+        self.assertEqual(user_view["frequency"], "once")
+        self.assertIn("recurrence_group", user_view)
+
+        self.client.force_authenticate(user=self._create_admin_user("scheduling_fields"))
+        admin_view = self.client.get("/api/random_calls/upcoming?name=default").data[0]
+        self.assertEqual(admin_view["frequency"], "once")
+        self.assertIn("recurrence_group", admin_view)
+        self.assertIn("match_proposal_timeout", admin_view)
+
+    def test_admin_can_delete_upcoming_lobby(self):
+        self.client.force_authenticate(user=self._create_admin_user("delete_upcoming"))
+        upcoming = RandomCallLobby.objects.create(
+            name="default",
+            start_time=timezone.now() + timezone.timedelta(days=1),
+            end_time=timezone.now() + timezone.timedelta(days=1, hours=2),
+        )
+
+        response = self.client.delete(f"/api/random_calls/lobby/{upcoming.uuid}/management")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(RandomCallLobby.objects.filter(pk=upcoming.pk).exists())
+
+    @freeze_time("2026-03-02 09:00:00")
+    def test_admin_can_update_this_and_future_recurring_lobbies(self):
+        self.client.force_authenticate(user=self._create_admin_user("update_series"))
+        # setUp's live lobby runs on the real clock and could overlap the pinned series.
+        self.lobby.delete()
+        recurrence_group = uuid4()
+        start = datetime(2026, 3, 3, 12, 0, tzinfo=DISPLAY_TZ)
+        lobbies = [
+            RandomCallLobby.objects.create(
+                name="default",
+                start_time=start + timezone.timedelta(weeks=week),
+                end_time=start + timezone.timedelta(weeks=week, hours=2),
+                frequency="weekly",
+                recurrence_group=recurrence_group,
+            )
+            for week in range(3)
+        ]
+        replacement_start = lobbies[1].start_time + timezone.timedelta(days=1)
+
+        response = self.client.patch(
+            f"/api/random_calls/lobby/{lobbies[1].uuid}/management?scope=future",
+            {
+                "start_time": replacement_start.isoformat(),
+                "end_time": (replacement_start + timezone.timedelta(hours=2)).isoformat(),
+                "match_proposal_timeout": 90,
+                "frequency": "fortnightly",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        # The edit splits the series: the earlier lobby keeps the old group on its own,
+        # and the edited lobbies form a new series.
+        lobbies[0].refresh_from_db()
+        self.assertEqual(lobbies[0].recurrence_group, recurrence_group)
+        self.assertEqual(lobbies[0].frequency, "weekly")
+        new_group = response.data["lobby"]["recurrence_group"]
+        self.assertNotEqual(new_group, str(recurrence_group))
+        self.assertEqual(RandomCallLobby.objects.filter(recurrence_group=recurrence_group).count(), 1)
+        future = RandomCallLobby.objects.filter(recurrence_group=new_group).order_by("start_time")
+        self.assertTrue(future.exists())
+        self.assertTrue(all(lobby.frequency == "fortnightly" for lobby in future))
+        self.assertEqual(future.first().start_time, replacement_start)
+        # Existing sessions are re-timed in place, so they keep their uuids.
+        self.assertEqual(
+            list(future.values_list("uuid", flat=True)[:2]),
+            [lobbies[1].uuid, lobbies[2].uuid],
+        )
+
+    def test_admin_can_delete_this_and_future_recurring_lobbies(self):
+        self.client.force_authenticate(user=self._create_admin_user("delete_series"))
+        recurrence_group = uuid4()
+        start = timezone.now() + timezone.timedelta(days=1)
+        lobbies = [
+            RandomCallLobby.objects.create(
+                name="default",
+                start_time=start + timezone.timedelta(weeks=week),
+                end_time=start + timezone.timedelta(weeks=week, hours=2),
+                frequency="weekly",
+                recurrence_group=recurrence_group,
+            )
+            for week in range(3)
+        ]
+
+        response = self.client.delete(f"/api/random_calls/lobby/{lobbies[1].uuid}/management?scope=future")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["deleted_count"], 2)
+        self.assertTrue(RandomCallLobby.objects.filter(pk=lobbies[0].pk).exists())
+        self.assertFalse(RandomCallLobby.objects.filter(pk__in=[lobbies[1].pk, lobbies[2].pk]).exists())
+
+    def test_admin_cannot_update_lobby_across_multiple_dates(self):
+        self.client.force_authenticate(user=self._create_admin_user("multi_day_lobby"))
+        upcoming = RandomCallLobby.objects.create(
+            name="default",
+            start_time=timezone.now() + timezone.timedelta(days=1),
+            end_time=timezone.now() + timezone.timedelta(days=1, hours=2),
+        )
+        new_start = timezone.localtime(timezone.now()).replace(hour=12, minute=0, second=0, microsecond=0)
+
+        response = self.client.patch(
+            f"/api/random_calls/lobby/{upcoming.uuid}/management",
+            {
+                "start_time": (new_start + timezone.timedelta(days=1)).isoformat(),
+                "end_time": (new_start + timezone.timedelta(days=2)).isoformat(),
+                "match_proposal_timeout": 90,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_admin_cannot_update_or_delete_started_lobby(self):
+        self.client.force_authenticate(user=self._create_admin_user("started_lobby"))
+        payload = {
+            "start_time": (timezone.now() + timezone.timedelta(days=1)).isoformat(),
+            "end_time": (timezone.now() + timezone.timedelta(days=1, hours=2)).isoformat(),
+            "match_proposal_timeout": 90,
+        }
+        url = f"/api/random_calls/lobby/{self.lobby.uuid}/management"
+
+        update_response = self.client.patch(url, payload, format="json")
+        delete_response = self.client.delete(url)
+
+        self.assertEqual(update_response.status_code, 400)
+        self.assertEqual(delete_response.status_code, 400)
+        self.assertTrue(RandomCallLobby.objects.filter(pk=self.lobby.pk).exists())
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_join_lobby_and_matching_trigger(self):

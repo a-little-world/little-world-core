@@ -667,7 +667,8 @@ def send_sms_background(self, user_uuid, message):
         # This is mianly cause prices are very high, they are per-segment and differnet for every country
         # our sms have 3-10 segemtns, so this get quite expensive quickly
         is_german_number = str(receipient.profile.phone_mobile).startswith("+49")
-        if (receipient.state.company not in settings.MATCH_PRIORITY_COMPANIES) and (not is_german_number):
+        is_prio_company = (receipient.state.company or "").lower() in settings.MATCH_PRIORITY_COMPANIES
+        if (not is_prio_company) and (not is_german_number):
             receipient.sms(
                 send_initator=get_base_management_user(),
                 message=message,

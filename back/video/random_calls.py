@@ -12,6 +12,7 @@ from django.utils import timezone
 from livekit import api as livekit_api
 from management.authentication import NativeOnlyJWTAuthentication
 from management.controller import create_user_matching_proposal, match_users
+from management.helpers import IsAdminOrMatchingUser
 from management.models.matches import Match
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from rest_framework import serializers
@@ -541,9 +542,20 @@ class RandomCallLobbySerializer(serializers.Serializer):
     name = serializers.CharField()
     start_time = serializers.DateTimeField()
     end_time = serializers.DateTimeField()
+    match_proposal_timeout = serializers.IntegerField()
+    frequency = serializers.CharField()
+    recurrence_group = serializers.UUIDField(allow_null=True)
+
+    # Matching internals for the admin panel's schedule editor. Frequency and recurrence
+    # group stay public: the main app groups a series into one row by them.
+    MANAGER_ONLY_FIELDS = ("match_proposal_timeout",)
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
+        request = self.context.get("request")
+        if request is None or not IsAdminOrMatchingUser().has_permission(request, None):
+            for field in self.MANAGER_ONLY_FIELDS:
+                rep.pop(field, None)
         rep["uuid"] = instance.uuid
         # Add calculated status based on current time
         rep["status"] = is_lobby_active(instance)
@@ -649,7 +661,7 @@ def get_random_call_lobbies(request):
     lobby_name = request.query_params.get("name")
     if lobby_name:
         lobbies = lobbies.filter(name=lobby_name)
-    return Response(RandomCallLobbySerializer(lobbies, many=True).data)
+    return Response(RandomCallLobbySerializer(lobbies, many=True, context={"request": request}).data)
 
 
 @api_view(["GET"])
@@ -660,7 +672,7 @@ def get_random_call_lobby(request, lobby_uuid):
     Returns a single random call lobby by UUID.
     """
     lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
-    return Response(RandomCallLobbySerializer(lobby).data)
+    return Response(RandomCallLobbySerializer(lobby, context={"request": request}).data)
 
 
 @api_view(["GET"])
@@ -685,7 +697,7 @@ def get_active_or_upcoming_lobby_by_name(request, lobby_name):
         .first()
     )
     if active_lobby:
-        return Response(RandomCallLobbySerializer(active_lobby).data)
+        return Response(RandomCallLobbySerializer(active_lobby, context={"request": request}).data)
     # If no active lobby, get the most upcoming future one
     upcoming_lobby = (
         RandomCallLobby.objects.filter(
@@ -696,7 +708,7 @@ def get_active_or_upcoming_lobby_by_name(request, lobby_name):
         .first()
     )
     if upcoming_lobby:
-        return Response(RandomCallLobbySerializer(upcoming_lobby).data)
+        return Response(RandomCallLobbySerializer(upcoming_lobby, context={"request": request}).data)
     return Response(
         {
             "data": None,
@@ -719,7 +731,7 @@ def get_upcoming_lobbies(request):
     lobby_name = request.query_params.get("name")
     if lobby_name:
         lobbies = lobbies.filter(name=lobby_name)
-    return Response(RandomCallLobbySerializer(lobbies, many=True).data)
+    return Response(RandomCallLobbySerializer(lobbies, many=True, context={"request": request}).data)
 
 
 @api_view(["GET"])

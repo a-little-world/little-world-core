@@ -418,7 +418,8 @@ def EXTRA__lingoda_learners_scoring(qs=User.objects.all()):
 
 
 def EXTRA__fh_aachen_users(qs=User.objects.all()):
-    return qs.filter(state__company="fh-aachen")
+    # Includes the semester cohorts, e.g. "fh-aachen-so26"
+    return qs.filter(Q(state__company__iexact="fh-aachen") | Q(state__company__istartswith="fh-aachen-"))
 
 
 def EXTRA__fh_aachen_learners_scoring(qs=User.objects.all()):
