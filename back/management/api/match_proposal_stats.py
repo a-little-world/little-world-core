@@ -8,13 +8,12 @@ from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
-from management.helpers import IsAdminOrMatchingUser
+from management.helpers import IsAdminOrMatchingUser, get_accessible_users
 from management.models.courses import Course, UserCourseProgress
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.profile import Profile
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
-from management.models.user import User
 from management.self_onboarding_progress import (
     self_onboarding_completed_at_for_user,
     self_onboarding_progress_prefetch,
@@ -57,13 +56,6 @@ def _stacked_percentages(counts, total):
     for index in range(remainder):
         floored[order[index % len(counts)]] += 1
     return [value / 100 for value in floored]
-
-
-def _accessible_users(user):
-    users = User.objects.all()
-    if not user.is_staff:
-        users = users.filter(id__in=user.managed_users_queryset(active_only=False).values("id"))
-    return users
 
 
 def _base_proposal_queryset(accessible_users, start_datetime, end_datetime):
@@ -399,7 +391,7 @@ def match_proposal_statistics(request):
         return Response({"msg": "Match proposal type not supported"}, status=400)
 
     start_datetime, end_datetime = _inclusive_datetime_range(start_date, end_date)
-    accessible_users = _accessible_users(request.user)
+    accessible_users = get_accessible_users(request.user)
     proposals = _base_proposal_queryset(accessible_users, start_datetime, end_datetime)
     proposals = _filter_proposals_by_match_type(proposals, match_type)
     summary = _proposal_outcome_summary(proposals)
@@ -430,7 +422,7 @@ def match_proposal_outcome_trend(request):
     if match_type not in SUPPORTED_MATCH_TYPES:
         return Response({"msg": "Match proposal type not supported"}, status=400)
 
-    accessible_users = _accessible_users(request.user)
+    accessible_users = get_accessible_users(request.user)
     data = []
 
     for month_start in _iter_month_starts(start_date, end_date):
