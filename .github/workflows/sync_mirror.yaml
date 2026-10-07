@@ -35,7 +35,7 @@ jobs:
         run: |
           # Only the main branch is mirrored. actions/checkout fetches every branch
           # as a remote-tracking ref; drop them and any other local branch so the
-          # subsequent --all rewrite and --mirror push only ever publish main (+ tags).
+          # --mirror push publishes main (+ tags) and nothing else.
           git checkout -B main origin/main
           git for-each-ref --format='%(refname)' refs/remotes | while read -r ref; do
             git update-ref -d "$ref"
@@ -44,27 +44,7 @@ jobs:
             git branch -D "$branch"
           done
 
-      - name: Remove internal .github folder from main
-        run: |
-          # Strip internal CI configuration from every commit so it never reaches the public mirror.
-          git filter-branch --force --index-filter \
-            "git rm -rf --cached --ignore-unmatch .github" \
-            --prune-empty --tag-name-filter cat -- --all
-
-      - name: Clean up rewritten refs
-        run: |
-          rm -rf .git/refs/original/
-          git reflog expire --expire=now --all
-          git gc --prune=now --aggressive
-
-      - name: Verify .github is stripped
-        run: |
-          if git log --branches --tags --oneline -- .github | grep -q .; then
-            echo "::error::.github is still present in the mirror history, refusing to publish"
-            exit 1
-          fi
-
-      - name: Push one-to-one mirror to ${{ env.MIRROR_REPO }}
+      - name: Push exact mirror of main to ${{ env.MIRROR_REPO }}
         run: |
           git push --mirror --force \
             "https://${{ secrets.BOT_PAT }}@github.com/${MIRROR_REPO}.git"
