@@ -22,12 +22,25 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
           token: ${{ secrets.BOT_PAT }}
 
       - name: Configure git
         run: |
           git config user.name "littleworld-bot"
           git config user.email "littleworld-bot@users.noreply.github.com"
+
+      - name: Promote fetched branches to local refs
+        run: |
+          # actions/checkout only fetches other branches as remote-tracking refs.
+          # Promote them to real branches so the mirror is published one-to-one.
+          git for-each-ref --format='%(refname:lstrip=3) %(objectname)' refs/remotes/origin | while read -r branch sha; do
+            [ "$branch" = "HEAD" ] && continue
+            git update-ref "refs/heads/$branch" "$sha"
+          done
+          git for-each-ref --format='%(refname)' refs/remotes | while read -r ref; do
+            git update-ref -d "$ref"
+          done
 
       - name: Remove internal .github folder from all branches
         run: |
@@ -39,16 +52,12 @@ jobs:
       - name: Clean up rewritten refs
         run: |
           rm -rf .git/refs/original/
-          # Drop remote-tracking refs so the mirror contains only heads and tags.
-          git for-each-ref --format='%(refname)' refs/remotes | while read -r ref; do
-            git update-ref -d "$ref"
-          done
           git reflog expire --expire=now --all
           git gc --prune=now --aggressive
 
       - name: Verify .github is stripped
         run: |
-          if git log --all --oneline -- .github | grep -q .; then
+          if git log --branches --tags --oneline -- .github | grep -q .; then
             echo "::error::.github is still present in the mirror history, refusing to publish"
             exit 1
           fi
