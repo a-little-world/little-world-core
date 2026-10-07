@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from django.test import SimpleTestCase, TestCase
 from rest_framework.test import APIClient
@@ -196,3 +196,23 @@ class TimeSeriesStatisticsApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["points"][0]["period_value"], 1)
+
+    def test_buckets_use_the_display_timezone_not_utc(self):
+        # 23:30 UTC on 1 Jan is already 00:30 on 2 Jan in Berlin, so the call must land
+        # in the 2 Jan bucket rather than the UTC day it was stored under.
+        self._call(
+            started=datetime(2026, 1, 1, 23, 30, tzinfo=timezone.utc),
+            minutes=30,
+            random=False,
+        )
+
+        response = self._post("video_calls")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["points"],
+            [
+                {"date": "2026-01-01", "period_value": 0.0, "cumulative_value": 0.0},
+                {"date": "2026-01-02", "period_value": 1.0, "cumulative_value": 1.0},
+            ],
+        )
