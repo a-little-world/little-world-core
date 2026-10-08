@@ -72,6 +72,7 @@ from management.views import (
     landing_page,
     main_frontend,
     matching_panel,
+    youtube_embed,
 )
 
 router = DefaultRouter()
@@ -243,6 +244,7 @@ view_routes = [
         main_frontend.email_verification_link,
         name="email_verification_link",
     ),
+    path("youtube_embed/", youtube_embed.youtube_embed, name="youtube_embed"),
     path("api/user/question_cards/", get_question_cards, name="question_cards"),
     path("api/user/archive_card/", archive_card, name="question_cards_archive"),
     path(
