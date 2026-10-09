@@ -10,10 +10,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from video.models import LivekitSession
 
-from management.helpers import IsAdminOrMatchingUser
+from management.helpers import IsAdminOrMatchingUser, get_accessible_users
 from management.models.matches import Match
 from management.models.unconfirmed_matches import MatchType
-from management.models.user import User
 
 MatchRow = tuple[int, int, int, datetime]
 
@@ -58,13 +57,6 @@ def _percentage(count, total):
     if total == 0:
         return 0
     return round(count / total * 100, 2)
-
-
-def _accessible_users(user):
-    users = User.objects.all()
-    if not user.is_staff:
-        users = users.filter(id__in=user.managed_users_queryset(active_only=False).values("id"))
-    return users
 
 
 def _base_match_queryset(accessible_users, start_datetime, end_datetime):
@@ -229,7 +221,7 @@ def _match_cohort_trend(request, get_success_for_match, success_count_key):
     if start_date > latest_mature_bucket_end:
         return Response([])
 
-    accessible_users = _accessible_users(request.user)
+    accessible_users = get_accessible_users(request.user)
     range_start_datetime, range_end_datetime = _inclusive_datetime_range(start_date, latest_mature_bucket_end)
     all_match_rows = _collect_match_rows(
         _base_match_queryset(accessible_users, range_start_datetime, range_end_datetime)
@@ -272,7 +264,7 @@ def match_timing_statistics(request):
     end_date = _parse_date_input(request.data.get("end_date"), today)
     start_datetime, end_datetime = _inclusive_datetime_range(start_date, end_date)
 
-    accessible_users = _accessible_users(request.user)
+    accessible_users = get_accessible_users(request.user)
     match_rows = _collect_match_rows(_base_match_queryset(accessible_users, start_datetime, end_datetime))
     session_index, message_index = _activity_indices_for_matches(match_rows, start_datetime)
 
@@ -386,7 +378,7 @@ def match_video_call_week_evolution(request):
     end_date = _parse_date_input(request.data.get("end_date"), today)
     start_datetime, end_datetime = _inclusive_datetime_range(start_date, end_date)
 
-    accessible_users = _accessible_users(request.user)
+    accessible_users = get_accessible_users(request.user)
     match_rows = _collect_match_rows(_base_match_queryset(accessible_users, start_datetime, end_datetime))
     session_index, _ = _activity_indices_for_matches(match_rows, start_datetime)
     now = timezone.now()

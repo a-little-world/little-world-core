@@ -34,6 +34,7 @@ from management.api import (
     slack,
     support_task,
     surveys,
+    time_series_statistics,
     trans,
     translator,
     user_advanced_statistics,
@@ -190,6 +191,7 @@ api_routes = [
     *push_notifications.api_urls,
     *support_task.api_urls,
     *surveys.api_urls,
+    *time_series_statistics.api_urls,
     # User
     path("api/trans", trans.get_translation_catalogue),
     path("api/trans/<str:lang>/", trans.get_translation_catalogue),
