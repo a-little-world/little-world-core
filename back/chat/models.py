@@ -16,6 +16,7 @@ class Chat(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
 
+    one_day_inactive_email_send = models.BooleanField(default=False, blank=False, null=False)
     three_days_inactive_email_send = models.BooleanField(default=False, blank=False, null=False)
     seven_days_inactive_email_send = models.BooleanField(default=False, blank=False, null=False)
 
@@ -55,7 +56,11 @@ class Chat(models.Model):
         return queryset
 
     def get_messages(self):
-        return Message.objects.filter(chat=self).order_by("-created")
+        # sender/recipient are read by MessageSerializer; without select_related a 20-row
+        # page hits management_user once per message (Sentry N+1 on /api/messages/{uuid}/).
+        # Harmless for the aggregate callers below: Django drops the join for `.count()`,
+        # and `last_message()` serializes the sender anyway.
+        return Message.objects.filter(chat=self).select_related("sender", "recipient").order_by("-created")
 
     @classmethod
     def get_chat(cls, users):
@@ -252,3 +257,7 @@ class ChatConnections(models.Model):
     @classmethod
     def is_user_online(cls, user):
         return cls.objects.filter(user=user, is_online=True).exists()
+
+    @classmethod
+    def get_last_seen_for_user(cls, user):
+        return cls.objects.filter(user=user).aggregate(last_seen=Max("last_seen"))["last_seen"]

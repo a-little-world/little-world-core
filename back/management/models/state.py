@@ -7,8 +7,6 @@ from enum import Enum
 from back.utils import get_options_serializer
 from django.db import models
 from django.db.models import Q
-from django.db.models.signals import post_save
-from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from multiselectfield import MultiSelectField
@@ -19,7 +17,6 @@ from back import utils
 from management.models.management_tasks import MangementTask
 from management.models.matches import Match
 from management.models.notifications import Notification
-from management.models.question_deck import QuestionCardsDeck
 from management.permissions import MANAGEMENT_PERMISSION_DEFINITIONS
 
 
@@ -32,8 +29,6 @@ class State(models.Model):
 
     # Key...
     user = models.OneToOneField("management.User", on_delete=models.CASCADE)
-
-    question_card_deck = models.ForeignKey(QuestionCardsDeck, on_delete=models.SET_NULL, null=True, blank=True)
 
     # We love additional Information
     created_at = models.DateTimeField(auto_now_add=True)
@@ -141,11 +136,16 @@ class State(models.Model):
         default=SearchingStateChoices.IDLE,
         max_length=255,
     )
-    searching_state_last_updated = models.DateTimeField(auto_now=timezone.now)
+    # Not auto_now: that field would bump on every State.save() (notes, email flags, …)
+    # and Django hides auto_now fields from admin forms.
+    searching_state_last_updated = models.DateTimeField(default=timezone.now, editable=False)
     prematch_booking_code = models.CharField(max_length=255, default=uuid.uuid4)
 
     # This is used to ensure no user can manipulate the responses of the still in contact form
     still_in_contact_form_access_token_user = models.UUIDField(default=uuid.uuid4)
+
+    # Token for the public one-click "activate searching" outreach link
+    search_activation_token = models.UUIDField(default=uuid.uuid4)
 
     """
     This contains a list of matches the user has not yet confirmed
@@ -178,6 +178,14 @@ class State(models.Model):
 
     # Stores a users past emails ...
     past_emails = models.JSONField(blank=True, default=list)
+
+    # Stores a users past companies (mirrors past_emails) ...
+    past_companies = models.JSONField(blank=True, default=list)
+
+    # Migration audit: when a user was migrated (email/company change + censoring)
+    # and which company they were attributed to before the migration.
+    migrated_at = models.DateTimeField(default=None, null=True, blank=True)
+    migrated_from_company = models.CharField(max_length=255, null=True, blank=True)
 
     notes = models.TextField(blank=True, null=True)
 
@@ -263,11 +271,17 @@ class State(models.Model):
         permissions = MANAGEMENT_PERMISSION_DEFINITIONS
 
     def save(self, *args, **kwargs):
-        # Check if searching_state has changed
-        if self.pk:  # Only for existing instances
-            original = State.objects.get(pk=self.pk)
-            if original.searching_state != self.searching_state:
+        update_fields = kwargs.get("update_fields")
+        searching_in_update = update_fields is None or "searching_state" in update_fields
+
+        if searching_in_update and self.pk:
+            original_searching_state = (
+                State.objects.filter(pk=self.pk).values_list("searching_state", flat=True).first()
+            )
+            if original_searching_state is not None and original_searching_state != self.searching_state:
                 self.searching_state_last_updated = timezone.now()
+                if update_fields is not None:
+                    kwargs["update_fields"] = {*update_fields, "searching_state_last_updated"}
 
         super().save(*args, **kwargs)
 
@@ -387,13 +401,6 @@ class State(models.Model):
         return json.loads(zlib.decompress(base64.urlsafe_b64decode(str_b64.encode())).decode())
 
 
-@receiver(post_save, sender=State)
-def populate_parents(sender, instance, created, **kwargs):
-    if created:
-        instance.question_card_deck = QuestionCardsDeck.objects.create(user=instance.user)
-        instance.save()
-
-
 class StateSerializer(serializers.ModelSerializer):
     """
     Note: this serializer is not to be used for matches of the current user
@@ -433,12 +440,14 @@ class FrontendStatusSerializer(serializers.ModelSerializer):
             rep["status"] = FrontendStatusEnum.pre_matching.value
             return rep
 
-        # Now check if the user is matched
-        # Use exists() instead of count() for better performance
-        has_atleast_one_match = Match.objects.filter(
-            Q(user1=instance.user) | Q(user2=instance.user),
-            support_matching=False,
-        ).exists()
+        # Same universe as first-search / waiting-time: Standard and Random Call, not lobby TEMPORARY.
+        has_atleast_one_match = (
+            Match.journey()
+            .filter(
+                Q(user1=instance.user) | Q(user2=instance.user),
+            )
+            .exists()
+        )
 
         if has_atleast_one_match:
             if instance.searching_state == State.SearchingStateChoices.IDLE:

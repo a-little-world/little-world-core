@@ -22,7 +22,7 @@ class MessageTypes(Enum):
     new_message = "new_message"
     messages_read_chat = "messages_read_chat"
     pre_matching_appointment_booked = "pre_matching_appointment_booked"
-    post_call_survey = "post_call_survey"
+    survey_offered = "survey_offered"
     notification = "notification"
 
 
@@ -148,22 +148,35 @@ class NewMessage(MessageBase):
     meta_chat_obj: Optional[dict] = (
         None  # holds additional 'chatObject' such that the frontend can hidrate it if it's not present
     )
+    sender_is_self: bool = False
     type: str = MessageTypes.new_message.value
 
     def build_redux_action(self):
         return {
             "action": "addMessage",
-            "payload": {"message": self.message, "chatId": self.chat_id, "metaChatObj": self.meta_chat_obj},
+            "payload": {
+                "message": self.message,
+                "chatId": self.chat_id,
+                "metaChatObj": self.meta_chat_obj,
+                "senderIsSelf": self.sender_is_self,
+            },
         }
 
 
 @dataclass
-class PostCallSurvey(MessageBase):
-    post_call_survey: dict
-    type: str = MessageTypes.post_call_survey.value
+class SurveyOffered(MessageBase):
+    """Tells the client a survey is waiting. Carries no survey data on purpose.
+
+    The payload used to be the survey itself, written into a Zustand store that the modal
+    never read — so a delivered push produced nothing. This is an invalidation signal only:
+    the client re-fetches ``/api/surveys/pending``, which stays the single source of truth.
+    Miss the socket and the next poll still finds the offer.
+    """
+
+    type: str = MessageTypes.survey_offered.value
 
     def build_redux_action(self):
-        return {"action": "addPostCallSurvey", "payload": self.post_call_survey}
+        return {"action": "surveyOffered", "payload": {}}
 
 
 @dataclass
@@ -177,7 +190,7 @@ class NotificationMessage(MessageBase):
 
 
 CALLBACKS = {
-    MessageTypes.post_call_survey.value: PostCallSurvey,
+    MessageTypes.survey_offered.value: SurveyOffered,
     MessageTypes.user_went_online.value: OutUserWentOnline,
     MessageTypes.user_went_offline.value: OutUserWentOffline,
     MessageTypes.match_proposal_added.value: InMatchProposalAdded,

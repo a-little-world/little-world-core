@@ -1,5 +1,4 @@
 import asyncio
-import uuid
 
 from chat.consumers.messages import NewActiveCallRoom, OutgoingCallRejected
 from chat.models import Chat, ChatSerializer
@@ -10,7 +9,6 @@ from drf_spectacular.utils import extend_schema
 from livekit import api as livekit_api
 from management.authentication import NativeOnlyJWTAuthentication
 from management.models.matches import Match
-from management.models.post_call_review import PostCallReview
 from management.models.unconfirmed_matches import MatchType
 from management.models.user import User
 from rest_framework import serializers
@@ -36,7 +34,7 @@ class AuthenticateRoomParams(serializers.Serializer):
 
 async def create_livekit_room(room_name):
     lkapi = livekit_api.LiveKitAPI(
-        url=settings.LIVEKIT_URL,
+        url=settings.LIVEKIT_INTERNAL_URL,
         api_key=settings.LIVEKIT_API_KEY,
         api_secret=settings.LIVEKIT_API_SECRET,
     )
@@ -86,60 +84,6 @@ def authenticate_live_kit_room(request):
     )
 
     return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": chat})
-
-
-class PostCallReviewParams(serializers.Serializer):
-    live_session_id = serializers.UUIDField(required=False, allow_null=True)
-    rating = serializers.IntegerField(required=True)
-    review = serializers.CharField(required=False, allow_blank=True)
-    review_id = serializers.IntegerField(required=False, allow_null=True)
-
-    def to_internal_value(self, data):
-        if "live_session_id" in data:
-            try:
-                # If a non parsable uuid is sent, we set it to None
-                uuid.UUID(str(data["live_session_id"]))
-            except (ValueError, TypeError, AttributeError):
-                data["live_session_id"] = None
-
-        return super().to_internal_value(data)
-
-
-@extend_schema(request=PostCallReviewParams(many=False), responses={200: {"status": "ok"}})
-@api_view(["POST"])
-@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def post_call_review(request):
-    serializer = PostCallReviewParams(data=request.data)
-    if not serializer.is_valid():
-        return Response({"status": "error", "message": "Invalid Review Data"}, status=400)
-    validated_data = serializer.validated_data
-    live_session = None
-    if validated_data.get("live_session_id"):
-        live_session = LivekitSession.objects.filter(uuid=validated_data["live_session_id"])
-        if live_session.exists():
-            live_session = live_session.first()
-        else:
-            live_session = None  # No error let the user still submit his review
-    review_text = validated_data.get("review", "")
-    rating = validated_data["rating"]
-    review_id = validated_data.get("review_id", None)
-    if review_id is not None:
-        # then we just update the existing review
-        review = PostCallReview.objects.get(id=review_id)
-        review.rating = rating
-        review.review = review_text
-        review.save()
-    else:
-        review = PostCallReview.objects.create(
-            user=request.user, live_session=live_session, review=review_text, rating=rating
-        )
-
-    # Can be triggered anytime via ( you may obmit the live_session_id if you want to )
-    # from chat.consumers.messages import PostCallSurvey
-    # PostCallSurvey(post_call_survey={"live_session_id": str(live_session.uuid)}).send(str(request.user.uuid))
-
-    return Response({"status": "ok", "review_id": review.id})
 
 
 @api_view(["GET"])
@@ -238,7 +182,6 @@ def call_rejected(request):
 
 
 api_urls = [
-    path("api/livekit/review", post_call_review),
     path("api/call_rooms", active_call_rooms, name="active_call_rooms_api"),
     path("api/call_rejected", call_rejected),
     path("api/call_retrigger", call_retrigger),

@@ -1,19 +1,19 @@
-import json
+import uuid as uuid_lib
 
+from celery import current_app
+from django.conf import settings
 from django.db.models import Q
-from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from management.helpers import DetailedPaginationMixin, UserStaffRestricedModelViewsetMixin
-from management.models.matches import Match
-from management.tasks import send_email_background
+from management.models.user import User
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from video.models import LivekitSession
 
-from chat.models import Chat, ChatSerializer, Message, MessageAttachment, MessageSerializer
+from chat.helpers import MatchSendForbidden, MessageSendValidationError, create_and_deliver_message
+from chat.models import Chat, Message, MessageSerializer
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -45,27 +45,43 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
     queryset = Message.objects.all().order_by("created")
     resp_chat_403 = Response({"error": "Chat doesn't exist or you have no permission to interact with it!"}, status=403)
 
+    @staticmethod
+    def _is_valid_uuid(value: str | None) -> bool:
+        if not value:
+            return False
+        try:
+            uuid_lib.UUID(value)
+            return True
+        except ValueError:
+            return False
+
     def filter_queryset(self, queryset):
         if hasattr(self, "chat_uuid"):
             if self.request.user.is_staff:
-                qs = Chat.objects.get(uuid=self.chat_uuid).get_messages().order_by("-created")
-                return qs
+                chat = Chat.objects.filter(uuid=self.chat_uuid).first()
             else:
-                qs = (
-                    Chat.objects.get(Q(u1=self.request.user) | Q(u2=self.request.user), uuid=self.chat_uuid)
-                    .get_messages()
-                    .order_by("-created")
-                )
-                return qs
+                chat = Chat.objects.filter(
+                    Q(u1=self.request.user) | Q(u2=self.request.user), uuid=self.chat_uuid
+                ).first()
+            if chat is None:
+                return Message.objects.none()
+            return chat.get_messages().order_by("-created")
         return super().filter_queryset(queryset)
 
     def list(self, request, *args, **kwargs):
         if "chat_uuid" in kwargs:
-            self.chat_uuid = kwargs["chat_uuid"]
+            chat_uuid = kwargs["chat_uuid"]
+            if not self._is_valid_uuid(chat_uuid):
+                return Response({"error": "chat_uuid is not a valid UUID"}, status=400)
+            self.chat_uuid = chat_uuid
         return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
-        return Message.objects.filter(chat__in=Chat.get_chats(self.request.user)).order_by("-created")
+        return (
+            Message.objects.filter(chat__in=Chat.get_chats(self.request.user))
+            .select_related("sender", "recipient")
+            .order_by("-created")
+        )
 
     @action(detail=True, methods=["post"])
     def read(self, request, pk=None):
@@ -86,6 +102,8 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
     def chat_read(self, request, chat_uuid=None):
         if not chat_uuid:
             return Response({"error": "chat_uuid is required"}, status=400)
+        if not self._is_valid_uuid(chat_uuid):
+            return Response({"error": "chat_uuid is not a valid UUID"}, status=400)
 
         chat = Chat.objects.filter(uuid=chat_uuid)
         if not chat.exists():
@@ -115,6 +133,8 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
     def send(self, request, chat_uuid=None):
         if not chat_uuid:
             return Response({"error": "chat_uuid is required"}, status=400)
+        if not self._is_valid_uuid(chat_uuid):
+            return Response({"error": "chat_uuid is not a valid UUID"}, status=400)
 
         # Use select_related to reduce database queries, but keep safe existence check
         chat = Chat.objects.select_related().filter(uuid=chat_uuid)
@@ -131,124 +151,60 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         serializer.is_valid(raise_exception=True)
 
         partner = chat.get_partner(request.user)
-
-        # Check if the users are still matched, otherwise no new messages can be sent.
-        # Temporary chats (e.g. random call) have no Match; allow sending and skip match updates.
-        if not chat.is_temporary:
-            # TODO: @tbscode check if we want to record also 'temporary_match' data.
-            match = Match.get_match(request.user, partner)
-            if not match.exists():
-                # TODO: @tbscode make duble sure this cannot bypass access restrictions
-                return self.resp_chat_403
-            match = match.first()
-            if match is None:
-                return self.resp_chat_403
-            # Update match data
-            match.total_messages_counter += 1
-            match.latest_interaction_at = timezone.now()
-            if match.first_interaction_at is None:
-                match.first_interaction_at = timezone.now()
-            match.save()
-
-        # Email notification logic - check if recipient should be notified
-        creation_time = timezone.now()
-        recipient_was_email_notified = False
-
-        # Simplified notification check - only get the latest one
-        latest_notified_message = (
-            Message.objects.filter(
-                recipient=partner,
-                recipient_notified=True,
-            )
-            .order_by("-created")
-            .first()
-        )
-
-        def notify_recipient_email():
-            send_email_background.delay("new-messages", user_id=partner.pk)
-
-        def recipient_in_active_video_call():
-            return (
-                LivekitSession.objects.filter(
-                    is_active=True,
-                )
-                .filter(
-                    Q(u1=partner, u1_active=True) | Q(u2=partner, u2_active=True),
-                )
-                .exists()
-            )
-
-        if latest_notified_message:
-            # Min 5 min delay between notifications!
-            time_since_last_notif = (creation_time - latest_notified_message.created).total_seconds()
-            if time_since_last_notif > 300 and not recipient_in_active_video_call():
-                recipient_was_email_notified = True
-                notify_recipient_email()
-        else:
-            if not recipient_in_active_video_call():
-                recipient_was_email_notified = True
-                notify_recipient_email()
-
         message_text = serializer.validated_data.get("text", "")
+        file = serializer.validated_data.get("file")
 
-        # Optimize: Streamlined attachment processing
-        attachment = None
-        final_message_text = message_text
-        is_parsable = False
+        try:
+            message = create_and_deliver_message(
+                chat=chat,
+                sender=request.user,
+                recipient=partner,
+                text=message_text,
+                file=file,
+            )
+        except MessageSendValidationError as exc:
+            return Response({"error": exc.message}, status=400)
+        except MatchSendForbidden:
+            return self.resp_chat_403
 
-        if "file" in serializer.validated_data and serializer.validated_data["file"]:
-            file = serializer.validated_data["file"]
-
-            # Quick validation without redundant checks
-            if file.size > 3 * 1024 * 1024:  # 3MB limit
-                return Response({"error": "File size too large. Maximum size is 3MB."}, status=400)
-
-            if not file.name or "." not in file.name:
-                return Response({"error": "Invalid file format. File must have a valid extension."}, status=400)
-
-            # Create attachment
-            attachment = MessageAttachment.objects.create(file=file)
-            if not attachment or not attachment.file:
-                return Response({"error": "Failed to process file attachment."}, status=400)
-
-            # Simplified file type detection and widget creation
-            file_extension = file.name.split(".")[-1].lower()
-            is_image = file_extension in ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "ico", "webp"]
-
-            # Optimized widget creation - pre-escape values
-            escaped_title = json.dumps("Image" if is_image else file.name)
-            escaped_caption = json.dumps(message_text)
-            escaped_attachment_link = json.dumps(attachment.file.url)
-
-            if is_image:
-                final_message_text = f'<AttachmentWidget {{"attachmentTitle": {escaped_title}, "attachmentLink": null, "imageSrc": {escaped_attachment_link}, "caption": {escaped_caption}}} ></AttachmentWidget>'
-            else:
-                final_message_text = f'<AttachmentWidget {{"attachmentTitle": {escaped_title}, "attachmentLink": {escaped_attachment_link}, "imageSrc": null, "caption": {escaped_caption}}} ></AttachmentWidget>'
-
-            is_parsable = True
-
-        # Create message - single database operation
-        message = Message.objects.create(
-            chat=chat,
-            sender=request.user,
-            recipient=partner,
-            recipient_notified=recipient_was_email_notified,
-            text=final_message_text,
-            attachments=attachment,
-            parsable_message=is_parsable,
-        )
-
-        # Optimize: Use existing serialized data instead of re-serializing
         serialized_message = self.get_serializer(message).data
 
-        # Send websocket message
-        from chat.consumers.messages import NewMessage
+        if (
+            settings.OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION
+            and partner.email == settings.OPEN_CHAT_AUTOMATION_USER_EMAIL
+            and User.objects.filter(email=settings.OPEN_CHAT_AUTOMATION_USER_EMAIL).exists()
+        ):
+            current_app.send_task(  # pyright: ignore[reportCallIssue]
+                "management.tasks.open_chat_basic_chat_interaction",
+                kwargs={
+                    "chat_uuid": str(chat.uuid),
+                    "message_uuid": str(message.uuid),
+                    "sender_uuid": str(request.user.uuid),
+                    "recipient_uuid": str(partner.uuid),
+                    "user_message_text": message.text,
+                },
+            )
 
-        NewMessage(
-            message=serialized_message,
-            chat_id=str(chat.uuid),
-            meta_chat_obj=ChatSerializer(chat, context={"user": partner}).data,
-        ).send(str(partner.uuid))
+        if settings.OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION:
+            # Create/reuse support-reply tasks for inbound messages to the partner
+            # using the same idempotent helper as the Open Chat automation loop.
+            from management import controller
+            from open_chat.helpers import resolve_open_chat_automation_task_creator_user
+            from open_chat.message_reply_suggestion import (
+                create_or_reuse_support_reply_task_for_message,
+            )
+
+            if controller.is_base_management_user(partner):
+                created_by_user = resolve_open_chat_automation_task_creator_user()
+                if created_by_user is not None:
+                    create_or_reuse_support_reply_task_for_message(
+                        latest_message=message,
+                        source_user=request.user,
+                        target_user=partner,
+                        created_by_user=created_by_user,
+                        configuration_user_uuid=str(partner.uuid),
+                        enqueue_interaction=True,
+                    )
 
         return Response(serialized_message, status=200)
 

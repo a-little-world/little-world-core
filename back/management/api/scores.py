@@ -123,6 +123,21 @@ class ScoringFunctionsEnum(Enum):
     target_group = "target_group"
 
 
+def _time_overlap_disabled(company):
+    """
+    A company in `SCORES_DISABLED_TIME_OVERLAP` also covers its cohorts,
+    e.g. "fh-aachen" covers "fh-aachen-so26" but not "fh-aachenxyz".
+    """
+    if not company:
+        return False
+    company = company.lower()
+    for base in settings.SCORES_DISABLED_TIME_OVERLAP:
+        base = base.lower()
+        if company == base or company.startswith(f"{base}-"):
+            return True
+    return False
+
+
 class ScoringBase:
     def __init__(
         self,
@@ -151,10 +166,9 @@ class ScoringBase:
         Table based scores amount overlaps
         `{"<=0": unmatchable, "=1: 15, "=2": 25, "=3": 29, "=4": 32, "=5": 35, ">=6": 37}
         """
-        companies_with_disabled_overlap = set(settings.SCORES_DISABLED_TIME_OVERLAP)
         user1_company = self.user1.state.company
         user2_company = self.user2.state.company
-        if user1_company in companies_with_disabled_overlap and user2_company in companies_with_disabled_overlap:
+        if _time_overlap_disabled(user1_company) and _time_overlap_disabled(user2_company):
             return ScoringFuctionResult(
                 matchable=True,
                 score=0,
@@ -182,7 +196,7 @@ class ScoringBase:
                 matchable=False,
                 score=0,
                 weight=1.0,
-                markdown_info=f"Common slots: ({str(amnt_common_slots)}) {str(common_slots)} (unmatchable: no overlap)",
+                markdown_info=f"Common slots: ({amnt_common_slots!s}) {common_slots!s} (unmatchable: no overlap)",
             )
 
         conditions = [
@@ -199,13 +213,13 @@ class ScoringBase:
                     matchable=True,
                     score=cond[1],
                     weight=1.0,
-                    markdown_info=f"Common slots: ({str(amnt_common_slots)}) {str(common_slots)} (score: {cond[1]})",
+                    markdown_info=f"Common slots: ({amnt_common_slots!s}) {common_slots!s} (score: {cond[1]})",
                 )
         return ScoringFuctionResult(
             matchable=True,
             score=0,
             weight=1.0,
-            markdown_info=f"Common slots: ({str(amnt_common_slots)}) {str(common_slots)} (score: 0)",
+            markdown_info=f"Common slots: ({amnt_common_slots!s}) {common_slots!s} (score: 0)",
         )
 
     def score__volunteer_vs_learner(self):
@@ -382,7 +396,7 @@ class ScoringBase:
                     matchable=True,
                     score=cond[1],
                     weight=1.0,
-                    markdown_info=f"Interests Overlap: {str(common_interests)} (score: {cond[1]})",
+                    markdown_info=f"Interests Overlap: {common_interests!s} (score: {cond[1]})",
                 )
 
         return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info="Interests Overlap (score: 0)")
@@ -842,7 +856,7 @@ def burst_calculate_matching_scores_v2(request):
     if scoring_list == "default":
         user_list = needs_matching(
             qs=managed_users,
-            learner_atleast_searching_for_x_days=5,
+            learner_atleast_searching_for_x_days=-1,
             exclude_non_german_residents=True,
         )
     else:

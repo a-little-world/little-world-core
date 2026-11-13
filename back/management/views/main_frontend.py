@@ -2,6 +2,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Optional
 
+from back.build_types import BuildType
 from back.utils import CoolerJson, transform_add_options_serializer
 from django.conf import settings
 from django.shortcuts import redirect, render
@@ -67,7 +68,7 @@ class MainFrontendRouter(View):
             path = path[:-1]
 
         login_url_redirect = (
-            ("https://home.little-world.com/" if settings.IS_PROD else "/login")
+            ("https://home.little-world.com/" if settings.BUILD_TYPE == BuildType.PRODUCTION else "/login")
             if (not settings.USE_LANDINGPAGE_REDIRECT)
             else settings.LANDINGPAGE_REDIRECT_URL
         )
@@ -138,6 +139,7 @@ class MainFrontendRouter(View):
             "main_frontend.html",
             {
                 "user": json.dumps(user_data, cls=CoolerJson),
+                "user_lang": request.user.profile.display_language,
                 "api_options": json.dumps(
                     {
                         "profile": get_cached_data_options(),

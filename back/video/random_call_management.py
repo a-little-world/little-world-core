@@ -1,12 +1,15 @@
-from datetime import timedelta
+from calendar import monthrange
+from datetime import datetime, timedelta
+from uuid import uuid4
 
+from django.db import transaction
 from django.db.models import Q
 from django.urls import path
 from django.utils import timezone
 from django_celery_results.models import TaskResult
 from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import IsAdminOrMatchingUser
-from management.models.profile import Profile
+from management.models.event_frequency import EventFrequencyChoices
 from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import (
@@ -16,91 +19,14 @@ from rest_framework.decorators import (
 )
 from rest_framework.response import Response
 
+from video.analytics.display_time import DISPLAY_TZ
+from video.lobby_resolution import InvalidLobbyUuid, get_active_lobby, resolve_lobby_instance
 from video.models import (
     RandomCallLobby,
     RandomCallLobbyUser,
     RandomCallMatching,
+    RandomCallProposalUserStatus,
 )
-from video.random_calls import (
-    get_pending_random_call_matching_qs_for_user,
-    is_lobby_active,
-)
-
-
-def _resolve_management_lobby(lobby_name: str):
-    """
-    Same lobby resolution as the management overview: active lobby for name,
-    else most recent finished lobby with that name.
-    """
-    now = timezone.now()
-    lobby = (
-        RandomCallLobby.objects.filter(
-            name=lobby_name,
-            start_time__lte=now,
-            end_time__gte=now,
-        )
-        .order_by("-id")
-        .first()
-    )
-    if lobby is None:
-        lobby = (
-            RandomCallLobby.objects.filter(
-                name=lobby_name,
-                end_time__lt=now,
-            )
-            .order_by("-end_time")
-            .first()
-        )
-    return lobby
-
-
-def _get_lobby_for_overview(lobby_name: str, lobby_uuid=None):
-    """
-    Resolve the lobby for management overview.
-    - If lobby_uuid is provided, return that exact lobby instance.
-    - Else, keep existing behavior (active lobby by name, else most recent finished).
-    """
-    if lobby_uuid:
-        return RandomCallLobby.objects.get(uuid=lobby_uuid)
-    return _resolve_management_lobby(lobby_name)
-
-
-class RandomCallLobbyManagementSerializer(serializers.Serializer):
-    name = serializers.CharField()
-    uuid = serializers.CharField()
-    is_active = serializers.BooleanField()
-    start_time = serializers.DateTimeField(allow_null=True)
-    end_time = serializers.DateTimeField(allow_null=True)
-    active_users_count = serializers.IntegerField()
-    total_users_count = serializers.IntegerField()
-
-
-class RandomCallUserSerializer(serializers.Serializer):
-    uuid = serializers.CharField()
-    user_uuid = serializers.CharField()
-    user_name = serializers.CharField()
-    user_type = serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=True)
-    is_active = serializers.BooleanField()
-    last_status_checked_at = serializers.DateTimeField(allow_null=True)
-    has_pending_match = serializers.BooleanField()
-
-
-class RandomCallMatchSerializer(serializers.Serializer):
-    uuid = serializers.CharField()
-    u1_uuid = serializers.CharField()
-    u1_name = serializers.CharField()
-    u1_user_type = serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=True)
-    u2_uuid = serializers.CharField()
-    u2_name = serializers.CharField()
-    u2_user_type = serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=True)
-    u1_accepted = serializers.BooleanField()
-    u2_accepted = serializers.BooleanField()
-    accepted = serializers.BooleanField()
-    rejected = serializers.BooleanField()
-    expired = serializers.BooleanField()
-    completed = serializers.BooleanField()
-    in_session = serializers.BooleanField()
-    created_at = serializers.DateTimeField(allow_null=True, required=False)
 
 
 class RandomCallTaskSerializer(serializers.Serializer):
@@ -112,152 +38,6 @@ class RandomCallTaskSerializer(serializers.Serializer):
     result = serializers.CharField(allow_null=True)
     traceback = serializers.CharField(allow_null=True)
     worker = serializers.CharField(allow_null=True)
-
-
-@api_view(["GET"])
-@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAdminOrMatchingUser])
-def get_lobby_management_overview(request, lobby_name="default"):
-    """
-    Admin monitoring API to get comprehensive overview of a random call lobby.
-    Returns:
-    - Lobby metadata and status
-    - List of active users with their status
-    - Match proposals categorized by status (pending, accepted, rejected, expired)
-    - Statistics summary
-    """
-    now = timezone.now()
-    lobby_uuid_param = request.query_params.get("lobby_uuid", None)
-    try:
-        lobby = _get_lobby_for_overview(lobby_name, lobby_uuid=lobby_uuid_param)
-    except RandomCallLobby.DoesNotExist:
-        return Response({"error": "Lobby not found"}, status=404)
-    if lobby is None:
-        return Response({"error": "Lobby not found"}, status=404)
-
-    # 2 - Check if the lobby is active
-    lobby_active = is_lobby_active(lobby)
-
-    # 3 - Get all users in the lobby (both active and inactive)
-    all_lobby_users = RandomCallLobbyUser.objects.filter(lobby=lobby)
-    active_lobby_users = all_lobby_users.filter(is_active=True)
-
-    # 4 - Serialize active users with additional info
-    active_users_data = []
-    for lobby_user in active_lobby_users:
-        user = lobby_user.user
-        # Check if user has pending match
-        has_pending_match = get_pending_random_call_matching_qs_for_user(user, lobby).exists()
-
-        active_users_data.append(
-            {
-                "uuid": str(lobby_user.uuid),
-                "user_uuid": str(user.uuid),
-                "user_name": f"{user.profile.first_name}",
-                "user_type": user.profile.user_type,
-                "is_active": lobby_user.is_active,
-                "last_status_checked_at": lobby_user.last_status_checked_at.isoformat()
-                if lobby_user.last_status_checked_at
-                else None,
-                "has_pending_match": has_pending_match,
-            }
-        )
-
-    # 5 - Get all match proposals for this lobby
-    all_matches = RandomCallMatching.objects.filter(lobby=lobby).select_related("u1", "u2")
-
-    # 6 - Categorize matches by status
-    pending_matches = []
-    accepted_matches = []
-    rejected_matches = []
-    expired_matches = []
-    dangling_matches = []
-
-    proposal_stale_threshold = now - timedelta(seconds=lobby.match_proposal_timeout)
-
-    for match in all_matches:
-        match_data = {
-            "uuid": str(match.uuid),
-            "u1_uuid": str(match.u1.uuid),
-            "u1_name": f"{match.u1.profile.first_name}",
-            "u1_user_type": match.u1.profile.user_type,
-            "u2_uuid": str(match.u2.uuid),
-            "u2_name": f"{match.u2.profile.first_name}",
-            "u2_user_type": match.u2.profile.user_type,
-            "u1_accepted": match.u1_accepted,
-            "u2_accepted": match.u2_accepted,
-            "accepted": match.accepted,
-            "rejected": match.rejected,
-            "expired": match.expired,
-            "completed": match.completed,
-            "in_session": match.in_session,
-            "created_at": match.created_at,
-        }
-
-        # Check if match is expired (users left lobby without accepting/rejecting)
-        u1_in_lobby = active_lobby_users.filter(user=match.u1).exists()
-        u2_in_lobby = active_lobby_users.filter(user=match.u2).exists()
-
-        # Check if match is expired first (before checking accepted/rejected)
-        is_expired = match.expired or (not match.is_processed and (not u1_in_lobby or not u2_in_lobby))
-
-        is_dangling_open = (
-            not match.accepted
-            and not match.rejected
-            and not match.expired
-            and not match.completed
-            and (match.created_at is None or match.created_at <= proposal_stale_threshold)
-        )
-
-        if match.accepted:
-            accepted_matches.append(match_data)
-        elif is_expired:
-            # Match is expired (either timeout or users left lobby)
-            expired_matches.append(match_data)
-        elif match.rejected:
-            rejected_matches.append(match_data)
-        elif is_dangling_open:
-            dangling_matches.append(match_data)
-        elif not match.is_processed:
-            # Match is pending and both users still in lobby
-            pending_matches.append(match_data)
-
-    # 7 - Calculate statistics
-    statistics = {
-        "total_matches": all_matches.count(),
-        "pending_count": len(pending_matches),
-        "accepted_count": len(accepted_matches),
-        "rejected_count": len(rejected_matches),
-        "expired_count": len(expired_matches),
-        "dangling_count": len(dangling_matches),
-    }
-
-    # 8 - Build response using serializers following the pattern from the codebase
-    lobby_data = {
-        "name": lobby.name,
-        "uuid": str(lobby.uuid),
-        "is_active": lobby_active,
-        "start_time": lobby.start_time.isoformat() if lobby.start_time else None,
-        "end_time": lobby.end_time.isoformat() if lobby.end_time else None,
-        "active_users_count": active_lobby_users.count(),
-        "total_users_count": all_lobby_users.count(),
-    }
-
-    # Serialize all data following the pattern from the existing codebase
-    response_data = {
-        "lobby": RandomCallLobbyManagementSerializer(lobby_data).data,
-        "active_users": RandomCallUserSerializer(active_users_data, many=True).data,
-        "match_proposals": {
-            "pending": RandomCallMatchSerializer(pending_matches, many=True).data,
-            "accepted": RandomCallMatchSerializer(accepted_matches, many=True).data,
-            "rejected": RandomCallMatchSerializer(rejected_matches, many=True).data,
-            "expired": RandomCallMatchSerializer(expired_matches, many=True).data,
-            "dangling": RandomCallMatchSerializer(dangling_matches, many=True).data,
-        },
-        "statistics": statistics,
-    }
-
-    return Response(response_data)
 
 
 class ClearUserProposalsSerializer(serializers.Serializer):
@@ -278,13 +58,30 @@ def clear_user_random_call_proposals(request, lobby_name="default"):
 
     user_uuid = serializer.validated_data["user_uuid"]
 
-    updated_count = RandomCallMatching.objects.filter(
+    lobby = resolve_lobby_instance(lobby_name)
+    if lobby is None:
+        return Response({"error": "Lobby not found"}, status=404)
+
+    matches_qs = RandomCallMatching.objects.filter(
         Q(u1__uuid=user_uuid) | Q(u2__uuid=user_uuid),
+        lobby=lobby,
         accepted=False,
         rejected=False,
         expired=False,
         completed=False,
-    ).update(expired=True)
+    )
+    match_ids = list(matches_qs.values_list("pk", flat=True))
+    with transaction.atomic():
+        if match_ids:
+            updated_count = RandomCallMatching.objects.filter(pk__in=match_ids).update(expired=True)
+            RandomCallMatching.objects.filter(pk__in=match_ids, u1_status=RandomCallProposalUserStatus.PENDING).update(
+                u1_status=RandomCallProposalUserStatus.EXPIRED
+            )
+            RandomCallMatching.objects.filter(pk__in=match_ids, u2_status=RandomCallProposalUserStatus.PENDING).update(
+                u2_status=RandomCallProposalUserStatus.EXPIRED
+            )
+        else:
+            updated_count = 0
 
     return Response(
         {
@@ -307,24 +104,32 @@ def clear_dangling_random_call_proposals(request, lobby_name="default"):
     Dangling = not accepted, not rejected, not expired, not completed, and
     created_at is older than lobby.match_proposal_timeout (or created_at is null).
     """
-    lobby = _resolve_management_lobby(lobby_name)
+    lobby = resolve_lobby_instance(lobby_name)
     if lobby is None:
         return Response({"error": "Lobby not found"}, status=404)
 
     now = timezone.now()
     proposal_stale_threshold = now - timedelta(seconds=lobby.match_proposal_timeout)
 
-    updated_count = (
-        RandomCallMatching.objects.filter(
-            lobby=lobby,
-            accepted=False,
-            rejected=False,
-            expired=False,
-            completed=False,
-        )
-        .filter(Q(created_at__lte=proposal_stale_threshold) | Q(created_at__isnull=True))
-        .update(expired=True)
-    )
+    matches_qs = RandomCallMatching.objects.filter(
+        lobby=lobby,
+        accepted=False,
+        rejected=False,
+        expired=False,
+        completed=False,
+    ).filter(Q(created_at__lte=proposal_stale_threshold) | Q(created_at__isnull=True))
+    match_ids = list(matches_qs.values_list("pk", flat=True))
+    with transaction.atomic():
+        if match_ids:
+            updated_count = RandomCallMatching.objects.filter(pk__in=match_ids).update(expired=True)
+            RandomCallMatching.objects.filter(pk__in=match_ids, u1_status=RandomCallProposalUserStatus.PENDING).update(
+                u1_status=RandomCallProposalUserStatus.EXPIRED
+            )
+            RandomCallMatching.objects.filter(pk__in=match_ids, u2_status=RandomCallProposalUserStatus.PENDING).update(
+                u2_status=RandomCallProposalUserStatus.EXPIRED
+            )
+        else:
+            updated_count = 0
 
     return Response(
         {
@@ -345,20 +150,20 @@ def reset_default_lobby(request, lobby_name="default"):
     Deletes all lobby users, matchings, and recreates the lobby with current time.
     Only resets if the existing lobby is active.
     """
-    # Get the most recent lobby with this name
-    existing_lobby = RandomCallLobby.objects.filter(name=lobby_name).order_by("-id").first()
+    existing_lobby = get_active_lobby(lobby_name)
+
+    # Only reset an active lobby. With none active, a reset is only allowed when the
+    # name has never been used, which bootstraps the first lobby.
+    if existing_lobby is None and RandomCallLobby.objects.filter(name=lobby_name).exists():
+        return Response(
+            {
+                "success": False,
+                "message": f"Lobby '{lobby_name}' is not active and cannot be reset",
+            },
+            status=400,
+        )
 
     if existing_lobby:
-        # Only reset if the lobby is active
-        if not is_lobby_active(existing_lobby):
-            return Response(
-                {
-                    "success": False,
-                    "message": f"Lobby '{lobby_name}' is not active and cannot be reset",
-                },
-                status=400,
-            )
-
         # Clear all lobby users
         RandomCallLobbyUser.objects.filter(lobby=existing_lobby).delete()
 
@@ -397,6 +202,172 @@ class CreateLobbySerializer(serializers.Serializer):
     start_time = serializers.DateTimeField()
     end_time = serializers.DateTimeField()
     match_proposal_timeout = serializers.IntegerField(required=False, min_value=1, default=60)
+    frequency = serializers.ChoiceField(
+        choices=EventFrequencyChoices.choices,
+        required=False,
+        default=EventFrequencyChoices.ONCE,
+    )
+
+
+def _error_message(detail) -> str:
+    """The first readable message in a DRF error detail.
+
+    The admin panel shows ``error`` as an alert, and only does so when it is a string; a
+    field dict reaches the admin as the bare "Bad Request".
+    """
+    if isinstance(detail, dict):
+        if not detail:
+            return "Invalid request"
+        field, value = next(iter(detail.items()))
+        message = _error_message(value)
+        return message if field == "non_field_errors" else f"{field}: {message}"
+    if isinstance(detail, list):
+        return _error_message(detail[0]) if detail else "Invalid request"
+    return str(detail)
+
+
+def _local(value: datetime) -> datetime:
+    """``value`` in the schedule timezone. The server runs in UTC, the admins do not."""
+    return timezone.localtime(value, DISPLAY_TZ)
+
+
+def _validate_lobby_times(start_time, end_time, *, require_future_start=False):
+    current_time = timezone.now()
+    if require_future_start and start_time <= current_time:
+        raise serializers.ValidationError("Start time must be in the future")
+    if not require_future_start and _local(start_time).date() < _local(current_time).date():
+        raise serializers.ValidationError("Start time must be today or in the future")
+    if end_time <= start_time:
+        raise serializers.ValidationError("End time must be after start time")
+    if _local(start_time).date() != _local(end_time).date():
+        raise serializers.ValidationError("Start and end time must be on the same date")
+
+
+def _add_months(value, months):
+    month_index = value.month - 1 + months
+    year = value.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(value.day, monthrange(year, month)[1])
+    return value.replace(year=year, month=month, day=day)
+
+
+def _recurring_lobby_times(start_time, end_time, frequency):
+    """Start and end of every occurrence from ``start_time`` to the end of its year.
+
+    Steps are taken on Berlin wall-clock time, not in UTC, so a weekly 18:00 session stays
+    at 18:00 when the clocks change instead of moving to 17:00 or 19:00.
+    """
+    yield start_time, end_time
+    if frequency == EventFrequencyChoices.ONCE:
+        return
+
+    local_start = _local(start_time).replace(tzinfo=None)
+    duration = _local(end_time).replace(tzinfo=None) - local_start
+    occurrence = 1
+    while True:
+        if frequency == EventFrequencyChoices.WEEKLY:
+            wall_start = local_start + timedelta(weeks=occurrence)
+        elif frequency == EventFrequencyChoices.FORTNIGHTLY:
+            wall_start = local_start + timedelta(weeks=2 * occurrence)
+        else:
+            wall_start = _add_months(local_start, occurrence)
+
+        if wall_start.year != local_start.year:
+            return
+
+        yield wall_start.replace(tzinfo=DISPLAY_TZ), (wall_start + duration).replace(tzinfo=DISPLAY_TZ)
+        occurrence += 1
+
+
+def _validate_recurrence_year(start_time, frequency):
+    if frequency != EventFrequencyChoices.ONCE and _local(start_time).year != _local(timezone.now()).year:
+        raise serializers.ValidationError("Recurring lobbies can only be created within the current calendar year")
+
+
+def _validate_no_overlap(lobby_name, times, *, exclude_pks=()):
+    """Reject a schedule that overlaps another lobby with the same name.
+
+    Lobbies of one name are a single queue: users join "the active default lobby", so two
+    running at once would split them, and End/Reset could only ever act on one.
+    """
+    overlaps = Q()
+    for occurrence_start, occurrence_end in times:
+        overlaps |= Q(start_time__lt=occurrence_end, end_time__gt=occurrence_start)
+    clash = (
+        RandomCallLobby.objects.filter(overlaps, name=lobby_name)
+        .exclude(pk__in=list(exclude_pks))
+        .order_by("start_time")
+        .first()
+    )
+    if clash:
+        clash_start = _local(clash.start_time).strftime("%d.%m.%Y %H:%M")
+        clash_end = _local(clash.end_time).strftime("%H:%M")
+        raise serializers.ValidationError(f"Overlaps the existing '{lobby_name}' session on {clash_start}-{clash_end}")
+
+
+def _sync_lobby_occurrences(
+    *,
+    existing,
+    lobby_name,
+    start_time,
+    end_time,
+    match_proposal_timeout,
+    frequency,
+):
+    """Make ``existing`` (ordered by start) match the schedule, and return its lobbies.
+
+    Existing lobbies are re-timed in place and only the difference is created or deleted,
+    so a lobby keeps its uuid and anything attached to it when its series is edited.
+
+    The lobbies always get a fresh recurrence group. Editing "this and future" splits the
+    series at the edited lobby, as calendars do: the earlier part keeps the old group and
+    ends where it now ends, instead of sharing one group with a schedule it no longer has.
+    """
+    recurrence_group = None if frequency == EventFrequencyChoices.ONCE else uuid4()
+    times = list(_recurring_lobby_times(start_time, end_time, frequency))
+    existing = list(existing)
+
+    kept = existing[: len(times)]
+    for lobby, (occurrence_start, occurrence_end) in zip(kept, times):
+        lobby.start_time = occurrence_start
+        lobby.end_time = occurrence_end
+        lobby.match_proposal_timeout = match_proposal_timeout
+        lobby.frequency = frequency
+        lobby.recurrence_group = recurrence_group
+    RandomCallLobby.objects.bulk_update(
+        kept,
+        ["start_time", "end_time", "match_proposal_timeout", "frequency", "recurrence_group"],
+    )
+    RandomCallLobby.objects.filter(pk__in=[lobby.pk for lobby in existing[len(times) :]]).delete()
+
+    created = RandomCallLobby.objects.bulk_create(
+        [
+            RandomCallLobby(
+                name=lobby_name,
+                start_time=occurrence_start,
+                end_time=occurrence_end,
+                user_online_state_timeout=10,
+                match_proposal_timeout=match_proposal_timeout,
+                video_call_timeout=60 * 10,
+                frequency=frequency,
+                recurrence_group=recurrence_group,
+            )
+            for occurrence_start, occurrence_end in times[len(kept) :]
+        ]
+    )
+    return kept + created
+
+
+def _lobby_payload(lobby):
+    return {
+        "name": lobby.name,
+        "uuid": str(lobby.uuid),
+        "start_time": lobby.start_time.isoformat(),
+        "end_time": lobby.end_time.isoformat(),
+        "match_proposal_timeout": lobby.match_proposal_timeout,
+        "frequency": lobby.frequency,
+        "recurrence_group": str(lobby.recurrence_group) if lobby.recurrence_group else None,
+    }
 
 
 @api_view(["POST"])
@@ -408,49 +379,121 @@ def create_lobby(request, lobby_name):
     """
     serializer = CreateLobbySerializer(data=request.data)
     if not serializer.is_valid():
-        return Response({"error": serializer.errors}, status=400)
+        return Response({"error": _error_message(serializer.errors)}, status=400)
 
     start_time = serializer.validated_data["start_time"]
     end_time = serializer.validated_data["end_time"]
     match_proposal_timeout = serializer.validated_data.get("match_proposal_timeout", 60)
-    current_time = timezone.now()
+    frequency = serializer.validated_data["frequency"]
 
-    # Validate that start_time is not before today (today is allowed, even if earlier than now)
-    if start_time.date() < current_time.date():
-        return Response(
-            {"error": "Start time must be today or in the future"},
-            status=400,
+    try:
+        _validate_lobby_times(start_time, end_time)
+        _validate_recurrence_year(start_time, frequency)
+        _validate_no_overlap(lobby_name, _recurring_lobby_times(start_time, end_time, frequency))
+    except serializers.ValidationError as error:
+        return Response({"error": _error_message(error.detail)}, status=400)
+
+    with transaction.atomic():
+        lobbies = _sync_lobby_occurrences(
+            existing=[],
+            lobby_name=lobby_name,
+            start_time=start_time,
+            end_time=end_time,
+            match_proposal_timeout=match_proposal_timeout,
+            frequency=frequency,
         )
-
-    # Validate that end_time is after start_time
-    if end_time <= start_time:
-        return Response(
-            {"error": "End time must be after start time"},
-            status=400,
-        )
-
-    # Create new lobby
-    lobby = RandomCallLobby.objects.create(
-        name=lobby_name,
-        start_time=start_time,
-        end_time=end_time,
-        user_online_state_timeout=10,
-        match_proposal_timeout=match_proposal_timeout,
-        video_call_timeout=60 * 10,
-    )
+    lobby = lobbies[0]
 
     return Response(
         {
             "success": True,
             "message": f"Lobby '{lobby_name}' has been created",
-            "lobby": {
-                "name": lobby.name,
-                "uuid": str(lobby.uuid),
-                "start_time": lobby.start_time.isoformat(),
-                "end_time": lobby.end_time.isoformat(),
-            },
+            "lobby": _lobby_payload(lobby),
+            "created_count": len(lobbies),
         },
         status=201,
+    )
+
+
+@api_view(["PATCH", "DELETE"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAdminOrMatchingUser])
+def manage_upcoming_lobby(request, lobby_uuid):
+    try:
+        lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
+    except RandomCallLobby.DoesNotExist:
+        return Response({"error": "Lobby not found"}, status=404)
+
+    if lobby.start_time is None or lobby.start_time <= timezone.now():
+        return Response({"error": "Only upcoming lobbies can be edited or deleted"}, status=400)
+
+    scope = request.query_params.get("scope", "single")
+    if scope not in {"single", "future"}:
+        return Response({"error": "Scope must be 'single' or 'future'"}, status=400)
+
+    if scope == "future" and lobby.recurrence_group:
+        series = RandomCallLobby.objects.filter(
+            recurrence_group=lobby.recurrence_group,
+            start_time__gte=lobby.start_time,
+        ).order_by("start_time")
+    else:
+        series = RandomCallLobby.objects.filter(pk=lobby.pk)
+
+    if request.method == "DELETE":
+        deleted_count = series.count()
+        series.delete()
+        return Response({"success": True, "deleted_count": deleted_count})
+
+    serializer = CreateLobbySerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response({"error": _error_message(serializer.errors)}, status=400)
+
+    start_time = serializer.validated_data["start_time"]
+    end_time = serializer.validated_data["end_time"]
+    # An edit that leaves frequency out keeps the lobby's own, rather than the "once" default.
+    frequency = serializer.validated_data["frequency"] if "frequency" in request.data else lobby.frequency
+    match_proposal_timeout = serializer.validated_data.get("match_proposal_timeout", 60)
+    # A single edit only re-times this lobby; a series edit replaces the whole series.
+    new_times = (
+        [(start_time, end_time)] if scope == "single" else _recurring_lobby_times(start_time, end_time, frequency)
+    )
+    try:
+        _validate_lobby_times(start_time, end_time, require_future_start=True)
+        _validate_recurrence_year(start_time, frequency)
+        _validate_no_overlap(lobby.name, new_times, exclude_pks=series.values_list("pk", flat=True))
+    except serializers.ValidationError as error:
+        return Response({"error": _error_message(error.detail)}, status=400)
+
+    if scope == "single":
+        if frequency != lobby.frequency:
+            return Response(
+                {"error": "Changing recurrence requires updating this and future sessions"},
+                status=400,
+            )
+        lobby.start_time = start_time
+        lobby.end_time = end_time
+        lobby.match_proposal_timeout = match_proposal_timeout
+        lobby.save(update_fields=["start_time", "end_time", "match_proposal_timeout"])
+        updated_lobbies = [lobby]
+    else:
+        with transaction.atomic():
+            updated_lobbies = _sync_lobby_occurrences(
+                existing=series,
+                lobby_name=lobby.name,
+                start_time=start_time,
+                end_time=end_time,
+                match_proposal_timeout=match_proposal_timeout,
+                frequency=frequency,
+            )
+        lobby = updated_lobbies[0]
+
+    return Response(
+        {
+            "success": True,
+            "message": f"Lobby '{lobby.name}' has been updated",
+            "lobby": _lobby_payload(lobby),
+            "updated_count": len(updated_lobbies),
+        }
     )
 
 
@@ -462,15 +505,10 @@ def end_lobby(request, lobby_name="default"):
     Admin API to end an active lobby by setting end_time to current time.
     Only ends the lobby if it is currently active.
     """
-    try:
-        lobby = RandomCallLobby.objects.filter(name=lobby_name).order_by("-id").first()
-        if lobby is None:
-            raise RandomCallLobby.DoesNotExist
-    except RandomCallLobby.DoesNotExist:
-        return Response({"error": "Lobby not found"}, status=404)
-
-    # Check if the lobby is active
-    if not is_lobby_active(lobby):
+    lobby = get_active_lobby(lobby_name)
+    if lobby is None:
+        if not RandomCallLobby.objects.filter(name=lobby_name).exists():
+            return Response({"error": "Lobby not found"}, status=404)
         return Response(
             {
                 "success": False,
@@ -496,42 +534,6 @@ def end_lobby(request, lobby_name="default"):
         },
         status=200,
     )
-
-
-def _get_lobby_for_tasks(lobby_name, lobby_uuid=None):
-    """
-    Resolve the lobby to use for task filtering.
-    - If lobby_uuid is given: return that lobby instance (404 if not found).
-    - Else: return the active lobby with that name, or the most recent past one.
-    """
-    if lobby_uuid:
-        return RandomCallLobby.objects.get(uuid=lobby_uuid)
-
-    now = timezone.now()
-    # Active lobby
-    lobby = (
-        RandomCallLobby.objects.filter(
-            name=lobby_name,
-            start_time__lte=now,
-            end_time__gte=now,
-        )
-        .order_by("-id")
-        .first()
-    )
-    if lobby is not None:
-        return lobby
-    # Most recent past lobby
-    lobby = (
-        RandomCallLobby.objects.filter(
-            name=lobby_name,
-            end_time__lt=now,
-        )
-        .order_by("-end_time")
-        .first()
-    )
-    if lobby is None:
-        raise RandomCallLobby.DoesNotExist
-    return lobby
 
 
 @api_view(["GET"])
@@ -565,8 +567,10 @@ def get_random_call_tasks(request, lobby_name="default"):
     task_name_filter = request.query_params.get("task_name", None)
 
     try:
-        lobby = _get_lobby_for_tasks(lobby_name, lobby_uuid=lobby_uuid_param)
-    except RandomCallLobby.DoesNotExist:
+        lobby = resolve_lobby_instance(lobby_name, lobby_uuid=lobby_uuid_param)
+    except InvalidLobbyUuid:
+        return Response({"error": "Invalid lobby_uuid"}, status=400)
+    if lobby is None:
         return Response({"error": "Lobby not found"}, status=404)
 
     lobby_uuid_str = str(lobby.uuid)
@@ -645,10 +649,6 @@ def get_random_call_tasks(request, lobby_name="default"):
 # API URLs to be imported in urls.py
 api_urls = [
     path(
-        "api/random_calls/lobby/<str:lobby_name>/management/overview",
-        get_lobby_management_overview,
-    ),
-    path(
         "api/random_calls/lobby/<str:lobby_name>/management/reset",
         reset_default_lobby,
     ),
@@ -667,6 +667,10 @@ api_urls = [
     path(
         "api/random_calls/lobby/<str:lobby_name>/management/create",
         create_lobby,
+    ),
+    path(
+        "api/random_calls/lobby/<uuid:lobby_uuid>/management",
+        manage_upcoming_lobby,
     ),
     path(
         "api/random_calls/lobby/<str:lobby_name>/management/end",

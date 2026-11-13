@@ -5,6 +5,16 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync_mirror
+  cancel-in-progress: false
+
+env:
+  MIRROR_REPO: a-little-world/little-world-core
+  MIRROR_BRANCH: source-repo
+  MIRROR_BASE: main
 
 jobs:
   sync_mirror:
@@ -14,7 +24,9 @@ jobs:
       - name: Checkout source repository
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
+          fetch-tags: true
           token: ${{ secrets.BOT_PAT }}
 
       - name: Configure git
@@ -22,25 +34,35 @@ jobs:
           git config user.name "littleworld-bot"
           git config user.email "littleworld-bot@users.noreply.github.com"
 
-      - name: Remove .github folder from all branches
+      # main on the mirror is protected (repository ruleset blocks updates,
+      # including force pushes), so we cannot mirror main directly. Instead we
+      # publish source main to the unprotected MIRROR_BRANCH and let a human
+      # review/merge the always-open pull request from MIRROR_BRANCH into main.
+      - name: Push main to the mirror branch
         run: |
-          # Remove .github from all branches using git filter-branch
-          git filter-branch --force --index-filter \
-            "git rm -rf --cached --ignore-unmatch .github" \
-            --prune-empty --tag-name-filter cat -- --all
+          git push --force \
+            "https://${{ secrets.BOT_PAT }}@github.com/${MIRROR_REPO}.git" \
+            "refs/heads/main:refs/heads/${MIRROR_BRANCH}"
+          git push --force --prune \
+            "https://${{ secrets.BOT_PAT }}@github.com/${MIRROR_REPO}.git" \
+            "refs/tags/*:refs/tags/*"
 
-      - name: Clean up filter-branch backups
+      - name: Ensure the sync pull request is open
+        env:
+          GH_TOKEN: ${{ secrets.BOT_PAT }}
         run: |
-          rm -rf .git/refs/original/
-          git reflog expire --expire=now --all
-          git gc --prune=now --aggressive
-
-      - name: Add target repository as remote
-        run: |
-          git remote add mirror https://${{ secrets.BOT_PAT }}@github.com/a-little-world/little-world-core-oss-test.git || true
-          git remote set-url mirror https://${{ secrets.BOT_PAT }}@github.com/a-little-world/little-world-core-oss-test.git
-
-      - name: Push to mirror repository
-        run: |
-          git push --mirror --force mirror
-
+          open_prs=$(gh pr list --repo "$MIRROR_REPO" \
+            --head "$MIRROR_BRANCH" --base "$MIRROR_BASE" --state open \
+            --json number --jq 'length')
+          if [ "$open_prs" -gt 0 ]; then
+            echo "Pull request ${MIRROR_BRANCH} -> ${MIRROR_BASE} is already open."
+            exit 0
+          fi
+          if gh pr create --repo "$MIRROR_REPO" \
+              --base "$MIRROR_BASE" --head "$MIRROR_BRANCH" \
+              --title "Sync ${MIRROR_BRANCH} -> ${MIRROR_BASE}" \
+              --body "Automated mirror of the public source repository. Review and merge to publish the latest main."; then
+            echo "Created the sync pull request."
+          else
+            echo "::warning::Could not open a sync pull request (the branch may already be identical to ${MIRROR_BASE})."
+          fi

@@ -6,9 +6,12 @@ FROM node:22 AS front_base_image
 ARG PUBLIC_FRONTEND_PATH
 ENV PUBLIC_FRONTEND_PATH=$PUBLIC_FRONTEND_PATH
 
-# local / dev / pro | defines some of the logic of the build process
-ARG BUILD_TYPE
-ENV BUILD_TYPE=${BUILD_TYPE:-dev}
+# development / production | selects the frontend environment templates
+ARG BUILD_TYPE=development
+ENV BUILD_TYPE=$BUILD_TYPE
+
+# Optional compile-time override for the cookie banner backend.
+ARG COOKIE_BANNER_BACKEND_URL
 
 # enables pnpm
 RUN corepack enable
@@ -16,6 +19,11 @@ RUN corepack enable
 # First we build all the frontends in one container
 COPY ./front /front
 WORKDIR /front
+
+RUN case "$BUILD_TYPE" in \
+        development|production) ;; \
+        *) echo "BUILD_TYPE must be 'development' or 'production', got '$BUILD_TYPE'" >&2; exit 1 ;; \
+    esac
 
 RUN pnpm config set fetch-retry-maxtimeout 120000
 
@@ -50,6 +58,7 @@ RUN cp ./env_apps/cookie_banner_frontend.${BUILD_TYPE}.env.js ./apps/cookie_bann
 RUN cd apps/cookie_banner_frontend && pnpm install --frozen-lockfile
 RUN ./node_modules/.bin/webpack \
     --env PUBLIC_PATH=$PUBLIC_FRONTEND_PATH \
+    --env BACKEND_URL="$COOKIE_BANNER_BACKEND_URL" \
     --env DEV_TOOL=none \
     --env DEBUG=0 --no-devtool --mode production \
     --config webpack.cookie_banner_frontend.config.js
@@ -70,16 +79,20 @@ FROM ghcr.io/tbscode/tims-packages/alpine-django-python:latest AS backend
 
 ARG DEVELOPMENT
 ENV DEVELOPMENT=${DEVELOPMENT:-false}
+ARG TESTING
+ENV TESTING=${TESTING:-false}
 
 RUN apk add gettext
 RUN apk add --update --no-cache py3-numpy
 
 COPY ./back/requirements.txt /tmp/requirements.txt
 COPY ./back/requirements.dev.txt /tmp/requirements.dev.txt
+COPY ./back/requirements.tests.txt /tmp/requirements.tests.txt
 
 
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 RUN if [ "$DEVELOPMENT" = "true" ]; then pip install --no-cache-dir -r /tmp/requirements.dev.txt; fi
+RUN if [ "$DEVELOPMENT" = "true" ] || [ "$TESTING" = "true" ]; then pip install --no-cache-dir -r /tmp/requirements.tests.txt; fi
 RUN pip cache purge
 
 WORKDIR /back

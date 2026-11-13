@@ -4,6 +4,7 @@ from uuid import uuid4
 from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
+from management.models.event_frequency import EventFrequencyChoices
 from management.models.profile import CensoredProfileSerializer
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
@@ -75,6 +76,29 @@ class LivekitSession(models.Model):
 
     webhook_events = models.ManyToManyField("video.LivekitWebhookEvent", related_name="livekit_session")
 
+    @classmethod
+    def create_backdated(cls, *, created_at, **kwargs):
+        """Create a row with a real historical ``created_at`` (e.g. a reconstructed past
+        call). ``created_at`` is ``auto_now_add`` — passing it straight to ``.create()``
+        is silently ignored in favor of the current time, so this does the required
+        create-then-update instead of leaving every caller to rediscover that.
+        """
+        session = cls.objects.create(**kwargs)
+        cls.objects.filter(pk=session.pk).update(created_at=created_at)
+        session.refresh_from_db()
+        return session
+
+    class Meta:
+        constraints = [
+            # Two participant_joined webhooks can race and otherwise create two active
+            # rows for the same room, splitting one successful call into two one-sided ones.
+            models.UniqueConstraint(
+                fields=["room"],
+                condition=models.Q(is_active=True, room__isnull=False),
+                name="unique_active_livekit_session_per_room",
+            )
+        ]
+
 
 class SerializeLivekitSession(ModelSerializer):
     room_uuid = serializers.CharField(source="room.uuid", read_only=True, allow_null=True)
@@ -123,14 +147,31 @@ class RandomCallLobby(models.Model):
     match_rejection_confirmation_timeout = models.IntegerField(default=10)  # 10 seconds to confirm a rejection
     video_call_timeout = models.IntegerField(default=60 * 10)  # 10 minutes video calls
     match_accept_timeout = models.IntegerField(default=30)  # 10 seconds to accept a match
+    frequency = models.CharField(
+        max_length=20,
+        choices=EventFrequencyChoices.choices,
+        default=EventFrequencyChoices.ONCE,
+    )
+    recurrence_group = models.UUIDField(null=True, blank=True, db_index=True)
 
 
 class RandomCallLobbyUser(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     user = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="user_in_lobby")
     is_active = models.BooleanField(default=True)
+    first_joined_at = models.DateTimeField(null=True, blank=True)
     last_status_checked_at = models.DateTimeField(null=True, blank=True)
     lobby = models.ForeignKey("video.RandomCallLobby", on_delete=models.CASCADE, related_name="lobby_users")
+
+
+class RandomCallProposalUserStatus(models.TextChoices):
+    """Per-user action on a proposal. Acknowledgment lives on u*_confirmed_rejection."""
+
+    PENDING = "pending", "Pending"
+    ACCEPTED = "accepted", "Accepted"
+    REJECTED = "rejected", "Rejected"
+    EXITED = "exited", "Exited"
+    EXPIRED = "expired", "Expired"
 
 
 class RandomCallMatching(models.Model):
@@ -139,6 +180,17 @@ class RandomCallMatching(models.Model):
 
     u1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u1_randomcall_session")
     u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2_randomcall_session")
+
+    u1_status = models.CharField(
+        max_length=20,
+        choices=RandomCallProposalUserStatus.choices,
+        default=RandomCallProposalUserStatus.PENDING,
+    )
+    u2_status = models.CharField(
+        max_length=20,
+        choices=RandomCallProposalUserStatus.choices,
+        default=RandomCallProposalUserStatus.PENDING,
+    )
 
     u1_accepted = models.BooleanField(default=False)
     u2_accepted = models.BooleanField(default=False)
@@ -185,6 +237,21 @@ class RandomCallMatching(models.Model):
         return self.accepted or self.rejected
 
     in_session = models.BooleanField(default=False)
+
+    def is_u1(self, user):
+        return self.u1_id == user.id
+
+    def get_user_status(self, user):
+        return self.u1_status if self.is_u1(user) else self.u2_status
+
+    def get_partner_status(self, user):
+        return self.u2_status if self.is_u1(user) else self.u1_status
+
+    def set_user_status(self, user, status):
+        if self.is_u1(user):
+            self.u1_status = status
+        else:
+            self.u2_status = status
 
     @classmethod
     def get_or_create_match(cls, user1, user2):

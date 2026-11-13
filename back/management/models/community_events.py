@@ -1,11 +1,12 @@
 from back.utils import get_options_serializer
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import serializers
-from translations import get_translation
 
 from management.helpers import PathRename
-from management.models import custom_banner_event_filters
+from management.models.audience_filters import FILTER_FUNC_MAP, AudienceFilters
+from management.models.event_frequency import EventFrequencyChoices
 
 
 class CommunityEvent(models.Model):
@@ -23,16 +24,12 @@ class CommunityEvent(models.Model):
     link = models.CharField(default="", max_length=255)
 
     custom_filter = models.CharField(
-        default=custom_banner_event_filters.CustomFilterChoices.NONE,
+        default=AudienceFilters.NONE,
         max_length=255,
-        choices=custom_banner_event_filters.CustomFilterChoices.choices,
+        choices=AudienceFilters.choices,
     )
 
-    class EventFrequencyChoices(models.TextChoices):
-        MONTHLY = "monthly", get_translation("model.community_event.frequency.monthly")
-        WEEKLY = "weekly", get_translation("model.community_event.frequency.weekly")
-        FORTNIGHTLY = "fortnightly", get_translation("model.community_event.frequency.fortnightly")
-        ONCE = "once", get_translation("model.community_event.frequency.once")
+    EventFrequencyChoices = EventFrequencyChoices
 
     frequency = models.CharField(
         max_length=255,
@@ -52,11 +49,15 @@ class CommunityEvent(models.Model):
         filter_events = cls.objects.all().filter(~Q(custom_filter="none"), active=True)
         extra_events = []
         for event in filter_events:
-            filter_func = custom_banner_event_filters.FILTER_FUNC_MAP.get(event.custom_filter)
+            filter_func = FILTER_FUNC_MAP.get(event.custom_filter)
             if filter_func and filter_func(user):
                 extra_events.append(event.id)
         extra_events_qs = cls.objects.filter(id__in=extra_events)
-        return non_filter_events | extra_events_qs
+        events = non_filter_events | extra_events_qs
+        return events.exclude(
+            frequency=cls.EventFrequencyChoices.ONCE,
+            end_time__lt=timezone.now(),
+        ).order_by("time", "id")
 
     @classmethod
     def get_all_active_events(cls, order_by="time"):

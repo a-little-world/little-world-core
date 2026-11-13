@@ -12,6 +12,7 @@ from django.utils import timezone
 from livekit import api as livekit_api
 from management.authentication import NativeOnlyJWTAuthentication
 from management.controller import create_user_matching_proposal, match_users
+from management.helpers import IsAdminOrMatchingUser
 from management.models.matches import Match
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from rest_framework import serializers
@@ -30,7 +31,7 @@ from video.models import (
     RandomCallLobby,
     RandomCallLobbyUser,
     RandomCallMatching,
-    RandomCallSession,
+    RandomCallProposalUserStatus,
 )
 from video.tasks import (
     cleanup_inactive_lobby_users,
@@ -46,7 +47,7 @@ class AuthenticateRoomParams(serializers.Serializer):
 
 async def create_livekit_room(room_name):
     lkapi = livekit_api.LiveKitAPI(
-        url=settings.LIVEKIT_URL,
+        url=settings.LIVEKIT_INTERNAL_URL,
         api_key=settings.LIVEKIT_API_KEY,
         api_secret=settings.LIVEKIT_API_SECRET,
     )
@@ -61,21 +62,19 @@ async def create_livekit_room(room_name):
 
 
 def is_lobby_active(lobby):
-    if lobby.start_time > timezone.now():
+    if lobby.start_time is None or lobby.end_time is None:
         return False
-    if lobby.end_time < timezone.now():
+    now = timezone.now()
+    if lobby.start_time > now:
+        return False
+    if lobby.end_time < now:
         return False
     return True
 
 
-def get_pending_random_call_matching_qs_for_user(user, lobby):
-    """
-    Shared "pending random call match" queryset used by both user-facing and management endpoints.
-    Keep this in one place so both views evaluate the same rows.
-    """
-    return RandomCallMatching.objects.filter(
-        Q(u1=user) | Q(u2=user),
-        lobby=lobby,
+def open_pending_random_call_match_q() -> Q:
+    """Shared open-pending proposal filter for user-facing and admin views."""
+    return Q(
         rejected=False,
         both_requested_room_token=False,
         completed=False,
@@ -83,7 +82,19 @@ def get_pending_random_call_matching_qs_for_user(user, lobby):
         in_session=False,
         expired=False,
         video_call_join_expired=False,
-    ).order_by("-pk")
+    )
+
+
+def get_pending_random_call_matching_qs_for_user(user, lobby):
+    """
+    Shared "pending random call match" queryset used by both user-facing and management endpoints.
+    Keep this in one place so both views evaluate the same rows.
+    """
+    return (
+        RandomCallMatching.objects.filter(Q(u1=user) | Q(u2=user), lobby=lobby)
+        .filter(open_pending_random_call_match_q())
+        .order_by("-pk")
+    )
 
 
 def get_accepted_matchings_expired_join_qs_for_user(user, lobby):
@@ -108,28 +119,15 @@ def join_random_call_lobby(request, lobby_uuid):
     if not is_lobby_active(lobby):
         return Response("Lobby is not active", status=400)
     # 2 - check if the user is already in the lobby
-    user_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby, is_active=True)
-    already_in_lobby = False
-    if user_in_lobby.exists():
-        already_in_lobby = True
-        user_in_lobby = user_in_lobby.first()
-        user_in_lobby.last_status_checked_at = timezone.now()
-        user_in_lobby.is_active = True
-        user_in_lobby.save()
-    # 3 - if the user is not in the lobby, add them or reactivate them
-    if not user_in_lobby:
-        # Check if user has an inactive entry
-        inactive_entry = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby, is_active=False).first()
-        if inactive_entry:
-            # Reactivate the existing entry
-            inactive_entry.is_active = True
-            inactive_entry.last_status_checked_at = timezone.now()
-            inactive_entry.save()
-        else:
-            # Create new entry
-            RandomCallLobbyUser.objects.create(
-                user=request.user, lobby=lobby, last_status_checked_at=timezone.now(), is_active=True
-            )
+    already_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby, is_active=True).exists()
+    now = timezone.now()
+    lobby_user, created = RandomCallLobbyUser.objects.update_or_create(
+        user=request.user,
+        lobby=lobby,
+        defaults={"is_active": True, "last_status_checked_at": now},
+    )
+    if created or lobby_user.first_joined_at is None:
+        RandomCallLobbyUser.objects.filter(pk=lobby_user.pk, first_joined_at__isnull=True).update(first_joined_at=now)
     # 4 - a-new user joined so start the celery task that performs the matching
     random_call_lobby_perform_matching.apply_async(args=[str(lobby.uuid)])
     cleanup_inactive_lobby_users.apply_async(args=[str(lobby.uuid)], countdown=12)
@@ -158,8 +156,10 @@ def exit_random_call_lobby(request, lobby_uuid):
         Q(u1=request.user) | Q(u2=request.user), lobby=lobby, accepted=False, rejected=False
     )
     if matching.exists():
-        # - auto reject all existing matchings
-        matching.update(accepted=False, rejected=True)
+        for open_matching in matching:
+            open_matching.rejected = True
+            open_matching.set_user_status(request.user, RandomCallProposalUserStatus.EXITED)
+            open_matching.save(update_fields=["rejected", "u1_status", "u2_status"])
     sessions = LivekitSession.objects.filter(Q(u1=request.user) | Q(u2=request.user), random_call_session=True)
     if sessions.exists():
         # - auto reject all existing sessions
@@ -305,8 +305,10 @@ def accept_random_call_match(request, lobby_uuid, match_uuid):
     # 5 - set the user's acceptance
     if match.u1 == request.user:
         match.u1_accepted = True
+        match.u1_status = RandomCallProposalUserStatus.ACCEPTED
     else:
         match.u2_accepted = True
+        match.u2_status = RandomCallProposalUserStatus.ACCEPTED
 
     # 6 - check if both users accepted
     if match.u1_accepted and match.u2_accepted:
@@ -353,8 +355,10 @@ def reject_random_call_match(request, lobby_uuid, match_uuid):
     # 'confirm' happens implicity when the rejection is fetched once by the other user via /status
     if match.u1 == request.user:
         match.u1_confirmed_rejection = True
+        match.u1_status = RandomCallProposalUserStatus.REJECTED
     else:
         match.u2_confirmed_rejection = True
+        match.u2_status = RandomCallProposalUserStatus.REJECTED
     match.save()
 
     return Response(
@@ -363,29 +367,6 @@ def reject_random_call_match(request, lobby_uuid, match_uuid):
             "rejected": True,
         }
     )
-
-
-@api_view(["GET"])
-@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def get_random_call_status(request, random_call_session_id):
-    # 1 - retrieve the random call session
-    random_call_session = RandomCallSession.objects.get(uuid=random_call_session_id)
-    if not random_call_session.exists():
-        return Response("Random call session does not exist", status=400)
-    # 2 - check if the requesting user is part of the random call session
-    user_in_random_call_session = RandomCallLobbyUser.objects.filter(
-        user=request.user, random_call_session=random_call_session
-    )
-    if not user_in_random_call_session.exists():
-        return Response("You are not part of the random call session", status=400)
-    # 3 - check if the random call session is active
-    if not random_call_session.active:
-        return Response("Random call session is not active", status=400)
-    # 4 - check the random call session status
-    # TODO: calculate remaining time, and possibly other status events
-    # TODO: or atleast pass a session end time of sorts
-    return Response({"random_call_session": str(random_call_session.uuid), "status": random_call_session.status})
 
 
 @api_view(["POST"])
@@ -561,14 +542,27 @@ class RandomCallLobbySerializer(serializers.Serializer):
     name = serializers.CharField()
     start_time = serializers.DateTimeField()
     end_time = serializers.DateTimeField()
+    match_proposal_timeout = serializers.IntegerField()
+    frequency = serializers.CharField()
+    recurrence_group = serializers.UUIDField(allow_null=True)
+
+    # Matching internals for the admin panel's schedule editor. Frequency and recurrence
+    # group stay public: the main app groups a series into one row by them.
+    MANAGER_ONLY_FIELDS = ("match_proposal_timeout",)
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
+        request = self.context.get("request")
+        if request is None or not IsAdminOrMatchingUser().has_permission(request, None):
+            for field in self.MANAGER_ONLY_FIELDS:
+                rep.pop(field, None)
         rep["uuid"] = instance.uuid
         # Add calculated status based on current time
         rep["status"] = is_lobby_active(instance)
         # Add count of active users in the lobby
-        rep["active_users_count"] = RandomCallLobbyUser.objects.filter(lobby=instance, is_active=True).count()
+        rep["active_users_count"] = (
+            RandomCallLobbyUser.objects.filter(lobby=instance, is_active=True).values("user_id").distinct().count()
+        )
         return rep
 
 
@@ -598,18 +592,10 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
             current_user_requested = instance.u2_matching_requested
             partner_requested = instance.u1_matching_requested
 
-        # Get session information
-        from video.models import LivekitSession
-
-        session = (
-            LivekitSession.objects.filter(
-                Q(u1=instance.u1, u2=instance.u2) | Q(u1=instance.u2, u2=instance.u1),
-                both_have_been_active=True,
-                random_call_session=True,
-            )
-            .order_by("-created_at")
-            .first()
-        )
+        # Session data is batch-loaded in the view to avoid N+1 queries.
+        session_by_pair = self.context.get("session_by_pair", {})
+        pair_key = (min(instance.u1_id, instance.u2_id), max(instance.u1_id, instance.u2_id))
+        session = session_by_pair.get(pair_key)
 
         # Calculate duration if session exists
         duration = None
@@ -675,7 +661,7 @@ def get_random_call_lobbies(request):
     lobby_name = request.query_params.get("name")
     if lobby_name:
         lobbies = lobbies.filter(name=lobby_name)
-    return Response(RandomCallLobbySerializer(lobbies, many=True).data)
+    return Response(RandomCallLobbySerializer(lobbies, many=True, context={"request": request}).data)
 
 
 @api_view(["GET"])
@@ -686,7 +672,7 @@ def get_random_call_lobby(request, lobby_uuid):
     Returns a single random call lobby by UUID.
     """
     lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
-    return Response(RandomCallLobbySerializer(lobby).data)
+    return Response(RandomCallLobbySerializer(lobby, context={"request": request}).data)
 
 
 @api_view(["GET"])
@@ -711,7 +697,7 @@ def get_active_or_upcoming_lobby_by_name(request, lobby_name):
         .first()
     )
     if active_lobby:
-        return Response(RandomCallLobbySerializer(active_lobby).data)
+        return Response(RandomCallLobbySerializer(active_lobby, context={"request": request}).data)
     # If no active lobby, get the most upcoming future one
     upcoming_lobby = (
         RandomCallLobby.objects.filter(
@@ -722,7 +708,7 @@ def get_active_or_upcoming_lobby_by_name(request, lobby_name):
         .first()
     )
     if upcoming_lobby:
-        return Response(RandomCallLobbySerializer(upcoming_lobby).data)
+        return Response(RandomCallLobbySerializer(upcoming_lobby, context={"request": request}).data)
     return Response(
         {
             "data": None,
@@ -745,7 +731,7 @@ def get_upcoming_lobbies(request):
     lobby_name = request.query_params.get("name")
     if lobby_name:
         lobbies = lobbies.filter(name=lobby_name)
-    return Response(RandomCallLobbySerializer(lobbies, many=True).data)
+    return Response(RandomCallLobbySerializer(lobbies, many=True, context={"request": request}).data)
 
 
 @api_view(["GET"])
@@ -765,12 +751,42 @@ def get_user_random_call_history(request):
 
     unique_matches = {}
     for match in matches:
-        user_pair = (min(match.u1.id, match.u2.id), max(match.u1.id, match.u2.id))
+        user_pair = (min(match.u1_id, match.u2_id), max(match.u1_id, match.u2_id))
         if user_pair not in unique_matches:
             unique_matches[user_pair] = match
 
+    unique_match_list = list(unique_matches.values())
+    pair_keys = set(unique_matches.keys())
+
+    session_by_pair = {}
+    if pair_keys:
+        # Exact pair filter avoids the over-broad u1_id__in ∩ u2_id__in cartesian result
+        # (which would also fetch sessions between partners who never matched with the user).
+        pair_filter = Q()
+        for left_id, right_id in pair_keys:
+            pair_filter |= Q(u1_id=left_id, u2_id=right_id) | Q(u1_id=right_id, u2_id=left_id)
+
+        sessions = (
+            LivekitSession.objects.filter(
+                pair_filter,
+                both_have_been_active=True,
+                random_call_session=True,
+            )
+            .only("u1_id", "u2_id", "created_at", "end_time")
+            .order_by("-created_at")
+            .iterator(chunk_size=100)
+        )
+        for session in sessions:
+            pair_key = (min(session.u1_id, session.u2_id), max(session.u1_id, session.u2_id))
+            if pair_key in pair_keys and pair_key not in session_by_pair:
+                session_by_pair[pair_key] = session
+                if len(session_by_pair) == len(pair_keys):
+                    break
+
     serializer = RandomCallMatchHistorySerializer(
-        list(unique_matches.values()), many=True, context={"request": request}
+        unique_match_list,
+        many=True,
+        context={"request": request, "session_by_pair": session_by_pair},
     )
     return Response(serializer.data)
 
@@ -828,9 +844,6 @@ def request_random_call_matching(request, match_uuid):
             match_users(
                 {match.u1, match.u2},
                 match_type=MatchType.RANDOM_CALL,
-                send_message=False,
-                send_email=False,
-                send_notification=False,
             )
     else:
         # First requester: create proposal so the partner (non-requester) sees it in unconfirmed matches

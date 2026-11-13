@@ -1,13 +1,13 @@
 from datetime import timedelta
 
-from chat.models import Chat, Message
+from chat.models import Message
 from django.db import connection
 from django.db.models import Case, Count, F, OuterRef, Q, Subquery, When
 from django.db.models.functions import Extract
 from django.utils import timezone
-from video.models import LivekitSession
 
 from management import controller
+from management.match_success import successful_match_ids
 from management.models.management_tasks import MangementTask
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment
@@ -16,40 +16,9 @@ from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User
 
-MATCH_SUCCESS_UNITS_TARGET = 8
-
 
 def three_weeks_ago():
     return timezone.now() - timedelta(weeks=3)
-
-
-def _video_call_success_units(call_duration):
-    call_duration_seconds = call_duration.total_seconds()
-
-    if call_duration_seconds < 25 * 60:
-        return 0
-
-    if call_duration_seconds < 55 * 60:
-        return 1
-
-    return 2 + int((call_duration_seconds - 55 * 60) // (25 * 60))
-
-
-def _match_success_units(match):
-    sessions = LivekitSession.objects.filter(
-        Q(u1=match.user1, u2=match.user2) | Q(u1=match.user2, u2=match.user1),
-        both_have_been_active=True,
-        created_at__gte=match.created_at,
-        end_time__isnull=False,
-    )
-
-    success_units = 0
-    for session in sessions:
-        if session.end_time is None:
-            continue
-        success_units += _video_call_success_units(session.end_time - session.created_at)
-
-    return success_units
 
 
 def all_users(qs=User.objects.all()):
@@ -144,18 +113,6 @@ def needs_matching_volunteers(qs=User.objects.all()):
     return needs_matching(qs).filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
 
 
-def searching_users(qs=User.objects.all()):
-    """
-    Users who are currently searching for a match
-    """
-    return qs.filter(
-        state__user_form_state=State.UserFormStateChoices.FILLED,
-        state__email_authenticated=True,
-        state__is_onboarded=False,
-        state__searching_state=State.SearchingStateChoices.SEARCHING,
-    ).order_by("-date_joined")
-
-
 def eligible_for_random_calls(qs=User.objects.all()):
     """
     Onboarded users with completed user form and German level above A1/A2 (not LEVEL_0).
@@ -244,10 +201,7 @@ def get_user_with_message_to_admin(qs=User.objects.all()):
     """
     Users who have an unread message to the admin user
     """
-    admin = controller.get_base_management_user()
-    unread_messages = Message.objects.filter(recipient=admin, read=False).order_by("created")
-    unread_senders_ids = unread_messages.values("sender")
-    return qs.filter(id__in=Subquery(unread_senders_ids))
+    return _get_users_with_message_to_admin_not_replied(qs=qs, require_read=False)
 
 
 def user_recent_activity(
@@ -339,26 +293,57 @@ def get_volunteers_booked_onboarding_call_but_never_visited(qs=User.objects.all(
     ).order_by("-date_joined")
 
 
+def _get_users_with_message_to_recipient_not_replied(
+    qs=User.objects.all(),
+    *,
+    recipient_user,
+    require_read: bool | None = None,
+):
+    """
+    Users whose latest message in their dialog with ``recipient_user`` was sent by them.
+    Optionally filter by read-status of that latest user->recipient message:
+    - require_read=False => unread and not replied
+    - require_read=True => read and not replied
+    - require_read=None => read or unread and not replied
+    """
+    messages_with_recipient = Message.objects.filter(
+        Q(sender_id=OuterRef("pk"), recipient=recipient_user) | Q(sender=recipient_user, recipient_id=OuterRef("pk"))
+    ).order_by("-created", "-id")
+
+    users_in_dialog = qs.annotate(
+        _last_message_sender_id=Subquery(messages_with_recipient.values("sender_id")[:1]),
+        _last_message_read=Subquery(messages_with_recipient.values("read")[:1]),
+    ).filter(
+        _last_message_sender_id=F("pk"),
+    )
+    if require_read is True:
+        users_in_dialog = users_in_dialog.filter(_last_message_read=True)
+    elif require_read is False:
+        users_in_dialog = users_in_dialog.filter(_last_message_read=False)
+
+    return users_in_dialog.order_by("-date_joined")
+
+
+def _get_users_with_message_to_admin_not_replied(qs=User.objects.all(), require_read: bool | None = None):
+    return _get_users_with_message_to_recipient_not_replied(
+        qs=qs,
+        recipient_user=controller.get_base_management_user(),
+        require_read=require_read,
+    )
+
+
 def get_user_with_message_to_admin_that_are_read_but_not_replied(qs=User.objects.all()):
     """
     Read messages to the management user that have not been replied to
     """
-    admin_pk = controller.get_base_management_user()
-    Chat.objects.filter(Q(u1=admin_pk) | Q(u2=admin_pk))
-    last_message_per_user = (
-        Message.objects.filter(
-            (Q(sender_id=OuterRef("id"), recipient_id=admin_pk) | Q(sender_id=admin_pk, recipient_id=OuterRef("id")))
-        )
-        .order_by("created")
-        .values("created")[:1]
-    )
-    users_in_dialog_with_management_user = qs.annotate(
-        last_message_id=Subquery(last_message_per_user.values("id")[:1])
-    ).filter(
-        Q(last_message_id__in=Message.objects.filter(sender_id=F("id"), recipient_id=admin_pk, read=True))
-        | Q(last_message_id__in=Message.objects.filter(sender_id=admin_pk, recipient_id=F("id"), read=False))
-    )
-    return users_in_dialog_with_management_user
+    return _get_users_with_message_to_admin_not_replied(qs=qs, require_read=True)
+
+
+def get_user_with_message_to_admin_that_are_read_or_not_read_but_not_replied(qs=User.objects.all()):
+    """
+    Read or unread messages to the management user where the latest message has not been replied to yet.
+    """
+    return _get_users_with_message_to_admin_not_replied(qs=qs, require_read=None)
 
 
 def users_with_open_proposals(qs=User.objects.all()):
@@ -433,7 +418,8 @@ def EXTRA__lingoda_learners_scoring(qs=User.objects.all()):
 
 
 def EXTRA__fh_aachen_users(qs=User.objects.all()):
-    return qs.filter(state__company="fh-aachen")
+    # Includes the semester cohorts, e.g. "fh-aachen-so26"
+    return qs.filter(Q(state__company__iexact="fh-aachen") | Q(state__company__istartswith="fh-aachen-"))
 
 
 def EXTRA__fh_aachen_learners_scoring(qs=User.objects.all()):
@@ -503,24 +489,40 @@ def EXTRA__onboarded_volunteers_with_activity_in_last3weeks(qs=User.objects.all(
     )
 
 
-def EXTRA__suggestion_match_completed_on_plattform(qs=User.objects.all()):
+def EXTRA__priority_learners_and_searching_volunteers(qs=User.objects.all()):
     """
-    Users with a non-support match that reached 8 on-platform video-call units.
+    Onboarded priority learners and searching volunteers
     """
-    candidate_matches = (
-        Match.objects.filter(
-            Q(user1__in=qs) | Q(user2__in=qs),
-            support_matching=False,
-            completed_off_plattform=False,
+    # profile and state are OneToOne, so there is no fan-out and no distinct() needed.
+    return qs.filter(is_active=True).filter(
+        Q(
+            profile__user_type=Profile.TypeChoices.LEARNER,
+            state__is_onboarded=True,
+            state__has_match_priority=True,
         )
-        .select_related("user1", "user2")
-        .distinct()
+        | Q(
+            profile__user_type=Profile.TypeChoices.VOLUNTEER,
+            state__is_onboarded=True,
+            state__searching_state=State.SearchingStateChoices.SEARCHING,
+        )
     )
 
+
+def EXTRA__suggestion_match_completed_on_plattform(qs=User.objects.all()):
+    """
+    Users with a non-support match that reached the active match-token success target.
+    """
+    candidate_matches = Match.objects.filter(
+        Q(user1__in=qs) | Q(user2__in=qs),
+        support_matching=False,
+        completed_off_plattform=False,
+    ).distinct()
+
+    # Resolved in bulk rather than one query per candidate match.
+    successful = successful_match_ids(candidate_matches)
     completed_user_ids = set()
-    for match in candidate_matches.iterator(chunk_size=500):
-        if _match_success_units(match) >= MATCH_SUCCESS_UNITS_TARGET:
-            completed_user_ids.update([match.user1.pk, match.user2.pk])
+    for user1_id, user2_id in Match.objects.filter(id__in=successful).values_list("user1_id", "user2_id"):
+        completed_user_ids.update((user1_id, user2_id))
 
     return qs.filter(id__in=completed_user_ids).order_by("-date_joined")
 

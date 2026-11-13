@@ -1,8 +1,7 @@
 from dataclasses import dataclass, fields
-from datetime import datetime
-from typing import Optional
 
 import django.contrib.auth.password_validation as pw_validation
+from back.build_types import BuildType
 from django.conf import settings
 from django.contrib.auth import login
 from django.core import exceptions
@@ -14,10 +13,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from translations import get_translation
 
-from management.api.app_integrity import verify_play_integrity_token
-from management.api.native_auth import get_and_delete_challenge
+from management.api.native_auth import enforce_android_integrity, enforce_ios_integrity
 from management.api.user import get_user_data
-from management.integrity.apple import verify_apple_attestation
 from management.meta_capi import build_event, build_user_data, has_marketing_consent
 from management.meta_capi_queue import queue_meta_event_once
 from management.models.profile import Profile
@@ -42,9 +39,15 @@ class RegistrationData:
 @dataclass
 class RegistrationDataNative(RegistrationData):
     challenge_id: str = ""
-    key_id: Optional[str] = None
-    attestation_object: Optional[str] = None
-    integrity_token: Optional[str] = None
+    key_id: str | None = None
+    attestation_object: str | None = None
+    integrity_token: str | None = None
+    bypass_token: str | None = None
+
+
+@dataclass
+class RegistrationDataNativeWeb(RegistrationData):
+    bypass_token: str = ""
 
 
 class RegistrationSerializer(serializers.Serializer):
@@ -73,11 +76,10 @@ class RegistrationSerializer(serializers.Serializer):
     password2 = serializers.CharField(max_length=100, required=True)
     birth_year = serializers.IntegerField(
         min_value=1900,
-        max_value=(datetime.now().year - 17),
         error_messages={
             "invalid": get_translation("register.birth_year_invalid"),  # Updated key
             "min_value": get_translation("register.birth_year_under_1900"),  # Updated key
-            "max_value": get_translation("register.birth_year_over_2024"),  # Updated key
+            "max_value": get_translation("register.birth_year_too_high"),  # Updated key
         },
     )
     user_type = serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=True)
@@ -103,6 +105,12 @@ class RegistrationSerializer(serializers.Serializer):
     def validate_second_name(self, value):
         return validators.validate_name(value)
 
+    def validate_birth_year(self, value):
+        max_year = validators.max_birth_year_for_minimum_age()
+        if value > max_year:
+            raise serializers.ValidationError(get_translation("register.birth_too_high"))
+        return value
+
     def validate(self, data):
         usr = None
         try:
@@ -125,23 +133,25 @@ class RegistrationSerializer(serializers.Serializer):
         if data["password1"] != data["password2"]:
             raise serializers.ValidationError({"password1": get_translation("api.passwords_must_match")})  # Updated key
 
-        return super(RegistrationSerializer, self).validate(data)
+        return super().validate(data)
 
 
-class RegistationSerializerNative(RegistrationSerializer):
+class RegistrationSerializerNative(RegistrationSerializer):
     challenge_id = serializers.CharField(required=True)
     key_id = serializers.CharField(max_length=255, required=False)
     integrity_token = serializers.CharField(required=False)
     attestation_object = serializers.CharField(required=False)
+    bypass_token = serializers.CharField(required=False)
 
     def create(self, validated_data):
         # Password same validation happens in 'validate()' we need only one password now
         return RegistrationDataNative(
             **{field.name: getattr(self.get_registration_data(), field.name) for field in fields(RegistrationData)},
             challenge_id=validated_data["challenge_id"],
-            key_id=validated_data["key_id"] if "key_id" in validated_data else None,
-            attestation_object=validated_data["attestation_object"] if "attestation_object" in validated_data else None,
-            integrity_token=validated_data["integrity_token"] if "integrity_token" in validated_data else None,
+            key_id=validated_data.get("key_id"),
+            attestation_object=validated_data.get("attestation_object"),
+            integrity_token=validated_data.get("integrity_token"),
+            bypass_token=validated_data.get("bypass_token"),
         )
 
     def get_registration_data(self) -> RegistrationData:
@@ -149,9 +159,22 @@ class RegistationSerializerNative(RegistrationSerializer):
             {
                 k: v
                 for k, v in self.validated_data.items()
-                if k not in ["challenge_id", "key_id", "attestation_object", "integrity_token"]
+                if k not in ["challenge_id", "key_id", "attestation_object", "integrity_token", "bypass_token"]
             }
         )
+
+
+class RegistrationSerializerNativeWeb(RegistrationSerializer):
+    bypass_token = serializers.CharField(required=False)
+
+    def create(self, validated_data):
+        return RegistrationDataNativeWeb(
+            **{field.name: getattr(self.get_registration_data(), field.name) for field in fields(RegistrationData)},
+            bypass_token=validated_data.get("bypass_token", ""),
+        )
+
+    def get_registration_data(self) -> RegistrationData:
+        return super().create({k: v for k, v in self.validated_data.items() if k not in ["bypass_token"]})
 
 
 class Register(APIView):
@@ -168,13 +191,13 @@ class Register(APIView):
         methods=["POST"],
         request=RegistrationSerializer(many=False),
     )
-    def post(self, request) -> Optional[Response]:
+    def post(self, request) -> Response | None:
         serializer = RegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         # The types are secure, we checked that using the 'Registration Serializer'
         registration_data = serializer.save()
 
-        data = common_register(request, registration_data)
+        _usr, data = common_register(request, registration_data, is_native=False)
 
         if registration_data.user_type == Profile.TypeChoices.VOLUNTEER and has_marketing_consent(
             request, request.user
@@ -221,23 +244,22 @@ class RegisterAndroid(APIView):
     @extend_schema(
         description="Little World Registration API called with data from the registration form",
         methods=["POST"],
-        request=RegistationSerializerNative(many=False),
+        request=RegistrationSerializerNative(many=False),
     )
-    def post(self, request) -> Optional[Response]:
-        serializer = RegistationSerializerNative(data=request.data)
+    def post(self, request) -> Response | None:
+        serializer = RegistrationSerializerNative(data=request.data)
         serializer.is_valid(raise_exception=True)
         # The types are secure, we checked that using the 'Registration Serializer'
         registration_data = serializer.save()
 
-        challenge_id = registration_data.challenge_id
-        integrity_token = registration_data.integrity_token
-        challenge = get_and_delete_challenge(challenge_id).encode("utf-8")
+        enforce_android_integrity(
+            bypass_token=registration_data.bypass_token,
+            integrity_token=registration_data.integrity_token,
+            challenge_id=registration_data.challenge_id,
+        )
 
-        if not verify_play_integrity_token(integrity_token, request_hash=challenge):
-            return Response({"detail": "Invalid integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
-
-        user_data = common_register(request, serializer.get_registration_data())
-        with_tokens = user_data_with_tokens(user_data, request.user)
+        usr, user_data = common_register(request, serializer.get_registration_data(), is_native=True)
+        with_tokens = user_data_with_tokens(user_data, usr)
 
         return Response(with_tokens)
 
@@ -254,38 +276,78 @@ class RegisterIOS(APIView):
     @extend_schema(
         description="Little World Registration API called with data from the registration form",
         methods=["POST"],
-        request=RegistationSerializerNative(many=False),
+        request=RegistrationSerializerNative(many=False),
     )
-    def post(self, request) -> Optional[Response]:
-        serializer = RegistationSerializerNative(data=request.data)
+    def post(self, request) -> Response | None:
+        serializer = RegistrationSerializerNative(data=request.data)
         serializer.is_valid(raise_exception=True)
         # The types are secure, we checked that using the 'Registration Serializer'
         registration_data = serializer.save()
-        key_id = registration_data.key_id
-        challenge_id = registration_data.challenge_id
-        attestation_object = registration_data.attestation_object
-        challenge_bytes = get_and_delete_challenge(challenge_id).encode("utf-8")
 
-        verify_apple_attestation(key_id, challenge_bytes, attestation_object, settings.IS_PROD)
+        enforce_ios_integrity(
+            bypass_token=registration_data.bypass_token,
+            key_id=registration_data.key_id,
+            challenge_id=registration_data.challenge_id,
+            attestation_object=registration_data.attestation_object,
+        )
 
-        user_data = common_register(request, serializer.get_registration_data())
-        with_tokens = user_data_with_tokens(user_data, request.user)
+        usr, user_data = common_register(request, serializer.get_registration_data(), is_native=True)
+        with_tokens = user_data_with_tokens(user_data, usr)
 
         return Response(with_tokens)
 
 
-def common_register(request, registration_data):
+class RegisterWebNative(APIView):
+    """
+    Register a user by post request
+    """
+
+    authentication_classes = []  # No authentication required, only cors checks
+    permission_classes = []  # Everyone can acess this api
+    required_args = ["email", "first_name", "second_name", "password1", "password2", "birth_year", "user_type"]
+
+    @extend_schema(
+        description="Little World Registration API called with data from the registration form",
+        methods=["POST"],
+        request=RegistrationSerializerNativeWeb(many=False),
+    )
+    def post(self, request) -> Response | None:
+        if settings.BUILD_TYPE == BuildType.PRODUCTION:
+            return Response(
+                {"detail": "This endpoint is disabled in production environments"},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED,
+            )
+
+        serializer = RegistrationSerializerNativeWeb(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        # The types are secure, we checked that using the 'RegistrationSerializerNativeWeb'
+        registration_data = serializer.save()
+        bypass_token = registration_data.bypass_token
+
+        bypass_integrity_check = settings.NATIVE_APP_INTEGRITY_ALLOW_BYPASS and (
+            bypass_token == settings.NATIVE_APP_INTEGRITY_BYPASS_TOKEN
+        )
+        if not bypass_integrity_check:
+            return Response({"detail": "Invalid integrity check bypass token"}, status=status.HTTP_400_BAD_REQUEST)
+
+        usr, user_data = common_register(request, serializer.get_registration_data(), is_native=True)
+        with_tokens = user_data_with_tokens(user_data, usr)
+
+        return Response(with_tokens)
+
+
+def common_register(request, registration_data, is_native):
     # create_user will trow seralization error per default
     # also performs registration, send email etc...
     usr = controller.create_user(
         **{k: getattr(registration_data, k) for k in registration_data.__annotations__}, send_verification_mail=True
     )
 
-    login(request, usr)
-
+    if not is_native:
+        login(request, usr)
     with translation.override("tag"):
         data = get_user_data(usr)
-        return data
+        return usr, data
 
 
 def user_data_with_tokens(user_data, user):

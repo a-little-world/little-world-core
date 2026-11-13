@@ -1,11 +1,14 @@
 import base64
 import json
 import os
+import sys
 import uuid
 from datetime import timedelta
 
 from corsheaders.defaults import default_headers
 from firebase_admin import credentials, initialize_app
+
+from back.build_types import BuildType
 
 
 def bool_env(name, default):
@@ -58,12 +61,7 @@ if USE_SENTRY:
         print("WARINING: unable to start sentry", str(e))
 
 # This can be used to exclude apps or middleware
-BUILD_TYPE = os.environ["BUILD_TYPE"]
-assert BUILD_TYPE in ["deployment", "staging", "development"]
-
-IS_DEV = BUILD_TYPE == "development"
-IS_STAGE = BUILD_TYPE == "staging"
-IS_PROD = BUILD_TYPE == "deployment"
+BUILD_TYPE = BuildType(os.environ["BUILD_TYPE"])
 
 PROD_ATTACH = os.environ.get("DJ_PROD_ATTACH", "false").lower() in ("true", "1", "t")
 
@@ -82,18 +80,18 @@ MANAGEMENT_USER_MAIL = os.environ.get("DJ_MANAGEMENT_USER_MAIL", "littleworld.ma
 MATCHING_USER_MAIL = os.environ.get("DJ_MATCHING_USER_MAIL", "tim.timschupp+420@gmail.com")
 MATCHING_USER_PASSWORD = os.environ.get(
     "DJ_MATCHING_USER_PASSWORD",
-    None if IS_PROD else "Test123!",  # No default on prod, just error!
+    None if BUILD_TYPE == BuildType.PRODUCTION else "Test123!",  # No default on prod, just error!
 )
 MANAGEMENT_USER_PASSWORD = os.environ.get("DJ_MANAGEMENT_USER_PASSWORD", None)
 
 if MANAGEMENT_USER_PASSWORD is None:
     raise ValueError("DJ_MANAGEMENT_USER_PASSWORD is not set")
 
-MATCHING_USER_FIRST_NAME = os.environ.get("DJ_MATCHING_USER_FIRST_NAME", "Tim")
-MATCHING_USER_SECOND_NAME = os.environ.get("DJ_MATCHING_USER_SECOND_NAME", "Schupp")
+MATCHING_USER_FIRST_NAME = os.environ.get("DJ_MATCHING_USER_FIRST_NAME", "Support Team")
+MATCHING_USER_SECOND_NAME = os.environ.get("DJ_MATCHING_USER_SECOND_NAME", "")
 ADMIN_OPEN_KEYPHRASE = os.environ.get(
     "DJ_ADMIN_OPEN_KEYPHRASE",
-    str(uuid.uuid4()) if IS_PROD else "opensesame",  # random string if nothing is set in production
+    str(uuid.uuid4()) if BUILD_TYPE == BuildType.PRODUCTION else "opensesame",
 )
 DEFAULT_FROM_EMAIL = os.environ.get("DJ_SG_DEFAULT_FROM_EMAIL", "littleworld.management@gmail.com")
 EXPOSE_DEV_LOGIN = os.environ.get("DJ_EXPOSE_DEV_LOGIN", "false").lower() in ("true", "1", "t")
@@ -101,16 +99,26 @@ USE_MQ_AS_BROKER = os.environ.get("DJ_USE_MQ_AS_BROKER", "false").lower() in ("t
 
 DOCS_PROXY = os.environ.get("DJ_DOCS_PROXY", "false").lower() in ("true", "1", "t")
 DOCS_URL = os.environ.get("DJ_DOCS_URL", "")
+ENABLE_SPAGHETTI = bool_env(
+    "DJ_ENABLE_SPAGHETTI",
+    "true" if BUILD_TYPE == BuildType.DEVELOPMENT else "false",
+)
+ENABLE_PRODUCTION_CELERY_SCHEDULES = bool_env(
+    "DJ_ENABLE_PRODUCTION_CELERY_SCHEDULES",
+    "true" if BUILD_TYPE == BuildType.PRODUCTION else "false",
+)
 
 
 def get_redis_connect_url_port():
     return os.environ.get("DJ_REDIS_HOST", "redis"), int(os.environ.get("DJ_REDIS_PORT", "6379"))
 
 
-REDIS_PROTOCOL = os.environ.get("DJ_REDIS_PROTO", "redis" if IS_DEV else "rediss")
+REDIS_PROTOCOL = os.environ.get(
+    "DJ_REDIS_PROTO",
+    "redis" if BUILD_TYPE == BuildType.DEVELOPMENT else "rediss",
+)
 REDIS_PASSWORD = os.environ.get("DJ_REDIS_PASSWORD", None)
 
-USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
 REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
 REDIS_URL = os.environ.get(
     "REDIS_URL", f"{REDIS_PROTOCOL}://{REDIS_HOST}:{REDIS_PORT}"
@@ -140,6 +148,10 @@ COOKIE_CONSENT_NAME = "backend_cookie_consent"
 USE_WHITENOISE = os.environ.get("DJ_USE_WHITENOISE", "false").lower() in ("true", "1", "t")
 
 EMPHIRIAL = os.environ.get("EMPHIRIAL", "0") == "1"
+IS_TEST_ENV = bool_env("DJANGO_TESTING", "false")
+IS_TEST_COMMAND = len(sys.argv) > 1 and sys.argv[1] == "test"
+OPEN_CHAT_BOOTSTRAP_ENABLED_DEFAULT = (not IS_TEST_ENV) and (not IS_TEST_COMMAND)
+ENABLE_OPEN_CHAT_BOOTSTRAP_IN_TESTS = bool_env("DJ_ENABLE_OPEN_CHAT_BOOTSTRAP_IN_TESTS", "false")
 
 USE_LANDINGPAGE_REDIRECT = os.environ.get("DJ_USE_LANDINGPAGE_REDIRECT", "false").lower() in ("true", "1", "t")
 LANDINGPAGE_REDIRECT_URL = os.environ.get("DJ_LANDINGPAGE_REDIRECT_URL", "https://home.little-world.com")
@@ -160,11 +172,14 @@ LIVEKIT_API_KEY = os.environ.get("DJ_LIVEKIT_API_KEY", "")
 LIVEKIT_API_SECRET = os.environ.get("DJ_LIVEKIT_API_SECRET", "")
 LIVEKIT_WEBHOOK_SECRET = os.environ.get("DJ_LIVEKIT_WEBHOOK_SECRET", "")
 LIVEKIT_URL = os.environ.get("DJ_LIVEKIT_URL", "")
+# Server-side URL for backend->LiveKit API calls; differs from LIVEKIT_URL (browser-facing)
+# only in local docker dev. Defaults to LIVEKIT_URL so prod (single cloud URL) is unaffected.
+LIVEKIT_INTERNAL_URL = os.environ.get("DJ_LIVEKIT_INTERNAL_URL", LIVEKIT_URL)
 
 MATOMO_TOKEN_AUTH = os.environ.get("DJ_MATOMO_TOKEN_AUTH", "")
 MATOMO_URL = os.environ.get("DJ_MATOMO_URL", "")
 
-if IS_PROD and "K8_POD_IP" in os.environ:
+if BUILD_TYPE == BuildType.PRODUCTION and "K8_POD_IP" in os.environ:
     # So that we can further restrict access to the depoloyment kubernetes node
     K8_POD_IP = os.environ.get("K8_POD_IP", None)
     if K8_POD_IP is not None:
@@ -175,6 +190,23 @@ USE_SLACK_INTEGRATION = os.environ.get("DJ_USE_SLACK_INTEGRATION", "false").lowe
 SLACK_API_TOKEN = os.environ.get("DJ_SLACK_API_TOKEN", "")
 SLACK_REPORT_CHANNEL_ID = os.environ.get("DJ_SLACK_REPORT_CHANNEL_ID", "")
 SLACK_CALLBACK_SECRET = os.environ.get("DJ_SLACK_CALLBACK_SECRET", "")
+
+# Support-feedback Slack destination for the Open Chat reply-suggestion
+# "slack_feedback" skill. Either a single default thread (channel + thread_ts)
+# or a named map of threads the agent can target by key.
+SLACK_SUPPORT_FEEDBACK_CHANNEL_ID = os.environ.get("DJ_SLACK_SUPPORT_FEEDBACK_CHANNEL_ID", "")
+SLACK_SUPPORT_FEEDBACK_THREAD_TS = os.environ.get("DJ_SLACK_SUPPORT_FEEDBACK_THREAD_TS", "")
+
+
+def _parse_json_dict(raw: str) -> dict:
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+SLACK_SUPPORT_FEEDBACK_THREADS = _parse_json_dict(os.environ.get("DJ_SLACK_SUPPORT_FEEDBACK_THREADS", ""))
 
 USE_AI = os.environ.get("DJ_USE_AI", "false").lower() in ("true", "1", "t")
 AI_BASE_URL = os.environ.get("DJ_AI_BASE_URL", "http://localhost:8000")
@@ -214,6 +246,7 @@ INSTALLED_APPS = [
     "emails",  # Manageing logging and sending emails
     "cookie_consent",  # Our cookie consent management system
     "management",  # Main backend application
+    "open_chat",  # Open Chat integration (configuration, interactions, automations)
     "chat",  # Our chat
     "patenmatch",  # pathenmatch api
     "corsheaders",
@@ -238,8 +271,7 @@ INSTALLED_APPS = [
     # Though we keep the backages so we don't have to split the code
     "drf_spectacular",  # for api shema generation
     "drf_spectacular_sidecar",  # statics for redoc and swagger
-    *(["django_spaghetti"] if BUILD_TYPE in ["staging", "development"] else []),
-    *(["debug_toolbar"] if USE_DEBUG_TOOLBAR else []),
+    *(["django_spaghetti"] if ENABLE_SPAGHETTI else []),
     "webpack_loader",  # Load bundled webpack files, check `./run.py front`
     "storages",  # django storages managing s3 bucket files!
     "django.contrib.admin",
@@ -249,13 +281,12 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    *(["revproxy"] if IS_STAGE else []),
-    # *(['django.contrib.sessions'] if IS_PROD or IS_STAGE else []),
+    *(["revproxy"] if DOCS_PROXY else []),
     "push_notifications",  # django-push-notifications
 ]
 print("Installed apps:\n" + "\n- ".join(INSTALLED_APPS))
 
-if BUILD_TYPE in ["staging", "development"]:
+if ENABLE_SPAGHETTI:
     SPAGHETTI_SAUCE = {
         "apps": ["auth", "management", "tracking", "emails", "chat", "video"],
         "show_fields": False,
@@ -271,10 +302,9 @@ MIDDLEWARE = [
         [  # Whitenoise to server static only needed in development
             "whitenoise.middleware.WhiteNoiseMiddleware",
         ]
-        if (IS_DEV or DOCS_BUILD or USE_WHITENOISE)
+        if (BUILD_TYPE == BuildType.DEVELOPMENT or DOCS_BUILD or USE_WHITENOISE)
         else []
     ),
-    *(["debug_toolbar.middleware.DebugToolbarMiddleware"] if USE_DEBUG_TOOLBAR else []),
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet",
@@ -299,28 +329,14 @@ if DEBUG:
     SECURE_CROSS_ORIGIN_OPENER_POLICY = None
     X_FRAME_OPTIONS = "ALLOWALL"
 
-    # Debug Toolbar settings
-    INTERNAL_IPS = [
-        "127.0.0.1",
-        "172.17.0.1",  # Docker host IP
-        "172.18.0.1",
-        "172.19.0.1",
-        "172.20.0.1",
-        "172.21.0.1",
-        "172.22.0.1",
-    ]
-
-    if USE_DEBUG_TOOLBAR:
-        DEBUG_TOOLBAR_CONFIG = {
-            "SHOW_TOOLBAR_CALLBACK": lambda request: USE_DEBUG_TOOLBAR,
-        }
-    else:
-        DEBUG_TOOLBAR_CONFIG = {
-            "SHOW_TOOLBAR_CALLBACK": lambda request: False,
-        }
-
 COOKIE_CONSENT_ENABLED = True
-COOKIE_CONSENT_DOMAIN = ".little-world.com" if IS_PROD else None
+COOKIE_CONSENT_DOMAIN = (
+    os.environ.get(
+        "DJ_COOKIE_CONSENT_DOMAIN",
+        ".little-world.com" if BUILD_TYPE == BuildType.PRODUCTION else "",
+    )
+    or None
+)
 
 ROOT_URLCONF = "back.urls"
 """
@@ -389,7 +405,7 @@ CORS_ALLOWED_ORIGIN_REGEXES = ["file://.*"]  # Native apps are serverd from a fi
 CORS_ALLOWED_ORIGINS = []
 CORS_ORIGIN_WHITELIST = []
 CSRF_TRUSTED_ORIGINS = []
-if IS_STAGE or IS_PROD:
+if BUILD_TYPE == BuildType.PRODUCTION:
     CORS_ALLOWED_ORIGINS = [BASE_URL]
     CORS_ORIGIN_WHITELIST = [BASE_URL]
     CSRF_TRUSTED_ORIGINS = [BASE_URL]
@@ -403,7 +419,7 @@ elif DEBUG:
     CORS_ORIGIN_WHITELIST = ["https://*.github.dev"] + EXTRA_CORS_ALLOWED_ORIGINS
     CSRF_ORIGIN_ALLOW_ALL = True
 
-if IS_STAGE or DEBUG:
+if DEBUG:
     dev_origins = [
         "http://localhost",
         "https://localhost",
@@ -482,7 +498,7 @@ if USE_MINIO:
     MINIO_STORAGE_STATIC_BUCKET_NAME = os.getenv("DJ_MINIO_BUCKET_NAME")
     MINIO_STORAGE_AUTO_CREATE_STATIC_BUCKET = True
 
-elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHITENOISE)):
+elif EXTERNAL_S3 or ((not DOCS_BUILD and BUILD_TYPE == BuildType.PRODUCTION) and (not USE_WHITENOISE)):
     print("TRYING to push statics to bucket")
     # In production & staging we use S3 as file storage!
     COLLECTFAST_ENABLED = True
@@ -507,7 +523,7 @@ elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHI
 
     AWS_STATIC_ROOT = "static"
     # STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
-    STATIC_URL = "{}/{}/".format(AWS_S3_CUSTOM_DOMAIN, AWS_STATIC_ROOT)
+    STATIC_URL = f"{AWS_S3_CUSTOM_DOMAIN}/{AWS_STATIC_ROOT}/"
     print("AWS URL", STATIC_URL)
 
     # STATIC_ROOT = os.path.join(BASE_DIR, 'static')
@@ -609,8 +625,14 @@ CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_RESULT_EXTENDED = True
 CELERY_ENABLE_UTC = True
 
-if BUILD_TYPE in ["staging", "development"]:
-    pass
+"""
+Worker concurrency: number of prefork child processes per celery worker.
+Defaults to the CPU count when unset. Ephemeral/test deployments should set
+DJ_CELERY_WORKER_CONCURRENCY (e.g. "1") to keep memory overhead low.
+"""
+_celery_worker_concurrency = os.environ.get("DJ_CELERY_WORKER_CONCURRENCY", "").strip()
+if _celery_worker_concurrency:
+    CELERY_WORKER_CONCURRENCY = int(_celery_worker_concurrency)
 
 """
 django-rest-password reset config:
@@ -623,7 +645,7 @@ DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE = True
 DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
-if (IS_PROD or USE_MQ_AS_BROKER) and (not USE_REDIS_AS_BROKER):
+if (BUILD_TYPE == BuildType.PRODUCTION or USE_MQ_AS_BROKER) and (not USE_REDIS_AS_BROKER):
     # Sadly it turnsour that celery doesn't support redis clusters
     # So we will need to use Rabbit MQ instead
     # url, port = get_redis_connect_url_port()
@@ -675,7 +697,7 @@ EMAILS_APP = {
     ],
 }
 
-if IS_PROD:
+if BUILD_TYPE == BuildType.PRODUCTION:
     # disable browsable api in production
     REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = ["rest_framework.renderers.JSONRenderer"]
 
@@ -703,7 +725,7 @@ SPECTACULAR_SETTINGS = {
 }
 
 
-if IS_DEV or EMPHIRIAL or (REDIS_PASSWORD is None):
+if BUILD_TYPE == BuildType.DEVELOPMENT or EMPHIRIAL or (REDIS_PASSWORD is None):
     REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
     CHANNEL_LAYERS = {
         "default": {
@@ -713,15 +735,14 @@ if IS_DEV or EMPHIRIAL or (REDIS_PASSWORD is None):
             },
         }
     }
-elif IS_PROD and (REDIS_PASSWORD is not None):
+elif BUILD_TYPE == BuildType.PRODUCTION and (REDIS_PASSWORD is not None):
     """
     SSL true seems required, 'diss://' in the url doesn't seem to suffice: https://github.com/django/channels_redis/issues/235
     """
     url, port = get_redis_connect_url_port()
     path = f"{REDIS_PROTOCOL}://{url}:{port}"
-    if IS_PROD:
-        r_auth_token = os.environ["DJ_REDIS_PASSWORD"]
-        path = f"{REDIS_PROTOCOL}://:{r_auth_token}@{url}:{port}"
+    r_auth_token = os.environ["DJ_REDIS_PASSWORD"]
+    path = f"{REDIS_PROTOCOL}://:{r_auth_token}@{url}:{port}"
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -743,10 +764,17 @@ DATABASES = (
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
-            "OPTIONS": {"timeout": 10},
+            "OPTIONS": {
+                "timeout": 30,
+                # WAL so readers don't block the writer; IMMEDIATE takes the write lock at
+                # BEGIN, so a concurrent writer waits out `timeout` instead of failing at the
+                # deferred read->write upgrade (which no timeout covers).
+                "init_command": "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;",
+                "transaction_mode": "IMMEDIATE",
+            },
         }
     }
-    if ((IS_DEV and ("DJ_DATABASE_ENGINE" not in os.environ)) or USE_SQLITE)
+    if ((BUILD_TYPE == BuildType.DEVELOPMENT and ("DJ_DATABASE_ENGINE" not in os.environ)) or USE_SQLITE)
     else {
         "default": {
             "ENGINE": "django.db.backends.{}".format(os.environ["DJ_DATABASE_ENGINE"]),
@@ -765,7 +793,9 @@ DATABASES = (
     }
 )
 
-if IS_PROD or IS_STAGE or (os.environ.get("DJ_DEVELOPMENT_ALLOW_EMAILS", "false").lower() in ("true", "1", "t")):
+if BUILD_TYPE == BuildType.PRODUCTION or (
+    os.environ.get("DJ_DEVELOPMENT_ALLOW_EMAILS", "false").lower() in ("true", "1", "t")
+):
     EMAIL_HOST = "smtp.sendgrid.net"
     EMAIL_HOST_USER = "apikey"
     EMAIL_HOST_PASSWORD = os.environ["DJ_SG_SENDGRID_API_KEY"]
@@ -798,7 +828,7 @@ For loading webpack static files
 - in production we instead copy the `./front` files to `/front`
 """
 WEBPACK_LOADER = {
-    app: {  # Configure seperate loaders for every app!
+    app: {  # Configure separate loaders for every app!
         "CACHE": not DEBUG,
         "STATS_FILE": f"/front/webpack-stats/{app}/webpack-stats.json",
         "BUNDLE_DIR_NAME": f"/front/dist/{app}",
@@ -812,8 +842,8 @@ WEBPACK_LOADER = {
 Default language code of the application
 this reflects which language the translation of the app are written in
 so as long the default the incode translations are english **dont change this**
-as default language the user will always have a fallback langugae
-english no matter if frontent translation failes
+as default language the user will always have a fallback language
+english no matter if frontend translations fail
 """
 LANGUAGE_CODE = "en"
 TIME_ZONE = os.environ.get("DJ_TIME_ZONE", "UTC")
@@ -994,10 +1024,31 @@ SIMPLE_JWT = {
         days=SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_DAYS,
     ),
 }
-DJANGO_TESTING = bool_env("DJANGO_TESTING", "false")
+DJANGO_TESTING = IS_TEST_ENV
 IS_CI = bool_env("CI", "false")
 ENABLE_E2E_TEST_APIS = bool_env("DJ_ENABLE_E2E_TEST_APIS", "false")
 E2E_TEST_APIS_ENABLED = ENABLE_E2E_TEST_APIS and IS_CI and DJANGO_TESTING
+
+
+## Google Forms URLs
+GOOGLE_FORM_MATCH_REMOVED_NO_CONTACT = (
+    "https://docs.google.com/forms/d/e/1FAIpQLSdR9ZwNPra9Lt7SCsqiTR2E_xA4FIj4i2JAuKGp8bA-6Wj7xQ/viewform"
+)
+GOOGLE_FORM_MATCH_REMOVED_GHOSTED = (
+    "https://docs.google.com/forms/d/e/1FAIpQLSck918AL9dST6Dqp9DtOvtBC0-3BWJfB2pPZc31DUjCSWEOyg/viewform"
+)
+GOOGLE_FORM_STILL_IN_CONTACT_MATCH_FORM1 = "https://docs.google.com/forms/d/e/1FAIpQLScZpHVBkd9oXMTXGwH6aIUS8-Ep3LGbmHzx0wKYTA0fDpzJtQ/viewform?entry.1868418501={user_uuid}&entry.1064841735={match_uuid}"
+GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER = (
+    # form named '2026 Impact Umfrage - Deutschlernende'
+    "https://docs.google.com/forms/d/e/1FAIpQLSeRiEUt9ZHNsPWeHlRMJSrR6jAagGO-u8jKZlJdJ3SvQqKgpA/viewform"
+)
+GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER = (
+    # form named '2026 Impact Umfrage - Volunteers'
+    "https://docs.google.com/forms/d/e/1FAIpQLScLdpyDzaf_JS9hWE6ok6_xENc34RbPv7Wg--Qb1NhqFl8cjQ/viewform"
+)
+GOOGLE_FORM_SHARE_STORY_URL = (
+    "https://docs.google.com/forms/d/e/1FAIpQLSct9CPNv-8wjV1WMg9tPfm7RyqBeZgkFOAz0qABIqu4uRdSTg/viewform"
+)
 
 
 ## Auto E-Mails:
@@ -1009,8 +1060,14 @@ EMULATE_AUTO_EMAILS__U023_U024_U025 = bool_env("DJ_EMULATE_AUTO_EMAILS__U023_U02
 ENABLE_AUTO_EMAILS__M012_M013_M014 = bool_env("DJ_ENABLE_AUTO_EMAILS__M012_M013_M014", "false")
 EMULATE_AUTO_EMAILS__M012_M013_M014 = bool_env("DJ_EMULATE_AUTO_EMAILS__M012_M013_M014", "true")
 
-ENABLE_AUTO_EMAILS__M023 = bool_env("DJ_ENABLE_AUTO_EMAILS__M023", "false")
-EMULATE_AUTO_EMAILS__M023 = bool_env("DJ_EMULATE_AUTO_EMAILS__M023", "true")
+ENABLE_AUTO_EMAILS__M022_M023 = bool_env(
+    "DJ_ENABLE_AUTO_EMAILS__M022_M023",
+    os.environ.get("DJ_ENABLE_AUTO_EMAILS__M023", "false"),
+)
+EMULATE_AUTO_EMAILS__M022_M023 = bool_env(
+    "DJ_EMULATE_AUTO_EMAILS__M022_M023",
+    os.environ.get("DJ_EMULATE_AUTO_EMAILS__M023", "true"),
+)
 
 ENABLE_AUTO_EMAILS__M024_M025 = bool_env("DJ_ENABLE_AUTO_EMAILS__M024_M025", "false")
 EMULATE_AUTO_EMAILS__M024_M025 = bool_env("DJ_EMULATE_AUTO_EMAILS__M024_M025", "true")
@@ -1024,11 +1081,14 @@ EMULATE_AUTO_EMAILS__U072_U073_U074 = bool_env("DJ_EMULATE_AUTO_EMAILS__U072_U07
 ENABLE_AUTO_EMAILS__U081_U082_U083_U084 = bool_env("DJ_ENABLE_AUTO_EMAILS__U081_U082_U083_U084", "false")
 EMULATE_AUTO_EMAILS__U081_U082_U083_U084 = bool_env("DJ_EMULATE_AUTO_EMAILS__U081_U082_U083_U084", "true")
 
-ENABLE_AUTO_EMAILS__M043_M044_M045 = bool_env("DJ_ENABLE_AUTO_EMAILS__M042_M043_M044", "false")
-EMULATE_AUTO_EMAILS__M043_M044_M045 = bool_env("DJ_EMULATE_AUTO_EMAILS__M042_M043_M044", "true")
-
-ENABLE_AUTO_EMAILS__U053_U054 = bool_env("DJ_ENABLE_AUTO_EMAILS__U053_U054", "false")
-EMULATE_AUTO_EMAILS__U053_U054 = bool_env("DJ_EMULATE_AUTO_EMAILS__U053_U054", "true")
+ENABLE_AUTO_EMAILS__M043_M044_M045 = bool_env(
+    "DJ_ENABLE_AUTO_EMAILS__M043_M044_M045",
+    os.environ.get("DJ_ENABLE_AUTO_EMAILS__M042_M043_M044", "false"),
+)
+EMULATE_AUTO_EMAILS__M043_M044_M045 = bool_env(
+    "DJ_EMULATE_AUTO_EMAILS__M043_M044_M045",
+    os.environ.get("DJ_EMULATE_AUTO_EMAILS__M042_M043_M044", "true"),
+)
 
 ENABLE_AUTO_EMAILS__U051_U071 = bool_env("DJ_ENABLE_AUTO_EMAILS__U051_U071", "false")
 EMULATE_AUTO_EMAILS__U051_U071 = bool_env("DJ_EMULATE_AUTO_EMAILS__U051_U071", "true")
@@ -1036,13 +1096,19 @@ EMULATE_AUTO_EMAILS__U051_U071 = bool_env("DJ_EMULATE_AUTO_EMAILS__U051_U071", "
 ENABLE_AUTO_EMAILS__FM021_FM022 = bool_env("DJ_ENABLE_AUTO_EMAILS__FM021_FM022", "false")
 EMULATE_AUTO_EMAILS__FM021_FM022 = bool_env("DJ_EMULATE_AUTO_EMAILS__FM021_FM022", "true")
 
+ENABLE_AUTO_EMAILS__U053_U054 = bool_env("DJ_ENABLE_AUTO_EMAILS__U053_U054", "false")
+EMULATE_AUTO_EMAILS__U053_U054 = bool_env("DJ_EMULATE_AUTO_EMAILS__U053_U054", "true")
+
 ENABLE_AUTO_EMAILS__M051 = bool_env("DJ_ENABLE_AUTO_EMAILS__M051", "false")
 EMULATE_AUTO_EMAILS__M051 = bool_env("DJ_EMULATE_AUTO_EMAILS__M051", "true")
+
+ENABLE_AUTO_EMAILS__M053_M054_M055 = bool_env("DJ_ENABLE_AUTO_EMAILS__M053_M054_M055", "false")
+EMULATE_AUTO_EMAILS__M053_M054_M055 = bool_env("DJ_EMULATE_AUTO_EMAILS__M053_M054_M055", "true")
 
 ENABLE_AUTO_EMAIL_LOGS = (
     ENABLE_AUTO_EMAILS__U023_U024_U025
     or ENABLE_AUTO_EMAILS__M012_M013_M014
-    or ENABLE_AUTO_EMAILS__M023
+    or ENABLE_AUTO_EMAILS__M022_M023
     or ENABLE_AUTO_EMAILS__M024_M025
     or ENABLE_AUTO_EMAILS__M031_M032_M033_M042
     or ENABLE_AUTO_EMAILS__U072_U073_U074
@@ -1052,6 +1118,7 @@ ENABLE_AUTO_EMAIL_LOGS = (
     or ENABLE_AUTO_EMAILS__U051_U071
     or ENABLE_AUTO_EMAILS__FM021_FM022
     or ENABLE_AUTO_EMAILS__M051
+    or ENABLE_AUTO_EMAILS__M053_M054_M055
 )
 
 ENABLE_DAILY_SMS_REPORT = bool_env("DJ_ENABLE_DAILY_SMS_REPORT", "false")
@@ -1063,6 +1130,8 @@ EXTRA_CUSTOM_ONBOARDING_COMPANIES = string_list_env("DJ_EXTRA_CUSTOM_ONBOARDING_
 CUSTOM_ONBOARDING_COMPANIES = [
     "lingoda",
     "fh-aachen",
+    "fh-aachen-so26",
+    "fh-aachen-wi2627",
     "self-organized-kaiserslautern",
 ] + EXTRA_CUSTOM_ONBOARDING_COMPANIES
 EXTRA_SKIP_EMAIL_VERIFICATION_COMPANIES = string_list_env("DJ_EXTRA_SKIP_EMAIL_VERIFICATION_COMPANIES", [])
@@ -1070,12 +1139,76 @@ SKIP_EMAIL_VERIFICATION_COMPANIES = [] + EXTRA_SKIP_EMAIL_VERIFICATION_COMPANIES
 
 # Match Priority Settings
 EXTRA_MATCH_PRIORITY_COMPANIES = string_list_env("DJ_EXTRA_MATCH_PRIORITY_COMPANIES", ["odoo-eip-fms"])
-MATCH_PRIORITY_COMPANIES = ["accenture", "generali", "lingoda", "fh-aachen"] + EXTRA_MATCH_PRIORITY_COMPANIES
+MATCH_PRIORITY_COMPANIES = [
+    "accenture",
+    "amazon",
+    "beff",
+    "generali",
+    "lingoda",
+    "fh-aachen",
+    "fh-aachen-so26",
+    "fh-aachen-wi2627",
+    "dl-ukr",
+    "clubdialog",
+] + EXTRA_MATCH_PRIORITY_COMPANIES
 
 # Scoring Related Settings
+# Each entry also covers its cohort companies, e.g. "fh-aachen" covers "fh-aachen-so26"
 SCORES_DISABLED_TIME_OVERLAP = ["fh-aachen"]
 
 PUSH_NOTIFICATIONS_SETTINGS = {
     "UNIQUE_REG_ID": True,
     "GCM_DEVICE_MODEL": "management.MobileDevice",
 }
+
+CREATE_OPEN_CHAT_AUTOMATION_USER = bool_env(
+    "DJ_CREATE_OPEN_CHAT_AUTOMATION_USER",
+    "true" if OPEN_CHAT_BOOTSTRAP_ENABLED_DEFAULT else "false",
+)
+OPEN_CHAT_AUTOMATION_USER_EMAIL = os.environ.get(
+    "DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL",
+    "tim+open-chat@little-world.com",
+)
+OPEN_CHAT_AUTOMATION_USER_PASSWORD = os.environ.get(
+    "DJ_OPEN_CHAT_AUTOMATION_USER_PASSWORD",
+    "Test123!",
+)
+OPEN_CHAT_TOOL_API_HOST = os.environ.get("DJ_OPEN_CHAT_TOOL_API_HOST", "").strip() or None
+
+# Gates the extra reply-suggestion skills (mark_read, slack_feedback, keep_open)
+# in the Open Chat suggestion prompt. Off by default so existing bots keep the
+# plain reply behaviour until the rollout is enabled.
+OPEN_CHAT_REPLY_SUGGESTION_SKILLS_ENABLED = bool_env(
+    "DJ_OPEN_CHAT_REPLY_SUGGESTION_SKILLS_ENABLED",
+    "false",
+)
+
+# Optional override for the directory holding the committed support-context
+# markdown (handbook + message templates) injected into reply suggestions.
+# Empty → use back/open_chat/support_context/.
+OPEN_CHAT_SUPPORT_CONTEXT_DIR = os.environ.get("DJ_OPEN_CHAT_SUPPORT_CONTEXT_DIR", "").strip() or None
+
+CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION = bool_env(
+    "DJ_CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION",
+    "true" if OPEN_CHAT_BOOTSTRAP_ENABLED_DEFAULT else "false",
+)
+
+if (IS_TEST_ENV or IS_TEST_COMMAND) and not ENABLE_OPEN_CHAT_BOOTSTRAP_IN_TESTS:
+    CREATE_OPEN_CHAT_AUTOMATION_USER = False
+    CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION = False
+
+DEFAULT_OPEN_CHAT_CONFIGURATION = {
+    "open_chat_api_key": os.environ.get("DJ_DEFAULT_OPEN_CHAT_API_KEY", "password"),
+    "open_chat_user": os.environ.get("DJ_DEFAULT_OPEN_CHAT_USER", "admin"),
+    "open_chat_host": os.environ.get("DJ_DEFAULT_OPEN_CHAT_HOST", "http://host.docker.internal:1984"),
+}
+
+# Browser/iframe origin for Open Chat. Empty → fall back to each config's open_chat_host.
+# In Docker, open_chat_host is often a compose DNS name (e.g. open-chat-go-backend) that
+# browsers cannot resolve; set this to http://localhost:1984 for local admin iframes.
+DEFAULT_OPEN_CHAT_FRONTEND_HOST = os.environ.get("DJ_DEFAULT_OPEN_CHAT_FRONTEND_HOST", "").strip() or None
+
+
+OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION = bool_env(
+    "DJ_OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION", "false"
+)

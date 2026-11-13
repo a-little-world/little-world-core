@@ -1,0 +1,552 @@
+{
+  "version": "1.0.0",
+  "title": "Little World User and Match Journeys",
+  "sources": {
+    "user_journey_csv": "user_journey_board.csv",
+    "match_journey_csv": "match_journey_board.csv"
+  },
+  "journeys": {
+    "user": {
+      "title": "User Journey",
+      "list_kind": "users",
+      "steps": [
+        {
+          "id": "user-u000",
+          "code": "U000",
+          "status": "Sign-up",
+          "title": "User Created",
+          "description": "Account created, email not verified yet.",
+          "list_id": "journey_v2__user_created",
+          "communications": [
+            {
+              "id": "U001",
+              "channel": "email",
+              "template_id": "automatic-emails-u001",
+              "implemented": true,
+              "trigger": "Immediately after registration"
+            }
+          ]
+        },
+        {
+          "id": "user-u010",
+          "code": "U010",
+          "status": "Sign-up",
+          "title": "Email Verified",
+          "description": "Email confirmed, user still needs to complete form.",
+          "list_id": "journey_v2__email_verified",
+          "communications": [
+            {
+              "id": "U012",
+              "channel": "email",
+              "template_id": "automatic-emails-u012",
+              "implemented": true,
+              "trigger": "Reminder after verification"
+            }
+          ]
+        },
+        {
+          "id": "user-u020",
+          "code": "U020",
+          "status": "Sign-up",
+          "title": "User Form Completed",
+          "description": "Profile form completed, onboarding still pending.",
+          "list_id": "journey_v2__user_form_completed",
+          "communications": [
+            {
+              "id": "U023L",
+              "channel": "email",
+              "template_id": "automatic-emails-u023l",
+              "implemented": true,
+              "trigger": "3 days after form completion (learners)"
+            },
+            {
+              "id": "U023V",
+              "channel": "email",
+              "template_id": "automatic-emails-u023v",
+              "implemented": true,
+              "trigger": "3 days after form completion (volunteers)"
+            },
+            {
+              "id": "U024L",
+              "channel": "email",
+              "template_id": "automatic-emails-u024l",
+              "implemented": true,
+              "trigger": "7 days after form completion (learners)"
+            },
+            {
+              "id": "U024V",
+              "channel": "email",
+              "template_id": "automatic-emails-u024v",
+              "implemented": true,
+              "trigger": "7 days after form completion (volunteers)"
+            },
+            {
+              "id": "U025",
+              "channel": "email",
+              "template_id": "automatic-emails-u025",
+              "implemented": true,
+              "trigger": "14 days after form completion"
+            }
+          ]
+        },
+        {
+          "id": "user-u030",
+          "code": "U030",
+          "status": "Inactive-User",
+          "title": "Too Low German Level",
+          "description": "Learner is below required language threshold.",
+          "list_id": "journey_v2__too_low_german_level",
+          "communications": []
+        },
+        {
+          "id": "user-u040",
+          "code": "U040",
+          "status": "Sign-up",
+          "title": "Booked Onboarding Call",
+          "description": "Onboarding call booked but not yet completed.",
+          "list_id": "journey_v2__booked_onboarding_call",
+          "communications": [
+            {
+              "id": "U043",
+              "channel": "email",
+              "template_id": "automatic-emails-u043",
+              "implemented": true,
+              "trigger": "24 hours before call"
+            },
+            {
+              "id": "U044",
+              "channel": "email",
+              "template_id": "automatic-emails-u044",
+              "implemented": true,
+              "trigger": "1 hour before call"
+            }
+          ]
+        },
+        {
+          "id": "user-u050",
+          "code": "U050",
+          "status": "Sign-up",
+          "title": "No Show (First Time)",
+          "description": "User missed onboarding call and did not cancel.",
+          "list_id": "journey_v2__no_show",
+          "communications": [
+            {
+              "id": "U051L",
+              "channel": "email",
+              "template_id": "automatic-emails-u051l",
+              "implemented": true,
+              "trigger": "After first no-show (learners)"
+            },
+            {
+              "id": "U051V",
+              "channel": "email",
+              "template_id": "automatic-emails-u051v",
+              "implemented": true,
+              "trigger": "After first no-show (volunteers)"
+            },
+            {
+              "id": "U053L",
+              "channel": "email",
+              "template_id": "automatic-emails-u053l",
+              "implemented": true,
+              "trigger": "2 days after no-show (learners)"
+            },
+            {
+              "id": "U053V",
+              "channel": "email",
+              "template_id": "automatic-emails-u053v",
+              "implemented": true,
+              "trigger": "2 days after no-show (volunteers)"
+            },
+            {
+              "id": "U054",
+              "channel": "email",
+              "template_id": "automatic-emails-u054",
+              "implemented": true,
+              "trigger": "7 days after no-show"
+            }
+          ]
+        },
+        {
+          "id": "user-u070",
+          "code": "U070",
+          "status": "Active-User",
+          "title": "First Search",
+          "description": "User is onboarded and searching for first match.",
+          "list_id": "journey_v2__first_search_v2",
+          "communications": [
+            {
+              "id": "U071",
+              "channel": "email",
+              "template_id": "automatic-emails-u071",
+              "implemented": true,
+              "trigger": "After successful onboarding"
+            },
+            {
+              "id": "U072",
+              "channel": "email",
+              "template_id": "automatic-emails-u072",
+              "implemented": true,
+              "trigger": "No match after 10 days"
+            },
+            {
+              "id": "U073",
+              "channel": "email",
+              "template_id": "automatic-emails-u073",
+              "implemented": true,
+              "trigger": "No match after 21 days"
+            },
+            {
+              "id": "U074",
+              "channel": "email",
+              "template_id": "automatic-emails-u074",
+              "implemented": true,
+              "trigger": "No match after 30 days"
+            }
+          ]
+        },
+        {
+          "id": "user-u080",
+          "code": "U080",
+          "status": "Active-User",
+          "title": "Searching Again",
+          "description": "User is searching again after previous match history.",
+          "list_id": "journey_v2__user_searching_again",
+          "communications": [
+            {
+              "id": "U081",
+              "channel": "email",
+              "template_id": "automatic-emails-u081",
+              "implemented": true,
+              "trigger": "When user starts searching again"
+            },
+            {
+              "id": "U082",
+              "channel": "email",
+              "template_id": "automatic-emails-u082",
+              "implemented": true,
+              "trigger": "Searching again, no match after 10 days"
+            },
+            {
+              "id": "U083",
+              "channel": "email",
+              "template_id": "automatic-emails-u083",
+              "implemented": true,
+              "trigger": "Searching again, no match after 21 days"
+            },
+            {
+              "id": "U084",
+              "channel": "email",
+              "template_id": "automatic-emails-u084",
+              "implemented": true,
+              "trigger": "Searching again, no match after 30 days"
+            }
+          ]
+        },
+        {
+          "id": "user-u090",
+          "code": "U090",
+          "status": "Active-User",
+          "title": "Match Takeoff",
+          "description": "User has a proposed or kickoff match.",
+          "list_id": "journey_v2__match_takeoff",
+          "communications": []
+        },
+        {
+          "id": "user-u100",
+          "code": "U100",
+          "status": "Active-User",
+          "title": "Active Match",
+          "description": "User has at least one ongoing active match.",
+          "list_id": "journey_v2__active_matching",
+          "communications": []
+        },
+        {
+          "id": "user-u200",
+          "code": "U200",
+          "status": "Inactive-User",
+          "title": "Happy Inactive",
+          "description": "User completed match journey and is not currently active.",
+          "list_id": "journey_v2__happy_inactive",
+          "communications": []
+        }
+      ],
+      "edges": [
+        { "source": "user-u000", "target": "user-u010", "label": "verify" },
+        { "source": "user-u010", "target": "user-u020", "label": "complete form" },
+        { "source": "user-u020", "target": "user-u030", "label": "low language", "kind": "warning" },
+        { "source": "user-u020", "target": "user-u040", "label": "book onboarding" },
+        { "source": "user-u040", "target": "user-u050", "label": "no show", "kind": "warning" },
+        { "source": "user-u040", "target": "user-u070", "label": "attended" },
+        { "source": "user-u070", "target": "user-u090", "label": "match proposed" },
+        { "source": "user-u090", "target": "user-u100", "label": "ongoing" },
+        { "source": "user-u100", "target": "user-u200", "label": "completed" },
+        { "source": "user-u100", "target": "user-u080", "label": "search again" },
+        { "source": "user-u080", "target": "user-u090", "label": "new proposal" }
+      ]
+    },
+    "match": {
+      "title": "Match Journey",
+      "list_kind": "matches",
+      "steps": [
+        {
+          "id": "match-m000",
+          "code": "M000",
+          "status": "Pre-Matching",
+          "title": "Proposal Pending",
+          "description": "Match proposal exists and requires learner confirmation.",
+          "list_id": "match_journey_v2__proposed_matches",
+          "communications": []
+        },
+        {
+          "id": "match-m010",
+          "code": "M010",
+          "status": "Kickoff-Match",
+          "title": "Confirmed No Contact",
+          "description": "Match is confirmed but no messages or calls yet.",
+          "list_id": "match_journey_v2__confirmed_no_contact",
+          "communications": [
+            {
+              "id": "M012",
+              "channel": "email",
+              "template_id": "automatic-emails-m012",
+              "implemented": true,
+              "trigger": "2 days after confirmed without interaction"
+            },
+            {
+              "id": "M013",
+              "channel": "email",
+              "template_id": "automatic-emails-m013",
+              "implemented": true,
+              "trigger": "7 days after confirmed without interaction"
+            },
+            {
+              "id": "M014",
+              "channel": "email",
+              "template_id": "automatic-emails-m014",
+              "implemented": true,
+              "trigger": "14 days after confirmed without interaction"
+            }
+          ]
+        },
+        {
+          "id": "match-m020",
+          "code": "M020",
+          "status": "Kickoff-Match",
+          "title": "Single Party Contact",
+          "description": "Only one partner wrote messages.",
+          "list_id": "match_journey_v2__confirmed_single_party_contact",
+          "communications": [
+            {
+              "id": "M023",
+              "channel": "email",
+              "template_id": "automatic-emails-m023",
+              "implemented": true,
+              "trigger": "No response for 3 days"
+            },
+            {
+              "id": "M024",
+              "channel": "email",
+              "template_id": "automatic-emails-m024",
+              "implemented": true,
+              "trigger": "No response for 7 days"
+            },
+            {
+              "id": "M025",
+              "channel": "email",
+              "template_id": "automatic-emails-m025",
+              "implemented": true,
+              "trigger": "Support update for waiting partner"
+            }
+          ]
+        },
+        {
+          "id": "match-m030",
+          "code": "M030",
+          "status": "Kickoff-Match",
+          "title": "First Contact",
+          "description": "Both users exchanged first messages, no mutual call yet.",
+          "list_id": "match_journey_v2__first_contact",
+          "communications": [
+            {
+              "id": "M031",
+              "channel": "email",
+              "template_id": "automatic-emails-m031",
+              "implemented": true,
+              "trigger": "7 days after first interaction without video call"
+            },
+            {
+              "id": "M032",
+              "channel": "email",
+              "template_id": "automatic-emails-m032",
+              "implemented": true,
+              "trigger": "14 days after first interaction without video call"
+            },
+            {
+              "id": "M033",
+              "channel": "email",
+              "template_id": "automatic-emails-m033",
+              "implemented": true,
+              "trigger": "21 days after first interaction without video call"
+            },
+            {
+              "id": "M042",
+              "channel": "email",
+              "template_id": "automatic-emails-m042",
+              "implemented": true,
+              "trigger": "30 days after first interaction without video call"
+            }
+          ]
+        },
+        {
+          "id": "match-m040",
+          "code": "M040",
+          "status": "Ongoing-Match",
+          "title": "Ongoing",
+          "description": "Match has recurring interaction and at least one mutual call.",
+          "list_id": "match_journey_v2__match_ongoing",
+          "communications": [
+            {
+              "id": "M043",
+              "channel": "email",
+              "template_id": "automatic-emails-m043",
+              "implemented": true,
+              "trigger": "After 5 completed video calls"
+            },
+            {
+              "id": "M044",
+              "channel": "email",
+              "template_id": "automatic-emails-m044",
+              "implemented": true,
+              "trigger": "After 8 completed video calls"
+            },
+            {
+              "id": "M045",
+              "channel": "email",
+              "template_id": "automatic-emails-m045",
+              "implemented": true,
+              "trigger": "After 10 completed video calls"
+            }
+          ]
+        },
+        {
+          "id": "match-m050",
+          "code": "M050",
+          "status": "Ongoing-Match",
+          "title": "Free Play",
+          "description": "Match is still active after desired duration window.",
+          "list_id": "match_journey_v2__match_free_play",
+          "communications": [
+            {
+              "id": "M051",
+              "channel": "email",
+              "template_id": "automatic-emails-m051",
+              "implemented": true,
+              "trigger": "When marked as ongoing off-platform"
+            },
+            {
+              "id": "M053",
+              "channel": "email",
+              "template_id": "automatic-emails-m053",
+              "implemented": true,
+              "trigger": "5 weeks after match creation"
+            },
+            {
+              "id": "M054",
+              "channel": "email",
+              "template_id": "automatic-emails-m054",
+              "implemented": true,
+              "trigger": "8 weeks after match creation"
+            },
+            {
+              "id": "M055",
+              "channel": "email",
+              "template_id": "automatic-emails-m055",
+              "implemented": true,
+              "trigger": "10 weeks after match creation"
+            }
+          ]
+        },
+        {
+          "id": "match-m060",
+          "code": "M060",
+          "status": "Finished-Matching",
+          "title": "Completed Match",
+          "description": "Match completed by platform or completion criteria.",
+          "list_id": "match_journey_v2__completed_match",
+          "communications": []
+        },
+        {
+          "id": "match-fm001",
+          "code": "FM001",
+          "status": "Failed-Matching",
+          "title": "Never Confirmed",
+          "description": "Proposal expired without confirmation.",
+          "list_id": "match_journey_v2__never_confirmed",
+          "communications": [
+            {
+              "id": "FM001",
+              "channel": "email",
+              "template_id": "automatic-emails-fm001",
+              "implemented": true,
+              "trigger": "When proposal expires"
+            }
+          ]
+        },
+        {
+          "id": "match-fm021",
+          "code": "FM021",
+          "status": "Failed-Matching",
+          "title": "User Ghosted",
+          "description": "Single-sided interaction ended with ghosting.",
+          "list_id": "match_journey_v2__user_ghosted",
+          "communications": [
+            {
+              "id": "FM021",
+              "channel": "email",
+              "template_id": "automatic-emails-fm021",
+              "implemented": true,
+              "trigger": "Ghosting flow to ghoster"
+            },
+            {
+              "id": "FM022",
+              "channel": "email",
+              "template_id": "automatic-emails-fm022",
+              "implemented": true,
+              "trigger": "Ghosting flow to ghosted partner"
+            }
+          ]
+        },
+        {
+          "id": "match-fm011",
+          "code": "FM011",
+          "status": "Failed-Matching",
+          "title": "No Contact",
+          "description": "Match ended because contact did not start or stopped.",
+          "list_id": "match_journey_v2__no_contact",
+          "communications": [
+            {
+              "id": "FM011",
+              "channel": "email",
+              "template_id": "automatic-emails-fm011",
+              "implemented": true,
+              "trigger": "Auto-removal due to no contact"
+            }
+          ]
+        }
+      ],
+      "edges": [
+        { "source": "match-m000", "target": "match-m010", "label": "confirmed" },
+        { "source": "match-m010", "target": "match-m020", "label": "one-sided chat" },
+        { "source": "match-m020", "target": "match-m030", "label": "both engage" },
+        { "source": "match-m030", "target": "match-m040", "label": "first call" },
+        { "source": "match-m040", "target": "match-m050", "label": "after 10 weeks" },
+        { "source": "match-m040", "target": "match-m060", "label": "completed" },
+        { "source": "match-m000", "target": "match-fm001", "label": "expired", "kind": "warning" },
+        { "source": "match-m020", "target": "match-fm021", "label": "ghosted", "kind": "warning" },
+        { "source": "match-m010", "target": "match-fm011", "label": "no contact", "kind": "warning" },
+        { "source": "match-m030", "target": "match-fm011", "label": "contact stopped", "kind": "warning" }
+      ]
+    }
+  }
+}

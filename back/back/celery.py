@@ -43,8 +43,16 @@ def close_db_connections_after_task(**kwargs):
     This prevents connection exhaustion by ensuring connections don't stay
     open for CONN_MAX_AGE (600s) after task completion.
     Whilist A high connection time out is desirable for the API endpoints, as then the backend re-uses connections.
+
+    Eager tasks are the exception. They run inline in the caller's process, which under
+    test is inside the ``TestCase`` transaction — closing here severs the connection the
+    test itself is using and every query after it raises ``InterfaceError: connection
+    already closed``. There is no pooled connection to reclaim in that case anyway.
     """
     from django import db
+
+    if app.conf.task_always_eager:
+        return
 
     db.connections.close_all()
 
@@ -100,13 +108,17 @@ if settings.ENABLE_AUTO_EMAILS__M012_M013_M014:
         }
     )
 
-if settings.ENABLE_AUTO_EMAILS__M023:
+if settings.ENABLE_AUTO_EMAILS__M022_M023:
     auto_emails.update(
         {
+            "automatic-emails-m022": {
+                "task": "management.tasks.automatic_emails_m022",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            },
             "automatic-emails-m023": {
                 "task": "management.tasks.automatic_emails_m023",
                 "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
-            }
+            },
         }
     )
 
@@ -125,6 +137,16 @@ if settings.ENABLE_AUTO_EMAILS__M031_M032_M033_M042:
         {
             "automatic-emails-m031-m032-m033-m042": {
                 "task": "management.tasks.automatic_emails_m031_m032_m033_m042",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
+        }
+    )
+
+if settings.ENABLE_AUTO_EMAILS__M053_M054_M055:
+    auto_emails.update(
+        {
+            "automatic-emails-m053-m054-m055": {
+                "task": "management.tasks.automatic_emails_m053_m054_m055",
                 "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
             }
         }
@@ -234,7 +256,7 @@ if not settings.PROD_ATTACH:
             "task": "im_allive_task",
             "schedule": 60.0 * 5.0,  # Every five minutes!
         },
-        **(prod_shedules if settings.IS_PROD else {}),
+        **(prod_shedules if settings.ENABLE_PRODUCTION_CELERY_SCHEDULES else {}),
     }
 
 """

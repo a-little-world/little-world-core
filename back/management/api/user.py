@@ -1,16 +1,17 @@
 import urllib.parse
 from dataclasses import dataclass
-from typing import Optional
 
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Q
 from django.dispatch import receiver
 from django.http import HttpResponseRedirect
 from django.urls import path
 from django.utils import timezone
 from django_rest_passwordreset.signals import reset_password_token_created
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from ipware import get_client_ip as get_ip
 from rest_framework import authentication, permissions, serializers, status
@@ -32,11 +33,13 @@ from management.controller import (
     is_base_management_user,
 )
 from management.models.banner import Banner, BannerSerializer
+from management.models.courses import Course
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.profile import SelfProfileSerializer
 from management.models.state import FrontendStatusSerializer, State
 from management.permissions import ManagementPermission
+from management.self_onboarding_progress import self_onboarding_user_payload
 from management.tasks import send_email_background
 
 """
@@ -63,6 +66,7 @@ class VerifyEmail(APIView):
     # we will enforce authentication for 'post' though
     permission_classes = []
     authentication_classes = [SessionAuthentication, NativeOnlyJWTAuthentication]
+    serializer_class = serializers.Serializer
 
     def get(self, request, **kwargs):
         """
@@ -149,7 +153,7 @@ class AutoLoginData:
     u: str  # user
     lookup: str  # lookup: uuid | email | id
     token: str  # auto login token
-    n: Optional[str] = None  # next page
+    n: str | None = None  # next page
 
 
 class AutoLoginSerializer(serializers.Serializer):
@@ -165,6 +169,7 @@ class AutoLoginSerializer(serializers.Serializer):
 class LoginApi(APIView):
     permission_classes = []
     authentication_classes = []
+    serializer_class = LoginSerializer
 
     @extend_schema(
         request=LoginSerializer(many=False),
@@ -241,6 +246,7 @@ class LogoutApi(APIView):
         NativeOnlyJWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = serializers.Serializer
 
     @utils.track_event(
         name="User Logged out", event_type=Event.EventTypeChoices.REQUEST, tags=["frontend", "log-out", "sensitive"]
@@ -266,7 +272,7 @@ class CheckPasswordApi(APIView):
     authentication_classes = [authentication.SessionAuthentication, NativeOnlyJWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(request=CheckPwSerializer(many=False))
+    @extend_schema(request=CheckPwSerializer(many=False), responses={200: None, 400: None})
     def post(self, request):
         serializer = CheckPwSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -298,6 +304,7 @@ class ChangePasswordApi(APIView):
         NativeOnlyJWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ChangePasswordSerializer
 
     @extend_schema(request=ChangePasswordSerializer(many=False))
     def post(self, request):
@@ -345,6 +352,7 @@ class ChangeEmailApi(APIView):
         NativeOnlyJWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ChangeEmailSerializer
 
     @extend_schema(request=ChangeEmailSerializer(many=False))
     def post(self, request):
@@ -403,7 +411,7 @@ class ConfirmMatchesApi(APIView):
     ]
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(request=ConfirmMatchesSerializer(many=False))
+    @extend_schema(request=ConfirmMatchesSerializer(many=False), responses={200: OpenApiTypes.STR})
     def post(self, request):
         serializer = ConfirmMatchesSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -418,21 +426,32 @@ class ConfirmMatchesApi(APIView):
         try:
             # In order to keep things working while we deploy the new strategy this api will also populate all db-fileds required for the new strategy
             # This is a little more involved than it has to be, this will once finished be replaced by 'ConfirmMatchesApi2'
+            confirmed_matches = []
             for match_uuid in params.matches:
                 partner = get_user_by_uuid(match_uuid)
-
-                from management.models.matches import Match
 
                 match = Match.get_match(request.user, partner)
                 assert match.exists()
                 match = match.first()
                 assert match is not None
                 match.confirm(request.user)
+                confirmed_matches.append(match)
 
         except Exception as e:
             raise serializers.ValidationError({"matches": str(e)})
 
-        return Response(get_translation("api.user_matches_successfully_confirmed"))
+        from management.api.matches import AdvancedUserMatchSerializer
+
+        return Response(
+            {
+                "message": get_translation("api.user_matches_successfully_confirmed"),
+                "matches": AdvancedUserMatchSerializer(
+                    confirmed_matches,
+                    many=True,
+                    context={"user": request.user},
+                ).data,
+            }
+        )
 
 
 @dataclass
@@ -450,6 +469,7 @@ class SearchingStateApiSerializer(serializers.Serializer):
 class UpdateSearchingStateApi(APIView):
     authentication_classes = [authentication.SessionAuthentication, NativeOnlyJWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = SearchingStateApiSerializer
 
     @extend_schema(request=SearchingStateApiSerializer(many=False))
     def post(self, request, **kwargs):
@@ -503,6 +523,7 @@ class UnmatchSelfSerializer(serializers.Serializer):
         return validated_data
 
 
+@extend_schema(request=None, responses={200: OpenApiTypes.STR})
 @login_required
 @api_view(["POST"])
 def resend_verification_mail(request):
@@ -524,6 +545,7 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
     reset_password_token.user.send_email("reset-password", context={"reset_password_url": reset_password_url})
 
 
+@extend_schema(request=None, responses={302: None})
 @login_required
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -536,6 +558,13 @@ def still_active_callback(request):
     return HttpResponseRedirect(redirect_to="/app/chat")
 
 
+@extend_schema(
+    request=None,
+    responses=inline_serializer(
+        name="DeleteAccountResponse",
+        fields={"success": serializers.BooleanField()},
+    ),
+)
 @login_required
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -558,40 +587,39 @@ def get_user_data(user):
     user_profile = user.profile
 
     pre_match_appointent = None
-    pre_matching_app = PreMatchingAppointment.objects.filter(user=user).first()
+    pre_matching_app = PreMatchingAppointment.get_current_for_user(user)
     if pre_matching_app:
         pre_match_appointent = PreMatchingAppointmentSerializer(pre_matching_app).data
 
-    cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(
-        encoded_params=urllib.parse.urlencode(
-            {"email": str(user.email), "uuid": str(user.uuid), "bookingcode": str(user.state.prematch_booking_code)}
-        ),
-        calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID,
-    )
+    if pre_matching_app is not None and pre_matching_app.calcom_booking_uid:
+        # A stored booking uid means cal.com can reschedule the existing booking. The plain
+        # prefill link would create a second booking and leave the first one dangling.
+        cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(
+            encoded_params=urllib.parse.urlencode({"rescheduleUid": pre_matching_app.calcom_booking_uid}),
+            calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID,
+        )
+    else:
+        cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(
+            encoded_params=urllib.parse.urlencode(
+                {"email": str(user.email), "uuid": str(user.uuid), "bookingcode": str(user.state.prematch_booking_code)}
+            ),
+            calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID,
+        )
 
     # Get video call join link if available
     pre_call_join_link = settings.PREMATCHING_CALL_JOIN_LINK
     profile_data = SelfProfileSerializer(user_profile).data
 
-    has_atleast_one_match = Match.objects.filter(
-        Q(user1=user) | Q(user2=user),
-        support_matching=False,
-    ).exists()
+    has_atleast_one_match = Match.journey().filter(Q(user1=user) | Q(user2=user)).exists()
 
     # Retrieve the active banner for the specific user type
     banner_query = Banner.get_active_banner(user)
 
     banner = BannerSerializer(banner_query).data if banner_query else {}
 
-    has_random_calls_access = ("herrduenschnlate+" in str(user.email)) or user.has_perm(
-        ManagementPermission.USE_RANDOM_CALLS
-    )
+    has_random_calls_access = user.has_perm(ManagementPermission.USE_RANDOM_CALLS)
 
-    # Self-onboarding progress as a fraction in [0, 1] based on the ordered step list.
-    onboarding_rank = get_rank_from_stored_self_onboarding_value(user_state.self_onboarding_step_id)
-    self_onboarding_progress = 0.0
-    if SELF_ONBOARDING_COMPLETED_RANK > 0:
-        self_onboarding_progress = max(0.0, min(1.0, onboarding_rank / float(SELF_ONBOARDING_COMPLETED_RANK)))
+    onboarding = self_onboarding_user_payload(user)
 
     return {
         "id": str(user.uuid),
@@ -606,11 +634,11 @@ def get_user_data(user):
         "calComAppointmentLink": cal_data_link,
         "hadPreMatchingCall": user_state.had_prematching_call,
         "hasMatchingPermissions": user.has_perm(ManagementPermission.MATCHING_USER),
-        "selfOnboardingCompleted": user_state.self_onboarding_completed,
-        "selfOnboardingStepId": user_state.self_onboarding_step_id or "",
-        "selfOnboardingProgress": self_onboarding_progress,
+        "selfOnboardingCompleted": onboarding["selfOnboardingCompleted"],
+        "selfOnboardingStepId": onboarding["selfOnboardingStepId"],
+        "selfOnboardingProgress": onboarding["selfOnboardingProgress"],
         "isOnboarded": user_state.is_onboarded,
-        "selfOnboardingStarted": user_state.self_onboarding_started,
+        "selfOnboardingStarted": onboarding["selfOnboardingStarted"],
         "forceMatchEligible": user_state.force_match_eligible,
         "emailVerified": user_state.email_authenticated,
         "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED,
@@ -651,6 +679,7 @@ def user_profile(request):
         return Response({"error": str(e)}, status=400)
 
 
+@extend_schema(auth=[], responses={200: OpenApiTypes.BOOL})
 @api_view(["GET"])
 @permission_classes([AllowAny])
 @authentication_classes([silent(SessionAuthentication), silent(NativeOnlyJWTAuthentication)])
@@ -670,29 +699,82 @@ SELF_ONBOARDING_STEP_TO_RANK = {step_id: idx + 1 for idx, step_id in enumerate(S
 SELF_ONBOARDING_COMPLETED_RANK = len(SELF_ONBOARDING_STEP_ORDER)
 
 
-def get_rank_from_stored_self_onboarding_value(stored: str | None) -> int:
-    """Rank from stored canonical step id only; unknown or empty values are treated as not started."""
+def get_self_onboarding_marker_ranks() -> tuple[dict[str, int], int]:
+    """Every id the walkthrough can report -> 1-based chapter rank, plus the rank that finishes it.
+
+    The walkthrough reports a chapter's last quiz step id, or the chapter id itself when the
+    chapter is video-only and has no quiz step to report, so both forms are accepted. Ranks are
+    built from the course's actual chapters: while the accepted ids were hardcoded, adding a
+    chapter or leaving its quiz empty made this endpoint reject the update, and the caller
+    swallows the error — progress silently stopped being recorded, and a walkthrough ending on
+    such a chapter never onboarded the volunteer at all.
+
+    The hardcoded order stays as the fallback for stored values and for a database with no
+    self-onboarding course rows yet.
+    """
+    course = Course.objects.filter(slug=Course.SELF_ONBOARDING_SLUG).first()
+    chapters = list(course.chapters.prefetch_related("quiz_steps").order_by("order")) if course else []
+    if not chapters:
+        return dict(SELF_ONBOARDING_STEP_TO_RANK), SELF_ONBOARDING_COMPLETED_RANK
+
+    ranks: dict[str, int] = {}
+    for idx, chapter in enumerate(chapters):
+        rank = idx + 1
+        ranks[chapter.chapter_id] = rank
+        for step in chapter.quiz_steps.all():
+            ranks[f"{chapter.chapter_id}_q_{step.order}"] = rank
+    # Values stored before the course was editable still have to resolve to a rank.
+    for step_id, legacy_rank in SELF_ONBOARDING_STEP_TO_RANK.items():
+        ranks.setdefault(step_id, legacy_rank)
+    return ranks, len(chapters)
+
+
+def get_rank_from_stored_self_onboarding_value(stored: str | None, ranks: dict[str, int] | None = None) -> int:
+    """Rank from a stored walkthrough marker; unknown or empty values are treated as not started."""
     if not stored:
         return 0
     s = str(stored).strip()
     if not s:
         return 0
-    return SELF_ONBOARDING_STEP_TO_RANK.get(s, 0)
+    if ranks is None:
+        ranks, _ = get_self_onboarding_marker_ranks()
+    return ranks.get(s, 0)
 
 
-def get_self_onboarding_step_rank(request) -> int | None:
+def get_self_onboarding_step_rank(request, ranks: dict[str, int] | None = None) -> int | None:
     step_id = request.query_params.get("self_onboarding_step_id")
     if not step_id:
         return None
-    return SELF_ONBOARDING_STEP_TO_RANK.get(step_id)
+    if ranks is None:
+        ranks, _ = get_self_onboarding_marker_ranks()
+    return ranks.get(step_id)
 
 
+@extend_schema(
+    request=None,
+    parameters=[
+        OpenApiParameter(
+            name="self_onboarding_step_id",
+            location=OpenApiParameter.QUERY,
+            required=True,
+            type=OpenApiTypes.STR,
+        )
+    ],
+    responses=inline_serializer(
+        name="SelfOnboardingUpdateResponse",
+        fields={
+            "completed": serializers.BooleanField(),
+            "message": serializers.CharField(),
+        },
+    ),
+)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def self_onboarding_update(request):
+    ranks, completed_rank = get_self_onboarding_marker_ranks()
     step_id = request.query_params.get("self_onboarding_step_id")
-    self_onboarding_step_rank = get_self_onboarding_step_rank(request)
+    self_onboarding_step_rank = get_self_onboarding_step_rank(request, ranks)
     if self_onboarding_step_rank is None or not step_id:
         return Response(
             {
@@ -705,25 +787,35 @@ def self_onboarding_update(request):
     user = request.user
     completed = False
 
-    current_rank = get_rank_from_stored_self_onboarding_value(user.state.self_onboarding_step_id)
+    current_rank = get_rank_from_stored_self_onboarding_value(user.state.self_onboarding_step_id, ranks)
     if self_onboarding_step_rank > current_rank:
         user.state.self_onboarding_step_id = step_id
 
     if self_onboarding_step_rank > 0:
         user.state.self_onboarding_started = True
 
-    if self_onboarding_step_rank >= SELF_ONBOARDING_COMPLETED_RANK:
+    if self_onboarding_step_rank >= completed_rank:
         user.state.self_onboarding_completed_at = timezone.now()
         user.state.self_onboarding_completed = True
         user.state.is_onboarded = True
-        user.grant_permission(ManagementPermission.USE_RANDOM_CALLS)
         user.state.searching_state = State.SearchingStateChoices.SEARCHING
-        send_email_background.delay("automatic-emails-u071", user_id=user.id)
         user.state.attended_auto_email_u071_send = True
         user.state.attended_auto_email_u071_send_at = timezone.now()
         completed = True
 
-    user.state.save()
+    # Write the state and the permission together, and only enqueue the email once they are
+    # committed. The permission write and the broker call used to sit between the field
+    # assignments and the save, so an unreachable broker granted the permission, saved none
+    # of the onboarding state, and — because the client swallows the error — surfaced
+    # nothing: the volunteer looked onboarded to themselves and to nobody else.
+    with transaction.atomic():
+        user.state.save()
+        if completed:
+            user.grant_permission(ManagementPermission.USE_RANDOM_CALLS)
+
+    if completed:
+        send_email_background.delay("automatic-emails-u071", user_id=user.id)
+
     return Response(
         {
             "completed": completed,

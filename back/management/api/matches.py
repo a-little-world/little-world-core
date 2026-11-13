@@ -14,7 +14,7 @@ from translations import get_translation
 from video.models import LivekitSession, SerializeLivekitSession
 
 from management import controller
-from management.api.match_journey_filter_list import determine_match_bucket, get_match_bucket_label
+from management.api.matches_advanced import _apply_match_bucket_representation
 from management.api.scores import score_between_db_update
 from management.api.utils_advanced import enrich_report_unmatch_with_user_info
 from management.authentication import NativeOnlyJWTAuthentication
@@ -83,14 +83,16 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
         if "status" in self.context:
             representation["status"] = self.context["status"]
 
-        if ("determine_bucket" in self.context) and self.context["determine_bucket"]:
-            bucket = determine_match_bucket(instance.pk)
-            if bucket is not None:
-                representation["bucket"] = bucket
-                representation["bucket_label"] = get_match_bucket_label(bucket)
-            else:
-                representation["bucket"] = "unknown"
-                representation["bucket_label"] = get_match_bucket_label("unknown")
+        if self.context.get("determine_bucket"):
+            _apply_match_bucket_representation(
+                representation,
+                instance.pk,
+                {
+                    "determine_bucket": self.context.get("determine_bucket", False),
+                    "all_buckets": self.context.get("all_buckets", False),
+                    "bucket_map": self.context.get("bucket_map"),
+                },
+            )
 
         return representation
 
@@ -121,8 +123,8 @@ class GetMatchResponseSerializer(serializers.Serializer):
     description="Make a match between two users",
     request=MakeMatchSerializer,
 )
-@permission_classes([IsAdminOrMatchingUser])
 @api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
 def make_match(request):
     assert request.user.is_staff or request.user.has_perm(ManagementPermission.MATCHING_USER), (
         "User is not allowed to match users"

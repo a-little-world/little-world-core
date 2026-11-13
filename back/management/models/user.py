@@ -1,5 +1,8 @@
+from enum import StrEnum
+from typing import assert_never
 from uuid import uuid4
 
+from celery import current_app
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -8,11 +11,114 @@ from django.db.models import Q
 from emails.api.send_email import send_template_email
 from firebase_admin import messaging
 from rest_framework import serializers
+from webpack_loader.utils import get_static
 
 from back import utils
 from management.models.mobile_device import MobileDevice
 from management.models.notifications import Notification
 from management.permissions import ManagementPermission
+
+
+class PushNotificationType(StrEnum):
+    CHAT = "chat"
+    MATCH = "match"
+    ANNOUNCEMENT = "announcement"
+
+    @property
+    def notification_channel(self) -> str:
+        """The notification channel used for this notification type."""
+        match self:
+            case PushNotificationType.CHAT:
+                return "conversations"
+            case PushNotificationType.MATCH:
+                return "conversations"
+            case PushNotificationType.ANNOUNCEMENT:
+                return "announcements"
+        assert_never(self)
+
+    @property
+    def android_priority(self) -> str:
+        """FCM delivery priority: 'high' skips Doze batching, 'normal' can be delayed."""
+        match self:
+            case PushNotificationType.CHAT:
+                return "high"
+            case PushNotificationType.MATCH:
+                return "high"
+            case PushNotificationType.ANNOUNCEMENT:
+                return "normal"
+        assert_never(self)
+
+    @property
+    def profile_field(self) -> str:
+        """The `Profile` boolean field for this notification type."""
+        match self:
+            case PushNotificationType.CHAT:
+                return "push_notifications_chats_enabled"
+            case PushNotificationType.MATCH:
+                return "push_notifications_matches_enabled"
+            case PushNotificationType.ANNOUNCEMENT:
+                return "push_notifications_announcements_enabled"
+        assert_never(self)
+
+
+def bulk_push_devices(notification_type: PushNotificationType):
+    """All active devices of users opted in to this notification type."""
+    notifications_enabled_field = f"user__profile__{notification_type.profile_field}"
+    return MobileDevice.objects.filter(
+        active=True,
+        user__profile__push_notifications_enabled=True,
+        **{notifications_enabled_field: True},
+    )
+
+
+def send_bulk_push_notification(
+    title: str,
+    description: str,
+    notification_type: PushNotificationType,
+    path: str | None = None,
+    group: str | None = None,
+):
+    bulk_push_devices(notification_type).send_message(
+        build_push_message(title, description, notification_type, path, group)
+    )
+
+
+def build_push_message(
+    title: str,
+    description: str,
+    notification_type: PushNotificationType,
+    path: str | None = None,
+    group: str | None = None,
+) -> messaging.Message:
+    notification_type = PushNotificationType(notification_type)
+
+    data = {}
+    if path:
+        data["path"] = path
+    if group:
+        data["group"] = group
+
+    data = None if len(data.keys()) == 0 else data
+
+    return messaging.Message(
+        notification=messaging.Notification(title=title, body=description),
+        data=data,
+        android=messaging.AndroidConfig(
+            priority=notification_type.android_priority,
+            notification=messaging.AndroidNotification(channel_id=notification_type.notification_channel),
+        ),
+        apns=messaging.APNSConfig(
+            headers={"apns-priority": "5" if notification_type.android_priority == "normal" else "10"},
+            payload=messaging.APNSPayload(aps=messaging.Aps(sound="default", thread_id=group)),
+        ),
+        webpush=messaging.WebpushConfig(
+            notification=messaging.WebpushNotification(
+                title=title,
+                body=description,
+                icon=get_static("android-chrome-512x512.png", config="main_frontend"),
+            ),
+        ),
+    )
 
 
 class UserManager(BaseUserManager["User"]):
@@ -108,6 +214,18 @@ class User(AbstractUser):
 
         return settings.Settings.objects.get(user=self)
 
+    @property
+    def open_assigned_support_task_count(self) -> int:
+        from .support_task import SupportTask
+
+        return self.assigned_support_tasks.exclude(status=SupportTask.Status.COMPLETED).count()
+
+    @property
+    def open_related_support_task_count(self) -> int:
+        from .support_task import SupportTask
+
+        return self.related_support_tasks.exclude(status=SupportTask.Status.COMPLETED).count()
+
     # Not only having but also displaying the full identifier is not necessary
     def _abr_hash(self):
         return str(self.uuid)[:8]
@@ -145,7 +263,13 @@ class User(AbstractUser):
         permission_obj = permission.get_permission_object()
         if permission_obj is None:
             return False
+        had_permission = self.has_perm(permission)
         self.user_permissions.add(permission_obj)
+        if permission == ManagementPermission.RECEIVES_FULL_USER_ACCESS and not had_permission:
+            current_app.send_task(  # pyright: ignore[reportCallIssue]
+                "management.tasks.sync_full_user_access_for_manager",
+                kwargs={"manager_user_id": self.pk},
+            )
         return True
 
     def revoke_permission(self, permission: ManagementPermission) -> bool:
@@ -213,22 +337,53 @@ class User(AbstractUser):
             str(self.uuid)
         )
 
-    def send_notification(self, title, description, persist=False):
+    def send_notification(
+        self,
+        title: str,
+        description: str,
+        notification_type: PushNotificationType,
+        persist=False,
+        path=None,
+        group=None,
+    ):
         if persist:
             Notification.objects.create(user=self, title=title, description=description)
 
-        self.push_notification(title=title, description=description)
-        pass
-
-    def push_notification(self, title: str, description: str):
-        devices = MobileDevice.objects.filter(user=self)
-        message = messaging.Message(
-            notification=messaging.Notification(title=title, body=description),
+        self.push_notification(
+            title=title,
+            description=description,
+            notification_type=notification_type,
+            path=path,
+            group=group,
         )
 
-        # TODO: THere are multiple devices @JannisToelle how shall we handle this?        for device in devices:
-        for device in devices:
-            device.send_message(message)
+    def push_notification(
+        self,
+        title: str,
+        description: str,
+        notification_type: PushNotificationType | str,
+        path: str | None = None,
+        group: str | None = None,
+    ):
+        """Send a push notification to all of the user's devices."""
+        notification_type = PushNotificationType(notification_type)
+        self.push_devices(notification_type).send_message(
+            build_push_message(title, description, notification_type, path, group)
+        )
+
+    def push_devices(self, notification_type: PushNotificationType | str | None = None):
+        if not self.profile.push_notifications_enabled:
+            return MobileDevice.objects.none()
+        if notification_type is not None:
+            # can be serialized by celery, so cast it back
+            notification_type = PushNotificationType(notification_type)
+            if not getattr(self.profile, notification_type.profile_field):
+                return MobileDevice.objects.none()
+
+        devices = MobileDevice.objects.filter(user=self, active=True)
+        # send to online devices only if any exist, otherwise send to all
+        online = devices.online()
+        return online if online.exists() else devices
 
     def sms(self, send_initator, message, dont_send=False, skip_reason="skipped"):
         """ "Sends SMS to User if user has SMS Notification allowed and valid Phone number"""
@@ -280,13 +435,13 @@ class User(AbstractUser):
         there is a problem with authentication of the changed email check `user.state.past_emails`
         The user will still be allowed to use this api to change the email back
         there is the frontend `/change_email` for logged-in users
-        so if someone fasely changes their mail they can change it back
-        & user will be automaticly reidrected to `/mailverify/`
-        wich has a button `change-email` which redirects to `/change_email`
+        so if someone falsely changes their mail they can change it back
+        & user will be automatically redirected to `/mailverify/`
+        which has a button `change-email` which redirects to `/change_email`
         """
         from ..api.user import ChangeEmailSerializer
 
-        # We do an aditional email serialization here!
+        # We do an additional email serialization here!
         _s = ChangeEmailSerializer(data=dict(email=email))  # type: ignore
         _s.is_valid(raise_exception=True)
         prms = _s.save()
@@ -294,17 +449,21 @@ class User(AbstractUser):
         self.state.archive_email_adress(self.email)
         self.state.regnerate_email_auth_code()  # New auth code and pin !
 
-        # NOTE the save() method automaicly detects the email change and also changes the username
+        # NOTE the save() method automatically detects the email change and also changes the username
         # We do this so admins can edit emails in the admin pannel and changes are reflected as expected
         # self.username = prms.email  # <- so the user can login with that email now
         self.email = prms.email.lower()
         self.save()
-        self.send_email("automatic-emails-u001")
+        if send_verification_mail:
+            self.send_email("automatic-emails-u001")
 
     def message(
         self,
         msg,
         sender=None,
+        file=None,
+        *,
+        apply_delivery_side_effects=False,
         auto_mark_read=False,
         send_message_incoming=True,
         parsable_message=True,
@@ -314,6 +473,8 @@ class User(AbstractUser):
         Sends the users a chat message
         theoreticly this could be used to send a message from any sender
         """
+        from chat.helpers import create_and_deliver_message
+
         from ..controller import get_base_management_user
 
         if not sender:
@@ -321,6 +482,19 @@ class User(AbstractUser):
             sender = get_base_management_user()
 
         chat = Chat.get_or_create_chat(sender, self)
+
+        if apply_delivery_side_effects:
+            return create_and_deliver_message(
+                chat=chat,
+                sender=sender,
+                recipient=self,
+                text=msg,
+                file=file,
+                auto_mark_read=auto_mark_read,
+                send_websocket=(not auto_mark_read) or send_message_incoming,
+                send_websocket_to_sender=send_message_incoming_to_sender,
+            )
+
         message = Message.objects.create(
             chat=chat,
             sender=sender,
@@ -356,6 +530,7 @@ class User(AbstractUser):
                             "user": sender,
                         },
                     ).data,
+                    sender_is_self=True,
                 ).send(str(sender.uuid))
         return message
 

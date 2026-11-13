@@ -8,8 +8,10 @@ services:
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: "${WEBPACK_PUBLIC_PATH}"
         BUILD_TYPE: "${BUILD_TYPE}"
+        COOKIE_BANNER_BACKEND_URL: "${COOKIE_BANNER_BACKEND_URL:-}"
         ENTRYPOINT: "${ENTRYPOINT}"
         DEVELOPMENT: "${DEVELOPMENT}"
+        TESTING: "${TESTING:-false}"
     image: "${APP_IMAGE_URL}"
     ports:
       - "8000:8000"
@@ -19,7 +21,7 @@ services:
       DJ_REDIS_HOST: "${DJ_REDIS_HOST:-redis}"
       DJ_REDIS_PORT: "${DJ_REDIS_PORT:-6379}"
       EMPHIRIAL: "1"
-      DJ_DEBUG: 1
+      DJ_DEBUG: 0
       DJ_SECRET_KEY: "bla bla"
       DJ_ALLOWED_HOSTS: "*"
       DJ_TIME_ZONE: UTC

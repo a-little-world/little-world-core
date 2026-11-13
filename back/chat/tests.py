@@ -6,14 +6,13 @@ from django.utils import timezone as dj_timezone
 from freezegun import freeze_time
 from management.models.matches import Match
 from management.random_test_users import create_test_user
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 from chat.models import Chat, Message
 
 
 class TestFirstChatInteraction(TestCase):
     def setUp(self):
-        from rest_framework.test import APIRequestFactory
-
         self.factory = APIRequestFactory()
 
         # Create two users
@@ -119,3 +118,38 @@ class TestFirstChatInteraction(TestCase):
         # Now send a new message via API which should trigger the backfill logic
         response = self._send_message_via_api(self.user2, "Fourth message")
         assert response.status_code == 200
+
+
+class TestMessagesInvalidChatUuid(TestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.user1 = create_test_user(50000, None, "Test123!", "invalid-uuid-user1@test.de")
+        self.user2 = create_test_user(50001, None, "Test123!", "invalid-uuid-user2@test.de")
+        Match.objects.create(user1=self.user1, user2=self.user2)
+        self.chat = Chat.get_or_create_chat(self.user1, self.user2)
+
+    def test_list_with_invalid_chat_uuid_returns_400(self):
+        from chat.api.messages import MessagesModelViewSet
+
+        request = self.factory.get("/api/messages/:chatUuid/?page=1&page_size=100")
+        force_authenticate(request, user=self.user1)
+        view = MessagesModelViewSet.as_view({"get": "list"})
+        response = view(request, chat_uuid=":chatUuid")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data, {"error": "chat_uuid is not a valid UUID"})
+
+    def test_send_with_invalid_chat_uuid_returns_400(self):
+        from chat.api.messages import MessagesModelViewSet
+
+        request = self.factory.post(
+            "/api/messages/:chatUuid/send/",
+            {"text": "hello"},
+            format="json",
+        )
+        force_authenticate(request, user=self.user1)
+        view = MessagesModelViewSet.as_view({"post": "send"})
+        response = view(request, chat_uuid=":chatUuid")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data, {"error": "chat_uuid is not a valid UUID"})

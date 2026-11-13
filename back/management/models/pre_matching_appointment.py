@@ -16,6 +16,20 @@ class PreMatchingAppointment(models.Model):
 
     sms_task = models.TextField(default="")
 
+    #: cal.com's booking `uid`. Lets a later reschedule/cancel webhook find the row it
+    #: refers to (and stops a delayed cancel for a superseded booking from deleting a
+    #: newer one).
+    calcom_booking_uid = models.CharField(max_length=255, blank=True, default="")
+
+    @classmethod
+    def get_current_for_user(cls, user):
+        """The most recently created appointment for a user.
+
+        Deliberately ordered: a bare ``filter(user=user).first()`` is DB-order
+        dependent and can pick an arbitrary stale duplicate.
+        """
+        return cls.objects.filter(user=user).order_by("-created").first()
+
 
 class PreMatchingAppointmentSerializer(serializers.ModelSerializer):
     class Meta:

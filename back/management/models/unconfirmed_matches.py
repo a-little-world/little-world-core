@@ -7,6 +7,87 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 from management.models.profile import Profile, ProposalProfileSerializer
+from management.validators import DAYS, SLOTS
+
+DAY_LABELS_DE = {
+    "mo": "Montag",
+    "tu": "Dienstag",
+    "we": "Mittwoch",
+    "th": "Donnerstag",
+    "fr": "Freitag",
+    "sa": "Samstag",
+    "su": "Sonntag",
+}
+
+
+def _group_consecutive_slots(slots):
+    ordered = [slot for slot in SLOTS if slot in slots]
+    if not ordered:
+        return []
+
+    groups = [[ordered[0]]]
+    for slot in ordered[1:]:
+        if SLOTS.index(slot) == SLOTS.index(groups[-1][-1]) + 1:
+            groups[-1].append(slot)
+        else:
+            groups.append([slot])
+    return groups
+
+
+def _format_slot_range(slots):
+    start_hour, _ = slots[0].split("_")
+    _, end_hour = slots[-1].split("_")
+    return f"{start_hour}-{end_hour} Uhr"
+
+
+def _get_overlap_candidates(availability1, availability2, lookahead_days=7):
+    if not isinstance(availability1, dict) or not isinstance(availability2, dict):
+        return []
+
+    today = timezone.localdate()
+    best_per_date = {}
+
+    for offset in range(1, lookahead_days + 1):
+        overlap_date = today + timedelta(days=offset)
+        day = DAYS[overlap_date.weekday()]
+        overlapping_slots = [
+            slot for slot in SLOTS if slot in availability1.get(day, []) and slot in availability2.get(day, [])
+        ]
+        if not overlapping_slots:
+            continue
+
+        for slot_group in _group_consecutive_slots(overlapping_slots):
+            candidate = {
+                "day": day,
+                "day_offset": offset,
+                "slot_count": len(slot_group),
+                "slots": slot_group,
+                "overlap_date": overlap_date,
+            }
+            existing = best_per_date.get(overlap_date)
+            if existing is None or candidate["slot_count"] > existing["slot_count"]:
+                best_per_date[overlap_date] = candidate
+
+    return list(best_per_date.values())
+
+
+def _select_overlap_candidates(candidates, max_suggestions=2):
+    ranked = sorted(candidates, key=lambda item: (-item["slot_count"], item["day_offset"]))
+    return sorted(ranked[:max_suggestions], key=lambda item: item["day_offset"])
+
+
+def format_suggested_availability_overlap(availability1, availability2, max_suggestions=2):
+    candidates = _select_overlap_candidates(
+        _get_overlap_candidates(availability1, availability2),
+        max_suggestions=max_suggestions,
+    )
+    lines = []
+    for candidate in candidates:
+        lines.append(
+            f"• {DAY_LABELS_DE[candidate['day']]} ({candidate['overlap_date']:%d.%m.}), "
+            f"{_format_slot_range(candidate['slots'])}"
+        )
+    return "\n".join(lines)
 
 
 class MatchType(models.TextChoices):
@@ -58,11 +139,11 @@ def serialize_proposed_matches(matching_proposals, user):
 
 
 class ProposedMatch(models.Model):
-    """One object stored for every jet unconfirmed match"""
+    """One object stored for every yet unconfirmed match"""
 
     hash = models.UUIDField(default=uuid4, editable=False, unique=True)
 
-    # (monitor for bugs!) are there? potential side effect here? if users decide to change their user type after they recieved a matching suggestion!?
+    # (monitor for bugs!) are there? potential side effect here? if users decide to change their user type after they received a matching suggestion!?
     # Maybe we should later save the users here as volunteer / learner and not perform any lookups on the current profile since it could have changed?
     user1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="unconfirmed_match_user1")
 
@@ -176,18 +257,31 @@ class ProposedMatch(models.Model):
         """Alias for get_confirming_user (the user who confirms is the learner for STANDARD proposals)."""
         return self.get_confirming_user()
 
+    def send_push(self, translation_key, user):
+        from translations import get_translation
+
+        from management.models.user import PushNotificationType
+
+        user.push_notification(
+            title=get_translation(f"{translation_key}.title", lang="de"),
+            description=get_translation(f"{translation_key}.description", lang="de"),
+            notification_type=PushNotificationType.MATCH,
+            path="/app",
+        )
+
     def send_initial_mail(self):
-        """Send the new-match proposal email for STANDARD proposals only."""
+        """Send the new-match proposal push + email for STANDARD proposals only."""
         if self.match_type != MatchType.STANDARD:
-            return
-        if self.send_inital_mail:
             return
         confirming_user = self.get_confirming_user()
         if confirming_user is None:
             return
+        if self.send_inital_mail:
+            return
         self.send_inital_mail = True
         self.save(update_fields=["send_inital_mail"])
         confirming_user.send_email("confirm-match-1", proposed_match_id=self.id)
+        self.send_push("push_notification.confirm_match", confirming_user)
 
     def send_expiration_mail(self):
         if self.expired_mail_send:
@@ -212,6 +306,7 @@ class ProposedMatch(models.Model):
                 self.reminder_send = True
                 self.save(update_fields=["reminder_send"])
                 confirming_user.send_email("confirm-match-2", proposed_match_id=self.id)
+                self.send_push("push_notification.confirm_match_reminder", confirming_user)
         return reminder_due
 
     def get_shared_data(self, user):

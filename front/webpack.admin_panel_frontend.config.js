@@ -32,6 +32,7 @@ var config = function (env) {
     },
     output: {
       path: path.join(__dirname, outputPath),
+      clean: true,
       filename: "[name]-[hash].js",
       publicPath: publicPath,
     },
@@ -61,9 +62,6 @@ var config = function (env) {
         ),
         __DEV__: env.DEBUG === "1",
         "global.__DEV__": env.DEBUG === "1",
-        "process.env.BUILD_TYPE": JSON.stringify(
-          env.DEBUG === "1" ? "dev" : "pro"
-        ),
       }),
     ],
     devtool: devTool,
@@ -77,6 +75,10 @@ var config = function (env) {
             extensions: [".js", ".jsx", ".ts", ".tsx"],
           },
           include: [path.resolve(__dirname, "apps/admin_panel_frontend/src")],
+        },
+        {
+          test: /\.(md|mdx)$/,
+          type: "asset/source",
         },
         {
           test: /\.svg$/,

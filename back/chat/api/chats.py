@@ -51,6 +51,7 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         is_matching_user = self.request.user.has_perm(ManagementPermission.MATCHING_USER)
+        partner_uuid = self.request.query_params.get("user_uuid")
 
         queryset = (
             Chat.objects.filter(Q(u1=self.request.user) | Q(u2=self.request.user), is_temporary=False)
@@ -65,6 +66,16 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
             )
             .filter(Q(has_messages=True) | Q(is_active_match=True))
         )
+
+        if partner_uuid:
+            try:
+                uuid_lib.UUID(partner_uuid)
+            except ValueError as exc:
+                raise serializers.ValidationError({"user_uuid": "Invalid UUID format."}) from exc
+
+            queryset = queryset.filter(
+                Q(u1=self.request.user, u2__uuid=partner_uuid) | Q(u2=self.request.user, u1__uuid=partner_uuid)
+            )
 
         if is_matching_user:
             queryset = queryset.annotate(
@@ -97,11 +108,5 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
             ).first()
         if not chat:
             return Response({"error": "Chat doesn't exist or you have no permission to interact with it!"}, status=403)
-        return Response(
-            self.serializer_class(
-                chat,
-                context={
-                    "request": request,
-                },
-            ).data
-        )
+        serializer = self.get_serializer(chat)
+        return Response(serializer.data)

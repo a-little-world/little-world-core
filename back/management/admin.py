@@ -16,13 +16,13 @@ from management.models import (
     dynamic_user_list,
     mobile_device,
     newsletter,
-    post_call_review,
     pre_matching_appointment,
-    question_deck,
+    question_cards,
     scores,
     short_links,
     sms,
     stats,
+    survey,
 )
 
 
@@ -180,11 +180,20 @@ class MatchModelAdmin(admin.ModelAdmin):
 
 @admin.register(models.state.State)
 class StateAdmin(HijackUserAdminMixin, admin.ModelAdmin):
-    list_display = ("user", "created_at", "user_form_state", "searching_state", "user_category", "tags")
+    list_display = (
+        "user",
+        "created_at",
+        "user_form_state",
+        "searching_state",
+        "searching_state_last_updated",
+        "user_category",
+        "tags",
+    )
     list_editable = (
         "user_category",
         "tags",
     )
+    readonly_fields = ("searching_state_last_updated",)
     search_fields = ("user", "created_at", "user_form_state")
     ordering = ("user", "created_at")
 
@@ -194,6 +203,7 @@ class StateAdmin(HijackUserAdminMixin, admin.ModelAdmin):
 
 class StateAdminInline(admin.StackedInline):
     model = models.state.State
+    readonly_fields = ("searching_state_last_updated",)
 
 
 @admin.action(description="Match selected")
@@ -364,19 +374,20 @@ class SessionAdmin(admin.ModelAdmin):
     list_display = ["session_key", "_session_data", "expire_date"]
 
 
-@admin.register(question_deck.QuestionCardsDeck)
-class QuestionCardDeckAdmin(admin.ModelAdmin):
-    list_display = ("uuid", "user")
-
-
-@admin.register(question_deck.QuestionCardCategories)
+@admin.register(question_cards.QuestionCardCategory)
 class QuestionCardCategoryAdmin(admin.ModelAdmin):
-    list_display = ("uuid", "ref_id", "content")
+    list_display = ("uuid", "sort_order", "content")
 
 
-@admin.register(question_deck.QuestionCard)
+@admin.register(question_cards.QuestionCard)
 class QuestionCardAdmin(admin.ModelAdmin):
-    list_display = ("uuid", "ref_id", "category", "content")
+    list_display = ("uuid", "sort_order", "category", "is_active", "content")
+
+
+@admin.register(question_cards.UserQuestionCardPreference)
+class UserQuestionCardPreferenceAdmin(admin.ModelAdmin):
+    list_display = ("user", "card", "kind", "created_at")
+    list_filter = ("kind",)
 
 
 @admin.register(scores.TwoUserMatchingScore)
@@ -399,9 +410,33 @@ class DynamicUserListAdmin(admin.ModelAdmin):
     list_display = ("name", "description", "created_at", "updated_at")
 
 
-@admin.register(post_call_review.PostCallReview)
-class PostCallReviewAdmin(admin.ModelAdmin):
-    list_display = ("user", "live_session", "rating", "created_at", "updated_at")
+@admin.register(survey.SurveyCampaign)
+class SurveyCampaignAdmin(admin.ModelAdmin):
+    """Inspection only. Campaigns are created and edited in the admin panel under
+    Communications → Surveys, which is also where the delivery and answer stats live."""
+
+    list_display = ("slug", "name", "active", "trigger", "repeat_scope", "available_via_link", "created_at")
+    list_filter = ("active", "trigger", "repeat_scope", "available_via_link")
+    search_fields = ("slug", "name")
+    readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(survey.SurveyResponse)
+class SurveyResponseAdmin(admin.ModelAdmin):
+    list_display = (
+        "campaign",
+        "user",
+        "status",
+        "delivery_channel",
+        "shown_count",
+        "created_at",
+        "submitted_at",
+    )
+    list_filter = ("campaign", "status", "delivery_channel")
+    list_select_related = ("campaign", "user")
+    search_fields = ("user__email",)
+    readonly_fields = ("created_at", "updated_at", "shown_at", "opened_at", "submitted_at")
+    date_hierarchy = "created_at"
 
 
 @admin.register(sms.SmsModel)

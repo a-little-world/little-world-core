@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "charliermarsh.ruff",
+    "detachhead.basedpyright",
+    "ms-python.python",
+    "dbaeumer.vscode-eslint"
+  ]
+}

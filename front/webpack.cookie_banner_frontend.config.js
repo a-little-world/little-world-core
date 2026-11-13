@@ -32,6 +32,7 @@ var config = function (env) {
     },
     output: {
       path: path.join(__dirname, outputPath),
+      clean: true,
       filename: '[name]-[hash].js',
       publicPath: publicPath,
     },
@@ -51,6 +52,11 @@ var config = function (env) {
             to: path.join(__dirname, outputPath),
           },
         ],
+      }),
+      new webpack.DefinePlugin({
+        'process.env.COOKIE_BANNER_BACKEND_URL': JSON.stringify(
+          env.BACKEND_URL || ''
+        ),
       }),
     ],
     devtool: devTool,

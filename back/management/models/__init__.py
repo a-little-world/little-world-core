@@ -29,6 +29,7 @@ from . import (
     state,
     stats,
     support_task,
+    survey,
     translation_logs,
     unconfirmed_matches,
     user,
@@ -60,4 +61,5 @@ __all__ = [
     "stats",
     "short_links",
     "support_task",
+    "survey",
 ]

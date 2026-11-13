@@ -1,3 +1,5 @@
+from zoneinfo import ZoneInfo
+
 from django.urls import path
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -14,6 +16,10 @@ from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.state import State
 from management.models.user import User
 from management.permissions import ManagementPermission
+
+#: Prematching calls are all run from Germany, so slot times are shown in German local
+#: time. Deliberately not `settings.TIME_ZONE` / `timezone.localtime`, which is UTC.
+APPOINTMENT_TIMEZONE = ZoneInfo("Europe/Berlin")
 
 
 class PreMatchingAppointmentAdvancedSerializer(serializers.ModelSerializer):
@@ -120,11 +126,18 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
 
         filter_lists = []
         for start_time in start_times:
+            # The slot time as a person reads it. `str(start_time)` gave the picker
+            # "2026-08-21 10:00:00+00:00" for every entry, which is neither the time the
+            # call happens at nor scannable in a dropdown.
+            slot_start = start_time.astimezone(APPOINTMENT_TIMEZONE) if timezone.is_aware(start_time) else start_time
             filter_lists.append(
                 FilterListEntry(
                     name=str(start_time),
-                    description=str(start_time),
-                    queryset=lambda qs: qs.filter(start_time=start_time),
+                    description=slot_start.strftime("%d/%m/%Y %H:%M"),
+                    # Bound as a default argument: a bare closure over the loop variable
+                    # would leave every entry filtering on the last slot.
+                    queryset=lambda qs, slot=start_time: qs.filter(start_time=slot),
+                    category_override="Appointment",
                 ).to_dict()
             )
 
@@ -218,6 +231,13 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
             start_time = timezone.make_aware(start_time, timezone.get_current_timezone())
         if timezone.is_naive(end_time):
             end_time = timezone.make_aware(end_time, timezone.get_current_timezone())
+
+        # A manually created appointment replaces any earlier one for this user. Leaving the
+        # old row (and its reminders) around makes the unordered current-appointment lookup
+        # ambiguous, so drop it before inserting the new one.
+        from management.api.calcom import _delete_stale_appointments
+
+        _delete_stale_appointments(user)
 
         appointment = PreMatchingAppointment.objects.create(
             user=user,

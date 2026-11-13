@@ -12,7 +12,7 @@ from translations import get_translation
 
 from management.api.user import get_user_data
 from management.authentication import NativeOnlyJWTAuthentication
-from management.models import custom_banner_event_filters
+from management.models.audience_filters import filter__learners_outside_germany
 from management.models.profile import Profile, SelfProfileSerializer
 from management.models.state import State
 from management.permissions import ManagementPermission
@@ -66,7 +66,7 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
         if params.options:
             _s = transform_add_options_serializer(_s)
 
-        return Response(_s(getattr(self.request.user, "profile")).data)
+        return Response(_s(self.request.user.profile).data)
 
     def get_object(self):
         return self.get_queryset()[0]
@@ -79,7 +79,7 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
 
     def get_queryset(self):
         user = self.request.user
-        return [getattr(user, "profile")]
+        return [user.profile]
 
 
 class ProfileCompletedApi(APIView):
@@ -131,7 +131,7 @@ class ProfileCompletedApi(APIView):
                         first_name=user.profile.first_name
                     )
 
-                if custom_banner_event_filters.filter__learners_outside_germany(user):
+                if filter__learners_outside_germany(user):
                     default_message = get_translation("auto_messages.learner_outside_germany", lang="de").format(
                         first_name=user.profile.first_name
                     )

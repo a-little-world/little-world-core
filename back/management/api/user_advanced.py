@@ -1,9 +1,10 @@
-from datetime import datetime, time
+import logging
+from collections import defaultdict
 from typing import Literal, cast
 
-from chat.models import Chat, ChatSerializer, Message, MessageSerializer
-from django.core.paginator import InvalidPage
-from django.db.models import CharField, Max, Q, Value
+from chat.helpers import MatchSendForbidden, MessageSendValidationError
+from chat.models import Chat, ChatConnections, ChatSerializer, Message, MessageSerializer
+from django.db.models import CharField, Max, OuterRef, Q, Subquery, Value
 from django.db.models.functions import Concat
 from django.urls import path
 from django.utils import timezone
@@ -11,20 +12,30 @@ from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from emails.models import AdvancedEmailLogSerializer, EmailLog
 from rest_framework import serializers, status, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 
+from management.api.export_utils import build_paginated_export_response, ensure_export_fields
 from management.api.matches import AdvancedUserMatchSerializer
+from management.api.schema import DetailedPaginatedResponseSerializer
 from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
 from management.api.user_report_utils import USER_EXPORT_COLUMN_NAMES, build_user_report_entry
-from management.api.utils_advanced import filterset_schema_dict
-from management.controller import delete_user, make_tim_support_user
-from management.helpers import (
-    DetailedPagination,
-    DetailedPaginationMixin,
-    IsAdminOrMatchingUser,
+from management.api.utils_advanced import (
+    FilterSchemaResponseSerializer,
+    apply_journey_bucket_fields,
+    filterset_schema_dict,
+    parse_bool_query_param,
 )
+from management.controller import (
+    change_user_email,
+    delete_user,
+    get_base_management_user,
+    make_tim_support_user,
+    migrate_user,
+    set_user_company,
+)
+from management.helpers import DetailedPagination, DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.models.dynamic_user_list import DynamicUserList
 from management.models.management_tasks import ManagementTaskSerializer, MangementTask
@@ -37,30 +48,98 @@ from management.models.profile import MinimalProfileSerializer, Profile
 from management.models.scores import TwoUserMatchingScore
 from management.models.sms import SmsModel, SmsSerializer
 from management.models.state import State, StateSerializer
-from management.models.unconfirmed_matches import ProposedMatch, serialize_proposed_matches
+from management.models.support_task import SupportTask, SupportTaskAction
+from management.models.unconfirmed_matches import MatchType, ProposedMatch, serialize_proposed_matches
 from management.models.user import User
-from management.permissions import MANAGEMENT_PERMISSION_LABELS, ManagementPermission
+from management.permissions import (
+    MANAGEMENT_PERMISSION_LABELS,
+    ManagementPermission,
+    user_can_edit_management_permissions,
+    user_can_grant_apply_management_permissions,
+    user_can_manage_user_management_permissions,
+)
+from management.self_onboarding_progress import (
+    self_onboarding_completed_at_for_user,
+    self_onboarding_progress_prefetch,
+)
 from management.tasks import matching_algo_v2
 
-user_category_buckets = [
-    "journey_v2__user_created",
-    "journey_v2__email_verified",
-    "journey_v2__user_form_completed",
-    "journey_v2__booked_onboarding_call",
-    "journey_v2__self_onboarding_started",
-    "journey_v2__too_low_german_level",
-    "journey_v2__pre_matching",
-    "journey_v2__match_takeoff",
-    "journey_v2__ongoing_non_completed_match",
-    "journey_v2__first_search_v2",
-    "journey_v2__happy_inactive",
-    "journey_v2__happy_active",
-    "journey_v2__no_show",
-    "journey_v2__failed_matching",
-    "journey_v2__gave_up_searching",
-    "journey_v2__user_deleted",
-    "journey_v2__marked_unresponsive",
-]
+logger = logging.getLogger(__name__)
+
+
+def user_bucket_map(user_ids) -> dict[int, str]:
+    """User ID → its primary V5 bucket, for a whole page in one pass.
+
+    The partition cells are mutually exclusive, so each user resolves to exactly one.
+    """
+    from management.analytics.registry import USER_JOURNEY_V5, classify_partition
+
+    return classify_partition(USER_JOURNEY_V5, User.objects.filter(id__in=list(user_ids)))
+
+
+def get_user_bucket_label(bucket_name: str | None) -> str:
+    if not bucket_name or bucket_name == "unknown":
+        return "Unknown"
+
+    from management.analytics.registry import get_catalog_entry
+
+    entry = get_catalog_entry(bucket_name)
+    if entry is not None:
+        return entry.display_name
+
+    slug = bucket_name.split("__")[-1]
+    return slug.replace("_", " ").strip().title()
+
+
+_NOT_ANNOTATED = object()
+
+
+def serialize_user_last_seen(user) -> str | None:
+    # A NULL annotation (no chat connections) must not re-run the aggregate per row.
+    last_seen = getattr(user, "last_online", _NOT_ANNOTATED)
+    if last_seen is _NOT_ANNOTATED:
+        last_seen = ChatConnections.get_last_seen_for_user(user)
+    return last_seen.isoformat() if last_seen else None
+
+
+def determine_user_buckets(user_pk, all_lists: bool = False) -> list[str]:
+    from django.db import connection
+
+    if connection.vendor != "postgresql":
+        return []
+
+    if not all_lists:
+        bucket = user_bucket_map([user_pk]).get(user_pk)
+        return [bucket] if bucket else []
+
+    buckets = []
+    base_qs = User.objects.filter(pk=user_pk)
+    names_to_check = [entry.name for entry in FILTER_LISTS + get_dynamic_userlists()]
+    bucket_map = {entry.name: entry for entry in FILTER_LISTS + get_dynamic_userlists()}
+    for name in names_to_check:
+        entry = bucket_map.get(name)
+        if entry is None or entry.queryset is None:
+            continue
+        try:
+            if entry.queryset(base_qs).exists():
+                buckets.append(entry.name)
+        except Exception:
+            # Logged rather than swallowed: a list whose query breaks is otherwise
+            # indistinguishable from the user genuinely not being in it, and the row just
+            # shows no bucket (conventions §9).
+            logger.exception("User bucket list %r failed for user %s; treating as no match", name, user_pk)
+            continue
+    return buckets
+
+
+def _waiting_time_payload(waiting_since, first_search: bool):
+    number_of_days = (timezone.now() - waiting_since).days
+    if number_of_days == 0:
+        waiting_time_string = "Waiting less than a day"
+    else:
+        day_text = "day" if number_of_days == 1 else "days"
+        waiting_time_string = f"Waiting {number_of_days} {day_text}"
+    return {"number_of_days": number_of_days, "waiting_time_string": waiting_time_string, "first_search": first_search}
 
 
 def get_match_waiting_time(user):
@@ -70,8 +149,8 @@ def get_match_waiting_time(user):
     if user.state.searching_state != State.SearchingStateChoices.SEARCHING:
         return {"number_of_days": None, "waiting_time_string": "Not actively searching", "first_search": None}
 
-    # Check if the user has already been matched
-    already_matched = Match.objects.filter(Q(user1=user) | Q(user2=user), support_matching=False).exists()
+    # Check if the user has already been matched (Standard or Random Call; not TEMPORARY)
+    already_matched = Match.objects.filter(Q(user1=user) | Q(user2=user)).filter(Match.journey_q()).exists()
 
     # Determine waiting_since based on match status
     if already_matched:
@@ -85,11 +164,11 @@ def get_match_waiting_time(user):
             candidates = []
             if user_state.onboarding_call_completed_at is not None:
                 candidates.append(user_state.onboarding_call_completed_at)
-            if user_state.self_onboarding_completed_at is not None:
-                d = user_state.self_onboarding_completed_at
-                candidates.append(
-                    timezone.make_aware(datetime.combine(d, time.min)),
-                )
+            from management.self_onboarding_progress import self_onboarding_completed_at_for_user
+
+            self_completed_at = self_onboarding_completed_at_for_user(user)
+            if self_completed_at is not None:
+                candidates.append(self_completed_at)
             if not candidates:
                 return {
                     "number_of_days": None,
@@ -99,21 +178,7 @@ def get_match_waiting_time(user):
             # Earliest completion
             waiting_since = min(candidates)
 
-    # Calculate waiting time
-    now = timezone.now()
-    number_of_days = (now - waiting_since).days
-
-    if number_of_days == 0:
-        waiting_time_string = "Waiting less than a day"
-    else:
-        day_text = "day" if number_of_days == 1 else "days"
-        waiting_time_string = f"Waiting {number_of_days} {day_text}"
-
-    return {
-        "number_of_days": number_of_days,
-        "waiting_time_string": waiting_time_string,
-        "first_search": not already_matched,
-    }
+    return _waiting_time_payload(waiting_since, first_search=not already_matched)
 
 
 class ExportUserSerializer(serializers.ModelSerializer):
@@ -122,7 +187,10 @@ class ExportUserSerializer(serializers.ModelSerializer):
         fields = ["id", "email", "uuid"]
 
     def to_representation(self, instance):
-        representation = build_user_report_entry(instance)
+        selected_fields = self.context.get("selected_fields") if hasattr(self, "context") else None
+        representation = build_user_report_entry(instance, selected_fields=selected_fields)
+        if selected_fields:
+            return ensure_export_fields(representation, selected_fields)
         return representation
 
 
@@ -132,49 +200,348 @@ class ListUserSerializer(serializers.ModelSerializer):
         fields = ["id", "email", "date_joined", "last_login"]
 
 
-class AdvancedUserSerializer(serializers.ModelSerializer):
+class MatchPreviewProfileSerializer(serializers.ModelSerializer):
+    """Only what the match icons render — MinimalProfileSerializer sends 23 fields per partner."""
+
+    class Meta:
+        model = Profile
+        fields = ["first_name", "image_type", "avatar_config", "image"]
+
+
+def _serialize_user_match_preview_row(user):
+    return {
+        "id": str(user.uuid),
+        "partner": {
+            "id": user.id,
+            "has_match_priority": user.state.has_match_priority,
+            **MatchPreviewProfileSerializer(user.profile).data,
+        },
+    }
+
+
+def _serialize_user_match_previews(user: User):
+    preview_limit = 3
+    confirmed_matches = Match.get_confirmed_matches(user).select_related(
+        "user1__profile",
+        "user1__state",
+        "user2__profile",
+        "user2__state",
+    )[:preview_limit]
+    unconfirmed_matches = Match.get_unconfirmed_matches(user).select_related(
+        "user1__profile",
+        "user1__state",
+        "user2__profile",
+        "user2__state",
+    )[:preview_limit]
+    proposed_matches = ProposedMatch.get_open_proposals(user).select_related(
+        "user1__profile",
+        "user1__state",
+        "user2__profile",
+        "user2__state",
+    )[:preview_limit]
+
+    def _partner_from_match(match):
+        return match.user2 if match.user1_id == user.id else match.user1
+
+    def _partner_from_proposal(proposal):
+        return proposal.user2 if proposal.user1_id == user.id else proposal.user1
+
+    return {
+        "confirmed": {
+            "results": [_serialize_user_match_preview_row(_partner_from_match(match)) for match in confirmed_matches]
+        },
+        "unconfirmed": {
+            "results": [_serialize_user_match_preview_row(_partner_from_match(match)) for match in unconfirmed_matches]
+        },
+        "proposed": {
+            "results": [
+                _serialize_user_match_preview_row(_partner_from_proposal(proposal)) for proposal in proposed_matches
+            ]
+        },
+    }
+
+
+def build_user_table_batch(users):
+    """Per-page maps for UserTableSerializer: match previews and waiting times in a handful of queries."""
+    ids = [u.id for u in users]
+    id_set = set(ids)
+    preview_limit = 3
+
+    confirmed: dict = defaultdict(list)
+    unconfirmed: dict = defaultdict(list)
+    match_rows = (
+        Match.objects.filter(Q(user1_id__in=ids) | Q(user2_id__in=ids), active=True, support_matching=False)
+        .exclude(match_type=MatchType.TEMPORARY)
+        .select_related("user1__profile", "user1__state", "user2__profile", "user2__state")
+    )
+    confirmed_by_map: dict = defaultdict(set)
+    match_rows = list(match_rows)
+    if match_rows:
+        confirmed_rows = Match.confirmed_by.through.objects.filter(match_id__in=[m.id for m in match_rows]).values(
+            "match_id", "user_id"
+        )
+        for row in confirmed_rows:
+            confirmed_by_map[row["match_id"]].add(row["user_id"])
+
+    for match in match_rows:
+        confirmers = confirmed_by_map.get(match.id, ())
+        for uid, partner in ((match.user1_id, match.user2), (match.user2_id, match.user1)):
+            if uid not in id_set:
+                continue
+            if uid in confirmers:
+                confirmed[uid].append((match.created_at, partner))
+            else:
+                unconfirmed[uid].append((match.created_at, partner))
+
+    proposed: dict = defaultdict(list)
+    open_proposals = ProposedMatch.objects.filter(
+        Q(user1_id__in=ids) | Q(user2_id__in=ids), closed=False
+    ).select_related("user1__profile", "user1__state", "user2__profile", "user2__state")
+    for proposal in open_proposals:
+        proposal.is_expired(close_if_expired=True, send_mail_if_expired=True)
+        if proposal.closed or proposal.match_type == MatchType.TEMPORARY:
+            continue
+        for uid, partner in ((proposal.user1_id, proposal.user2), (proposal.user2_id, proposal.user1)):
+            if uid in id_set:
+                proposed[uid].append((proposal.potential_matching_created_at, partner))
+
+    def _preview(pairs, newest_first):
+        pairs.sort(key=lambda pair: pair[0], reverse=newest_first)
+        return {"results": [_serialize_user_match_preview_row(partner) for _, partner in pairs[:preview_limit]]}
+
+    matches_map = {
+        uid: {
+            "confirmed": _preview(confirmed[uid], newest_first=True),
+            "unconfirmed": _preview(unconfirmed[uid], newest_first=False),
+            "proposed": _preview(proposed[uid], newest_first=False),
+        }
+        for uid in ids
+    }
+
+    waiting_time_map: dict = {}
+    searching = [
+        u
+        for u in users
+        if u.state is not None
+        and u.state.is_onboarded
+        and u.state.searching_state == State.SearchingStateChoices.SEARCHING
+    ]
+    if searching:
+        searching_ids = [u.id for u in searching]
+        matched_ids: set = set()
+        journey_rows = Match.objects.filter(
+            Match.journey_q(), Q(user1_id__in=searching_ids) | Q(user2_id__in=searching_ids)
+        ).values("user1_id", "user2_id")
+        for row in journey_rows:
+            matched_ids.update((row["user1_id"], row["user2_id"]))
+
+        appointment_end: dict = {}
+        unmatched_ids = [u.id for u in searching if u.id not in matched_ids]
+        if unmatched_ids:
+            appointment_rows = (
+                PreMatchingAppointment.objects.filter(user_id__in=unmatched_ids)
+                .order_by("user_id", "-created")
+                .values("user_id", "end_time")
+            )
+            for row in appointment_rows:
+                appointment_end.setdefault(row["user_id"], row["end_time"])
+
+        for user in searching:
+            if user.id in matched_ids:
+                waiting_since = user.state.searching_state_last_updated
+            elif user.id in appointment_end:
+                waiting_since = appointment_end[user.id]
+            else:
+                candidates = []
+                if user.state.onboarding_call_completed_at is not None:
+                    candidates.append(user.state.onboarding_call_completed_at)
+                self_completed_at = self_onboarding_completed_at_for_user(user)
+                if self_completed_at is not None:
+                    candidates.append(self_completed_at)
+                if not candidates:
+                    waiting_time_map[user.id] = {
+                        "number_of_days": None,
+                        "waiting_time_string": "No onboarding completion date found",
+                        "first_search": None,
+                    }
+                    continue
+                waiting_since = min(candidates)
+            waiting_time_map[user.id] = _waiting_time_payload(waiting_since, first_search=user.id not in matched_ids)
+
+    return {"matches": matches_map, "waiting_time": waiting_time_map}
+
+
+class UserTableStateSerializer(serializers.Serializer):
+    company = serializers.CharField(allow_null=True, required=False)
+    has_match_priority = serializers.BooleanField()
+
+
+class UserMatchWaitingTimeSerializer(serializers.Serializer):
+    number_of_days = serializers.IntegerField(allow_null=True)
+    waiting_time_string = serializers.CharField()
+    first_search = serializers.BooleanField(allow_null=True, required=False)
+
+
+class UserChatMessagesPageSerializer(serializers.Serializer):
+    results = MessageSerializer(many=True)
+    items_total = serializers.IntegerField()
+    page_size = serializers.IntegerField()
+    pages_total = serializers.IntegerField(required=False)
+    results_total = serializers.IntegerField(required=False)
+    page = serializers.IntegerField()
+    first_page = serializers.IntegerField(required=False)
+    last_page = serializers.IntegerField(required=False)
+    next_page = serializers.IntegerField(required=False, allow_null=True)
+    previous_page = serializers.IntegerField(required=False, allow_null=True)
+
+
+class UserMessagesResponseSerializer(serializers.Serializer):
+    chat = ChatSerializer()
+    messages = UserChatMessagesPageSerializer()
+
+
+class UserTableProfileSerializer(serializers.ModelSerializer):
+    """Only the profile columns the users table renders."""
+
+    class Meta:
+        model = Profile
+        fields = [
+            "first_name",
+            "second_name",
+            "user_type",
+            "country_of_residence",
+            "target_groups",
+            "image_type",
+            "avatar_config",
+            "image",
+        ]
+
+
+class UserTableSerializer(serializers.ModelSerializer):
+    profile = UserTableProfileSerializer(read_only=True)
+    state = UserTableStateSerializer(read_only=True)
+    last_seen = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ["uuid", "id", "email", "date_joined", "last_login"]
+        fields = ["uuid", "id", "email", "date_joined", "last_login", "last_seen", "profile", "state"]
+
+    def get_last_seen(self, obj):
+        return serialize_user_last_seen(obj)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["profile"] = MinimalProfileSerializer(instance.profile).data
+        representation["state"] = {
+            "company": instance.state.company,
+            "has_match_priority": instance.state.has_match_priority,
+        }
+        context = getattr(self, "context", {})
+        batch = context.get("user_table_batch")
+        if batch is not None:
+            representation["waiting_time"] = batch["waiting_time"].get(instance.id) or get_match_waiting_time(instance)
+            representation["matches"] = batch["matches"][instance.id]
+        else:
+            representation["waiting_time"] = get_match_waiting_time(instance)
+            representation["matches"] = _serialize_user_match_previews(instance)
+        determine_bucket = context.get("determine_bucket", False)
+        all_buckets = context.get("all_buckets", False)
+        if determine_bucket or all_buckets:
+            # Page-wide map built once in the view; the per-row fallback costs ~30 queries
+            # and 3.6s per user, so a list view must never reach it.
+            bucket_map = context.get("bucket_map")
+            if bucket_map is not None and not all_buckets:
+                bucket = bucket_map.get(instance.pk)
+                category_buckets = [bucket] if bucket else []
+            else:
+                category_buckets = determine_user_buckets(instance.pk, all_lists=False)
+            all_bucket_names = determine_user_buckets(instance.pk, all_lists=True) if all_buckets else None
+            apply_journey_bucket_fields(
+                representation,
+                category_buckets=category_buckets,
+                all_buckets=all_bucket_names,
+                determine_bucket=determine_bucket,
+                include_all_buckets=all_buckets,
+                label_fn=get_user_bucket_label,
+                primary_from_end=True,
+            )
+
+        return representation
+
+
+class AdvancedUserSerializer(serializers.ModelSerializer):
+    profile = MinimalProfileSerializer(read_only=True)
+    last_seen = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["uuid", "id", "email", "date_joined", "last_login", "last_seen", "profile"]
+
+    def get_last_seen(self, obj):
+        return serialize_user_last_seen(obj)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["is_staff"] = instance.is_staff
+        representation["is_superuser"] = instance.is_superuser
+        representation["is_matching_user"] = instance.has_perm(ManagementPermission.MATCHING_USER)
 
         determine_bucket = ("determine_bucket" in self.context) and self.context["determine_bucket"]
+        all_buckets = self.context.get("all_buckets", False)
 
         items_per_page = 50
         user = instance
-        confirmed_matches = get_paginated_format_v2(Match.get_confirmed_matches(user), items_per_page, 1)
+
+        confirmed_page = get_paginated_format_v2(Match.get_confirmed_matches(user), items_per_page, 1)
+        unconfirmed_page = get_paginated_format_v2(Match.get_unconfirmed_matches(user), items_per_page, 1)
+        support_page = get_paginated_format_v2(Match.get_support_matches(user), items_per_page, 1)
+        inactive_page = get_paginated_format_v2(Match.get_inactive_matches(user), items_per_page, 1)
+
+        match_bucket_context = {
+            "determine_bucket": determine_bucket,
+            "all_buckets": all_buckets,
+        }
+        if determine_bucket and not all_buckets:
+            from management.api.match_journey_filter_list import match_bucket_map
+            from management.match_success import annotate_match_tokens
+
+            match_objs = [
+                m for page in (confirmed_page, unconfirmed_page, support_page, inactive_page) for m in page["results"]
+            ]
+            match_ids = [m.pk for m in match_objs]
+            # Annotate once here and seed classify — otherwise match_bucket_map re-SUMs.
+            annotated = list(annotate_match_tokens(Match.objects.filter(id__in=match_ids))) if match_ids else []
+            match_bucket_context["bucket_map"] = match_bucket_map(match_ids, matches=annotated)
+
+        confirmed_matches = confirmed_page
         confirmed_matches["results"] = AdvancedUserMatchSerializer(
             confirmed_matches["results"],
             many=True,
             context={
                 "user": user,
                 "status": "confirmed",
-                "determine_bucket": determine_bucket,
+                **match_bucket_context,
             },
         ).data
 
-        unconfirmed_matches = get_paginated_format_v2(Match.get_unconfirmed_matches(user), items_per_page, 1)
+        unconfirmed_matches = unconfirmed_page
         unconfirmed_matches["results"] = AdvancedUserMatchSerializer(
             unconfirmed_matches["results"],
             many=True,
             context={
                 "user": user,
                 "status": "unconfirmed",
-                "determine_bucket": determine_bucket,
+                **match_bucket_context,
             },
         ).data
 
-        support_matches = get_paginated_format_v2(Match.get_support_matches(user), items_per_page, 1)
+        support_matches = support_page
         support_matches["results"] = AdvancedUserMatchSerializer(
             support_matches["results"],
             many=True,
             context={
                 "user": user,
                 "status": "support",
-                "determine_bucket": determine_bucket,
+                **match_bucket_context,
             },
         ).data
 
@@ -187,14 +554,14 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         )
         old_proposed_matches["results"] = serialize_proposed_matches(old_proposed_matches["results"], user)
 
-        inactive_matches = get_paginated_format_v2(Match.get_inactive_matches(user), items_per_page, 1)
+        inactive_matches = inactive_page
         inactive_matches["results"] = AdvancedUserMatchSerializer(
             inactive_matches["results"],
             many=True,
             context={
                 "user": user,
                 "status": "inactive",
-                "determine_bucket": determine_bucket,
+                **match_bucket_context,
             },
         ).data
 
@@ -212,31 +579,35 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         representation["state"] = StateSerializer(instance.state).data
         representation["state"]["random_call_access"] = instance.has_perm(ManagementPermission.USE_RANDOM_CALLS)
 
-        # NOTE:
-        # Some of the filter lists in FILTER_LISTS use JSONField `__contains`
-        # lookups (for example on `profile__lang_skill`). These are only
-        # supported on PostgreSQL and will raise NotSupportedError on SQLite.
-        # To avoid breaking the API in development (SQLite) while keeping the
-        # behaviour in production (PostgreSQL), we only evaluate bucket
-        # membership on PostgreSQL and fall back to "unknown" otherwise.
-        from django.db import connection
+        from video.models import RandomCallLobbyUser
 
-        if determine_bucket:
-            if connection.vendor == "postgresql":
-                try:
-                    bucket_map = {entry.name: entry for entry in FILTER_LISTS if entry.name in user_category_buckets}
-                    for bucket in user_category_buckets:
-                        if bucket_map[bucket].queryset(User.objects.filter(pk=instance.pk)).exists():
-                            representation["bucket"] = bucket
-                    if "bucket" not in representation:
-                        representation["bucket"] = "unknown"
-                except (KeyError, AttributeError):
-                    representation["bucket"] = "unknown"
+        representation["random_call_lobby_count"] = (
+            RandomCallLobbyUser.objects.filter(user=instance).values("lobby_id").distinct().count()
+        )
+
+        representation["open_support_task_count"] = instance.open_related_support_task_count
+
+        from emails.api.template_lookup import activate_searching_url
+
+        representation["activate_searching_url"] = activate_searching_url(instance)
+
+        if determine_bucket or all_buckets:
+            bucket_map = self.context.get("bucket_map")
+            if bucket_map is not None and not all_buckets:
+                bucket = bucket_map.get(instance.pk)
+                category_buckets = [bucket] if bucket else []
             else:
-                # On non-PostgreSQL backends (e.g. SQLite in development) we
-                # can't safely run the JSONField `contains` lookups used in
-                # the filter lists, so we just set a sensible default.
-                representation["bucket"] = "unknown"
+                category_buckets = determine_user_buckets(instance.pk, all_lists=False)
+            all_bucket_names = determine_user_buckets(instance.pk, all_lists=True) if all_buckets else None
+            apply_journey_bucket_fields(
+                representation,
+                category_buckets=category_buckets,
+                all_buckets=all_bucket_names,
+                determine_bucket=determine_bucket,
+                include_all_buckets=all_buckets,
+                label_fn=get_user_bucket_label,
+                primary_from_end=True,
+            )
 
         return representation
 
@@ -321,13 +692,13 @@ class UserFilter(filters.FilterSet):
 
     profile__target_group = filters.ChoiceFilter(
         field_name="profile__target_group",
-        choices=Profile.TargetGroupChoices2.choices,
+        choices=Profile.TARGET_GROUP_VOLUNTEER_CHOICES,
         help_text="Filter for target group",
     )
 
     profile__target_groups = filters.MultipleChoiceFilter(
         field_name="profile__target_groups",
-        choices=Profile.TargetGroupChoices2.choices,
+        choices=Profile.TARGET_GROUP_LEARNER_CHOICES,
         help_text="Filter for users based on target groups",
         method="filter_target_groups",
     )
@@ -462,6 +833,10 @@ class UserFilter(filters.FilterSet):
         fields = ["uuid", "id", "email"]
 
 
+class PaginatedUserEmailLogResponse(DetailedPaginatedResponseSerializer):
+    results = AdvancedEmailLogSerializer(many=True)
+
+
 class InviteNativeAppTesterRequestSerializer(serializers.Serializer):
     platform = serializers.ChoiceField(choices=["ios", "android"])
     app_invite_url = serializers.CharField()
@@ -474,13 +849,14 @@ class InviteNativeAppTesterRequestSerializer(serializers.Serializer):
 
 
 @extend_schema_view(
-    list=extend_schema(summary="List users"),
-    retrieve=extend_schema(summary="Retrieve user"),
+    list=extend_schema(summary="List users", responses={200: UserTableSerializer(many=True)}),
+    retrieve=extend_schema(summary="Retrieve user", responses={200: AdvancedUserSerializer}),
 )
 class AdvancedUserViewset(viewsets.ModelViewSet):
-    queryset = User.objects.all().order_by("-date_joined")
+    queryset = User.objects.all()
 
     filter_backends = (filters.DjangoFilterBackend,)
+
     filterset_class = UserFilter
 
     serializer_class = AdvancedUserSerializer
@@ -490,11 +866,26 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         is_staff = self.request.user.is_staff
         if is_staff:
-            return User.objects.all()
+            queryset = User.objects.all()
         else:
             management_user = cast(User, self.request.user)
-            return management_user.managed_users_queryset(active_only=True)
+            queryset = management_user.managed_users_queryset(active_only=True)
 
+        if self.action == "list":
+            # A Max() aggregate groups the whole table before the LIMIT applies; a correlated
+            # subquery only runs for the page. Profile/state are prefetched per page row rather
+            # than joined into every candidate row (profile is ~1 KB wide).
+            queryset = queryset.annotate(
+                last_online=Subquery(
+                    ChatConnections.objects.filter(user=OuterRef("pk")).order_by("-last_seen").values("last_seen")[:1]
+                )
+            ).prefetch_related("profile", "state", self_onboarding_progress_prefetch())
+        else:
+            queryset = queryset.select_related("profile", "state")
+
+        return queryset.order_by("-date_joined")
+
+    @extend_schema(responses={200: FilterSchemaResponseSerializer})
     @action(detail=False, methods=["get"])
     def get_filter_schema(self, request, include_lookup_expr=False):
         # 1 - retrieve all the filters
@@ -508,15 +899,50 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         )
 
     def get_serializer_context(self):
-        if self.action == "list":
-            return {}
+        request = self.request
+        all_buckets = parse_bool_query_param(request.query_params.get("all_buckets"))
+        determine_bucket = all_buckets or parse_bool_query_param(request.query_params.get("determine_bucket"))
+
         if self.action == "retrieve":
-            return {"determine_bucket": True}
-        return {}
+            determine_bucket = True
+
+        context = {}
+        batch = getattr(self, "_user_table_batch", None)
+        if batch is not None:
+            context["user_table_batch"] = batch
+
+        if self.action in {"list", "retrieve"} and (determine_bucket or all_buckets):
+            context["determine_bucket"] = determine_bucket
+            context["all_buckets"] = all_buckets
+            bucket_map = getattr(self, "_bucket_map", None)
+            if bucket_map is not None:
+                context["bucket_map"] = bucket_map
+        return context
+
+    def paginate_queryset(self, queryset):
+        """Build the page's batched lookups once the page rows are known."""
+        page = super().paginate_queryset(queryset)
+        if page is not None and self.action == "list":
+            self._user_table_batch = build_user_table_batch(page)
+        if page is not None and self.get_serializer_context().get("determine_bucket"):
+            self._bucket_map = user_bucket_map([u.pk for u in page])
+        return page
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        # Retrieve skips paginate_queryset; classify this user once for the serializer.
+        if self.get_serializer_context().get("determine_bucket"):
+            self._bucket_map = user_bucket_map([instance.pk])
+        serializer = self.get_serializer(instance)
+        data = dict(serializer.data)
+        from management.analytics.user_journey.detail import user_journey_retrieve_extra
+
+        data.update(user_journey_retrieve_extra(instance, bucket=data.get("bucket")))
+        return Response(data)
 
     def get_serializer_class(self):
         if self.action == "list":
-            return AdvancedUserSerializer
+            return UserTableSerializer
         if self.action == "retrieve":
             return AdvancedUserSerializer
         return AdvancedUserSerializer
@@ -547,6 +973,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         pages["results"] = AdvancedMatchingScoreSerializer(pages["results"], many=True, context={"user": obj}).data
         return Response(pages)
 
+    @extend_schema(responses={200: PreMatchingAppointmentSerializer})
     @action(detail=True, methods=["get"])
     def prematching_appointment(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -603,6 +1030,27 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         except KeyError:
             return None
 
+    def _get_management_permission_target_user(self, pk) -> User:
+        try:
+            return User.objects.select_related("profile", "state").get(pk=pk)
+        except (User.DoesNotExist, ValueError, TypeError):
+            from rest_framework.exceptions import NotFound
+
+            raise NotFound from None
+
+    def _check_management_permission_target_access(self, request, target: User):
+        if not user_can_edit_management_permissions(request.user):
+            return Response(
+                {"msg": "You are not allowed to manage management permissions!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not user_can_manage_user_management_permissions(request.user, target):
+            return Response(
+                {"msg": "You are not allowed to access this user!"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        return None
+
     @extend_schema(
         request=inline_serializer(
             name="MarkReadMessageRequest",
@@ -614,17 +1062,39 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         self.kwargs["pk"] = pk
         obj = self.get_object()
 
-        message_id = request.data["message_id"]
+        message_id = request.data.get("message_id")
 
         has_access, res = self.check_management_user_access(obj, request)
         if not has_access:
             return res
 
-        message = Message.objects.get(uuid=message_id)
+        try:
+            message = Message.objects.get(uuid=message_id)
+        except (Message.DoesNotExist, Exception):
+            return Response({"msg": "Message not found."}, status=status.HTTP_404_NOT_FOUND)
+
         message.read = True
         message.save()
 
-        return Response({"msg": "Message marked as read"})
+        closed_support_task_id = None
+        if message.sender_id == obj.pk:
+            from management.support_reply_outcomes import close_support_reply_task_for_read_message
+
+            try:
+                closed_action = close_support_reply_task_for_read_message(obj, actor=request.user, message=message)
+            except Exception:
+                logger.exception("Failed to close support reply task for read message %s", message.uuid)
+                closed_action = None
+            if closed_action is not None:
+                closed_support_task_id = closed_action.task_id
+
+        return Response(
+            {
+                "msg": "Message marked as read",
+                "support_task_closed": closed_support_task_id is not None,
+                "support_task_id": closed_support_task_id,
+            }
+        )
 
     @extend_schema(
         request=inline_serializer(name="DeleteMessageRequest", fields={"message_id": serializers.CharField()})
@@ -634,13 +1104,19 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         self.kwargs["pk"] = pk
         obj = self.get_object()
 
-        message_id = request.data["message_id"]
+        message_id = request.data.get("message_id")
 
         has_access, res = self.check_management_user_access(obj, request)
         if not has_access:
             return res
 
-        message = Message.objects.get(uuid=message_id)
+        try:
+            message = Message.objects.get(uuid=message_id)
+        except (Message.DoesNotExist, Exception):
+            return Response({"msg": "Message not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if message.read:
+            return Response({"msg": "Only unread messages can be deleted."}, status=status.HTTP_400_BAD_REQUEST)
         message.delete()
 
         return Response({"msg": "Message deleted"})
@@ -648,9 +1124,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     @extend_schema(
         request=inline_serializer(
             name="MessagesGetRequest",
-            # description='If match_uuid is provided, the chat of the match is returned, otherwise the support user chat',
             fields={"match_uuid": serializers.CharField(required=False)},
-        )
+        ),
+        responses={200: UserMessagesResponseSerializer},
     )
     @action(detail=True, methods=["get"])
     def messages(self, request, pk=None):
@@ -698,7 +1174,10 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         return Response({"chat": ChatSerializer(chat).data, "messages": messages})
 
-    @extend_schema(request=inline_serializer(name="SmsRequest", fields={"message": serializers.CharField()}))
+    @extend_schema(
+        request=inline_serializer(name="SmsRequest", fields={"message": serializers.CharField()}),
+        responses={200: SmsSerializer(many=True)},
+    )
     @action(detail=True, methods=["get", "post"])
     def sms(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -726,16 +1205,60 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         self.kwargs["pk"] = pk
         obj = self.get_object()
 
-        has_access, res = self.check_management_user_access(obj, request)
-        if not has_access:
-            return res
+        if not request.user.has_perm(ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES):
+            return Response(
+                {"msg": "You are not allowed to send support message replies!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not request.user.is_staff and not request.user.has_management_access(obj):
+            return Response({"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        message = obj.message(request.data["message"], sender=request.user)
+        reply_message = request.data.get("message", "")
+        uploaded_file = request.FILES.get("file")
+        if not reply_message.strip() and not uploaded_file:
+            return Response({"msg": "Message or file is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        base_management_user = get_base_management_user()
+        try:
+            message = obj.message(
+                reply_message,
+                sender=base_management_user,
+                file=uploaded_file,
+                apply_delivery_side_effects=True,
+            )
+        except MessageSendValidationError as exc:
+            return Response({"msg": exc.message}, status=status.HTTP_400_BAD_REQUEST)
+        except MatchSendForbidden:
+            return Response({"msg": "No matching found for this user."}, status=status.HTTP_403_FORBIDDEN)
+
+        stored_reply_message = reply_message.strip()
+        if not stored_reply_message and uploaded_file is not None:
+            stored_reply_message = f"[Attachment: {uploaded_file.name}]"
+
+        open_support_reply_action = (
+            SupportTaskAction.objects.select_related("task")
+            .filter(
+                action_type="support_reply",
+                status=SupportTaskAction.Status.OPEN,
+                task__status__in=[SupportTask.Status.NEW, SupportTask.Status.IN_PROGRESS],
+            )
+            .filter(Q(static_parameters__recipient_user_id=obj.pk) | Q(task__related_user_id=obj.pk))
+            .order_by("-task_id")
+            .first()
+        )
+        if open_support_reply_action is not None:
+            updated_parameters = dict(open_support_reply_action.parameters or {})
+            updated_parameters["message"] = stored_reply_message
+            updated_parameters["suggested_action"] = "reply"
+            open_support_reply_action.parameters = updated_parameters
+            open_support_reply_action.save(update_fields=["parameters"], changed_by=request.user)
+            open_support_reply_action.resolve(SupportTaskAction.Status.EXECUTED, request.user)
 
         serialized = MessageSerializer(message).data
 
         return Response(serialized)
 
+    @extend_schema(responses={200: ManagementTaskSerializer(many=True)})
     @action(detail=True, methods=["get", "post"])
     def tasks(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -749,6 +1272,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         return Response(ManagementTaskSerializer(tasks, many=True).data)
 
+    @extend_schema(
+        responses={
+            200: inline_serializer(name="UserNotesResponse", fields={"notes": serializers.CharField()}),
+        }
+    )
     @action(detail=True, methods=["get", "post"])
     def notes(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -758,12 +1286,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if request.method == "POST":
             _os.notes = request.data["notes"]
             _os.save()
-            return Response(_os.notes)
+            return Response({"notes": _os.notes or ""})
         else:
             if not _os.notes:
                 _os.notes = ""
                 _os.save()
-            return Response(_os.notes)
+            return Response({"notes": _os.notes or ""})
 
     @extend_schema(
         request=inline_serializer(
@@ -860,20 +1388,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=["post"])
     def permissions(self, request, pk=None, action=None):
-        self.kwargs["pk"] = pk
-        obj = self.get_object()
+        obj = self._get_management_permission_target_user(pk)
 
-        if not request.user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS):
-            return Response(
-                {"msg": "You are not allowed to apply management permissions!"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        if not request.user.is_staff and not request.user.has_management_access(obj):
-            return Response(
-                {"msg": "You are not allowed to access this user!"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+        access_error = self._check_management_permission_target_access(request, obj)
+        if access_error is not None:
+            return access_error
 
         raw_permission = request.data.get("permission", "")
         raw_action = action or ""
@@ -884,16 +1403,13 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if permission == ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS and raw_action == "add":
+        if (
+            permission == ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS
+            and not user_can_grant_apply_management_permissions(request.user)
+        ):
             return Response(
-                {"msg": "APPLY_MANAGEMENT_PERMISSIONS can never be added."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if permission == ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS and raw_action == "remove":
-            return Response(
-                {"msg": "APPLY_MANAGEMENT_PERMISSIONS can never be removed."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"msg": "Only staff can grant or revoke apply_management_permissions."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         if (
@@ -933,20 +1449,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def permissions_list(self, request, pk=None):
-        self.kwargs["pk"] = pk
-        obj = self.get_object()
+        obj = self._get_management_permission_target_user(pk)
 
-        if not request.user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS):
-            return Response(
-                {"msg": "You are not allowed to view management permissions!"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        if not request.user.is_staff and not request.user.has_management_access(obj):
-            return Response(
-                {"msg": "You are not allowed to access this user!"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+        access_error = self._check_management_permission_target_access(request, obj)
+        if access_error is not None:
+            return access_error
 
         permissions = []
         for permission in ManagementPermission:
@@ -1013,6 +1520,67 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @extend_schema(
         request=inline_serializer(
+            name="UpdateUserProfileFieldsRequest",
+            fields={
+                "user_type": serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=False),
+                "country_of_residence": serializers.ChoiceField(
+                    choices=Profile.CountryChoices.choices,
+                    required=False,
+                ),
+            },
+        )
+    )
+    @action(detail=True, methods=["post"])
+    def update_profile_fields(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        if not request.user.has_perm(ManagementPermission.MATCHING_USER):
+            return Response(
+                {"msg": "You are not allowed to update matching profile fields!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        serializer = inline_serializer(
+            name="UpdateUserProfileFieldsSerializer",
+            fields={
+                "user_type": serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=False),
+                "country_of_residence": serializers.ChoiceField(
+                    choices=Profile.CountryChoices.choices,
+                    required=False,
+                ),
+            },
+            data=request.data,
+        )
+        serializer.is_valid(raise_exception=True)
+
+        update_fields = []
+        profile = obj.profile
+        for field in ("user_type", "country_of_residence"):
+            if field in serializer.validated_data:
+                setattr(profile, field, serializer.validated_data[field])
+                update_fields.append(field)
+
+        if not update_fields:
+            return Response(
+                {"msg": "No profile fields provided."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        profile.save(update_fields=update_fields)
+        return Response(
+            {
+                "success": True,
+                "profile": MinimalProfileSerializer(profile).data,
+            }
+        )
+
+    @extend_schema(
+        request=inline_serializer(
             name="MarkPrematchingCallCompletedRequest",
             fields={"had_prematching_call": serializers.BooleanField(default=True)},
         )
@@ -1068,6 +1636,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         self.kwargs["pk"] = pk
         obj = self.get_object()
 
+        if not request.user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS):
+            return Response(
+                {"msg": "You are not allowed to delete users!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         has_access, res = self.check_management_user_access(obj, request)
         if not has_access:
             return res
@@ -1080,6 +1654,136 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         delete_user(obj, request.user, self.request.data.get("send_deletion_email", False))
         return Response({"msg": "User deleted"})
+
+    @extend_schema(
+        request=inline_serializer(
+            name="AdminChangeEmailRequest",
+            fields={
+                "email": serializers.EmailField(required=True),
+                "send_verification_email": serializers.BooleanField(default=False),
+            },
+        )
+    )
+    @action(detail=True, methods=["post"])
+    def change_email(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        if not request.user.has_perm(ManagementPermission.MATCHING_USER):
+            return Response(
+                {"msg": "You are not allowed to change user emails!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        if obj.is_staff or obj.is_superuser:
+            return Response({"msg": "You can't change the email of a staff or superuser!"}, status=401)
+
+        serializer = inline_serializer(
+            name="AdminChangeEmailRequest",
+            fields={
+                "email": serializers.EmailField(required=True),
+                "send_verification_email": serializers.BooleanField(default=False),
+            },
+            data=request.data,
+        )
+        serializer.is_valid(raise_exception=True)
+
+        change_user_email(
+            obj,
+            serializer.validated_data["email"],
+            send_verification_mail=serializer.validated_data.get("send_verification_email", False),
+        )
+        return Response({"msg": "Email changed"})
+
+    @extend_schema(
+        request=inline_serializer(
+            name="AdminSetCompanyRequest",
+            fields={"company": serializers.CharField(required=True, allow_null=True, allow_blank=True, max_length=255)},
+        )
+    )
+    @action(detail=True, methods=["post"])
+    def set_company(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        if not request.user.has_perm(ManagementPermission.MATCHING_USER):
+            return Response(
+                {"msg": "You are not allowed to change a user's company!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        serializer = inline_serializer(
+            name="AdminSetCompanyRequest",
+            fields={"company": serializers.CharField(required=True, allow_null=True, allow_blank=True, max_length=255)},
+            data=request.data,
+        )
+        serializer.is_valid(raise_exception=True)
+
+        state = set_user_company(obj, serializer.validated_data["company"], changed_by=request.user)
+        return Response({"msg": "Company changed", "company": state.company})
+
+    @extend_schema(
+        request=inline_serializer(
+            name="AdminMigrateUserRequest",
+            fields={
+                "new_email": serializers.EmailField(required=False, allow_null=True),
+                "remove_company": serializers.BooleanField(default=False),
+                "censor": serializers.BooleanField(default=True),
+                "send_deletion_email": serializers.BooleanField(default=False),
+            },
+        )
+    )
+    @action(detail=True, methods=["post"])
+    def migrate_user(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        if not request.user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS):
+            return Response(
+                {"msg": "You are not allowed to migrate users!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        if obj.is_staff or obj.is_superuser:
+            return Response({"msg": "You can't migrate a staff or superuser!"}, status=401)
+
+        if obj.has_perm(ManagementPermission.MATCHING_USER):
+            return Response({"msg": "You can't migrate a matching user!"}, status=401)
+
+        serializer = inline_serializer(
+            name="AdminMigrateUserRequest",
+            fields={
+                "new_email": serializers.EmailField(required=False, allow_null=True),
+                "remove_company": serializers.BooleanField(default=False),
+                "censor": serializers.BooleanField(default=True),
+                "send_deletion_email": serializers.BooleanField(default=False),
+            },
+            data=request.data,
+        )
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+
+        migrate_user(
+            obj,
+            new_email=payload.get("new_email"),
+            remove_company=payload.get("remove_company", False),
+            censor=payload.get("censor", True),
+            management_user=request.user,
+            send_deletion_email=payload.get("send_deletion_email", False),
+        )
+        return Response({"msg": "User migrated"})
 
     @extend_schema(
         request=inline_serializer(
@@ -1131,6 +1835,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         )
         return Response({"msg": "User is now a TIM support user"})
 
+    @extend_schema(responses={200: PaginatedUserEmailLogResponse})
     @action(detail=True, methods=["get"])
     def emails(self, request, pk=None) -> Response:
         self.kwargs["pk"] = pk
@@ -1152,31 +1857,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         return Response(paginated_email_logs)
 
-    @action(detail=False, methods=["get"])
-    def export(self, request):
-        if request.query_params.get("export_columns_only", "").lower() in ("1", "true", "yes"):
-            return Response([{name: None for name in USER_EXPORT_COLUMN_NAMES}])
-
-        queryset = self.filter_queryset(self.get_queryset()).select_related("profile", "state")
-
-        try:
-            page = int(request.query_params.get("page", 1))
-        except (TypeError, ValueError):
-            page = 1
-        try:
-            page_size = int(request.query_params.get("page_size", DetailedPagination.page_size))
-        except (TypeError, ValueError):
-            page_size = DetailedPagination.page_size
-        page_size = min(max(page_size, 1), DetailedPagination.max_page_size)
-
-        try:
-            paginated = get_paginated_format_v2(queryset, page_size, page)
-        except InvalidPage:
-            return Response([])
-
-        serializer = ExportUserSerializer(paginated["results"], many=True)
-        return Response(serializer.data)
-
+    @extend_schema(responses={200: UserMatchWaitingTimeSerializer})
     @action(detail=True, methods=["get"])
     def match_waiting_time(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -1185,8 +1866,29 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         return Response(get_match_waiting_time(obj))
 
 
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def users_export(request):
+    # select_related must be applied before UserFilter: some EXTRA lists use
+    # QuerySet.union(), and Django does not allow select_related() afterwards.
+    if request.user.is_staff:
+        queryset = User.objects.all().select_related("profile", "state")
+    else:
+        management_user = cast(User, request.user)
+        queryset = management_user.managed_users_queryset(active_only=True).select_related("profile", "state")
+
+    queryset = UserFilter(request.query_params, queryset=queryset).qs
+    return build_paginated_export_response(
+        request,
+        queryset,
+        ExportUserSerializer,
+        export_columns_only_fields=USER_EXPORT_COLUMN_NAMES,
+        allowed_fields=USER_EXPORT_COLUMN_NAMES,
+    )
+
+
 viewset_actions = [
-    path("api/matching/users_export/", AdvancedUserViewset.as_view({"get": "export"})),
+    path("api/matching/users_export/", users_export),
     path(
         "api/matching/users/<pk>/scores/",
         AdvancedUserViewset.as_view({"get": "scores"}),
@@ -1229,7 +1931,7 @@ viewset_actions = [
     ),
     path(
         "api/matching/users/<pk>/delete_message/",
-        AdvancedUserViewset.as_view({"get": "delete_message"}),
+        AdvancedUserViewset.as_view({"post": "delete_message"}),
     ),
     path(
         "api/matching/users/<pk>/request_score_update/",
@@ -1250,6 +1952,18 @@ viewset_actions = [
     path(
         "api/matching/users/<pk>/delete_user/",
         AdvancedUserViewset.as_view({"post": "delete_user"}),
+    ),
+    path(
+        "api/matching/users/<pk>/change_email/",
+        AdvancedUserViewset.as_view({"post": "change_email"}),
+    ),
+    path(
+        "api/matching/users/<pk>/set_company/",
+        AdvancedUserViewset.as_view({"post": "set_company"}),
+    ),
+    path(
+        "api/matching/users/<pk>/migrate_user/",
+        AdvancedUserViewset.as_view({"post": "migrate_user"}),
     ),
     path(
         "api/matching/users/<pk>/change_searching_state/",
@@ -1286,6 +2000,10 @@ viewset_actions = [
     path(
         "api/matching/users/<pk>/invite_native_app_tester/",
         AdvancedUserViewset.as_view({"post": "invite_native_app_tester"}),
+    ),
+    path(
+        "api/matching/users/<pk>/update_profile_fields/",
+        AdvancedUserViewset.as_view({"post": "update_profile_fields"}),
     ),
 ]
 

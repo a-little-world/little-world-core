@@ -1,5 +1,14 @@
+from urllib.parse import parse_qs
+
 from channels.generic.websocket import AsyncWebsocketConsumer
-from chat.consumers.db_ops import connect_user, disconnect_user, get_all_chat_user_ids, is_staff_or_matching
+from chat.consumers.db_ops import (
+    close_device_session,
+    connect_user,
+    disconnect_user,
+    get_all_chat_user_ids,
+    is_staff_or_matching,
+    open_device_session,
+)
 from chat.consumers.messages import (
     InBlockIncomingCall,
     InMatchProposalAdded,
@@ -12,8 +21,8 @@ from chat.consumers.messages import (
     OutgoingCallRejected,
     OutUserWentOffline,
     OutUserWentOnline,
-    PostCallSurvey,
     PreMatchingAppointmentBooked,
+    SurveyOffered,
 )
 from django.conf import settings
 
@@ -40,6 +49,7 @@ class CoreConsumer(AsyncWebsocketConsumer):
         else:
             self.user = self.scope["user"]
             self.group_name = str(self.user.uuid)
+            self.install_id = self.get_install_id()
 
             # Join 'user self' group
             await self.channel_layer.group_add(self.group_name, self.channel_name)
@@ -54,6 +64,8 @@ class CoreConsumer(AsyncWebsocketConsumer):
             else:
                 await self.accept()
             print(f"User {self.user} connected to {self.channel_name} ({self.group_name})")
+
+            await open_device_session(self.user, self.install_id)
 
             if PERFORMANCE_RESTRICTON_STAFF:
                 # For efficiency, matching users are not connected to **all** groups,
@@ -85,6 +97,7 @@ class CoreConsumer(AsyncWebsocketConsumer):
         if (close_code != UNAUTH_REJECT_CODE) and (user is not None):
             print(f"User {self.user} disconnected from {self.channel_name} ({self.group_name})", flush=True)
             print(f"{self.user} disconnected, with code {close_code}", flush=True)
+            await close_device_session(self.user, self.install_id)
             # we mark the user as 'offline' in the database
             await disconnect_user(self.user)
 
@@ -108,12 +121,17 @@ class CoreConsumer(AsyncWebsocketConsumer):
     async def websocket_disconnect(self, event):
         await super().websocket_disconnect(event)
 
-    async def receive(self, text_data=None, bytes_data=None):
-        print(f"User {self.user} received message: {text_data}")
+    def get_install_id(self) -> str | None:
+        install_ids = parse_qs(self.scope.get("query_string", b"").decode()).get("install_id")
+        return install_ids[0] if install_ids else None
 
-    async def post_call_survey(self, event):
-        assert event["type"] == MessageTypes.post_call_survey.value
-        await self.send(text_data=PostCallSurvey(**event).action_json())
+    async def receive(self, text_data=None, bytes_data=None):
+        if text_data == "ping":
+            await open_device_session(self.user, self.install_id)
+            await self.send(text_data="pong")
+            return
+
+        print(f"User {self.user} received message: {text_data}")
 
     async def user_went_online(self, event):
         assert event["type"] == MessageTypes.user_went_online.value
@@ -154,6 +172,10 @@ class CoreConsumer(AsyncWebsocketConsumer):
     async def pre_matching_appointment_booked(self, event):
         assert event["type"] == MessageTypes.pre_matching_appointment_booked.value
         await self.send(text_data=PreMatchingAppointmentBooked(**event).action_json())
+
+    async def survey_offered(self, event):
+        assert event["type"] == MessageTypes.survey_offered.value
+        await self.send(text_data=SurveyOffered(**event).action_json())
 
     async def notification(self, event):
         assert event["type"] == MessageTypes.notification.value

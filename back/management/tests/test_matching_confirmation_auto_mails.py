@@ -2,7 +2,7 @@ from django.test import TestCase
 from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from management.api.confirm_match import confirm_match
+from management.api.proposed_match_response import respond_to_proposed_match
 from management.api.register import Register
 from management.tests.helpers import register_user_api
 
@@ -28,13 +28,13 @@ valid_create_data = dict(
 class MatchConfirmationTasksTests(TestCase):
     required_params = Register.required_args
 
-    def _some_confirm_deny_match_call(self, data: dict, user=None) -> Response:
+    def _respond_to_proposed_match(self, data: dict, user=None) -> Response:
         factory = APIRequestFactory(enforce_csrf_checks=True)
 
-        request = factory.post("user/match/confirm_deny/", data)
+        request = factory.post("user/match/proposal/respond/", data)
         if user:
             force_authenticate(request, user=user)
-        response = confirm_match(request)
+        response = respond_to_proposed_match(request)
         assert response, isinstance(response, Response)
         return response  # type: ignore
 

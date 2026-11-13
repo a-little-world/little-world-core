@@ -1,6 +1,8 @@
+from back.build_types import BuildType
 from django.conf import settings
 from django.urls import path, re_path
 from django_rest_passwordreset.views import ResetPasswordConfirmViewSet, ResetPasswordValidateTokenViewSet
+from open_chat.api import api_urls as open_chat_api_urls
 from rest_framework.routers import DefaultRouter
 
 from management.api import (
@@ -9,17 +11,21 @@ from management.api import (
     banner,
     calcom,
     community_events,
-    confirm_match,
     cookies,
     courses,
     email_settings,
     firebase,
     help,
+    journey_overview,
+    match_overview,
+    match_proposal_stats,
+    match_success,
     matches,
     notifications,
     options,
     prematch_appointment_advanced,
     profile,
+    proposed_match_response,
     push_notifications,
     register,
     report_unmatch,
@@ -27,6 +33,8 @@ from management.api import (
     short_links,
     slack,
     support_task,
+    surveys,
+    time_series_statistics,
     trans,
     translator,
     user_advanced_statistics,
@@ -39,13 +47,21 @@ from management.api.dynamic_user_list import (
     DynamicUserListSingleViewSet,
 )
 from management.api.matches_advanced import api_urls as matches_advanced_api_urls
+from management.api.matches_advanced_statistics import api_urls as matches_advanced_statistics_api_urls
 from management.api.matching_panel_user import api_urls as matching_panel_user_api_urls
 from management.api.matching_stats import get_quick_statistics
 from management.api.matching_users_advanced import api_urls as matching_users_advanced_api_urls
 from management.api.native_auth import api_urls as api_urls_native_auth
 from management.api.newsletter_subscribe import public_newsletter_subscribe
-from management.api.questions import archive_card, get_question_cards
+from management.api.question_cards import (
+    admin_question_card_category_detail,
+    admin_question_card_detail,
+    admin_question_cards,
+    archive_card,
+    get_question_cards,
+)
 from management.api.scores import api_urls as scores_api_urls
+from management.api.search_activation import api_urls as search_activation_api_urls
 from management.api.short_links import api_urls as short_links_api_urls
 from management.api.still_in_contact import api_urls as still_in_contact_api_urls
 from management.api.user import api_urls as user_api_urls
@@ -57,6 +73,7 @@ from management.views import (
     landing_page,
     main_frontend,
     matching_panel,
+    youtube_embed,
 )
 
 router = DefaultRouter()
@@ -98,6 +115,11 @@ dynamic_user_list_single_user_api = DynamicUserListSingleUserViewSet.as_view(
 user_data_apis = [
     path("api/api_options", options.api_options),
     path("api/matches", matches.matches, name="matches_api"),
+    path(
+        "api/matches/<uuid:match_uuid>/overview",
+        match_overview.match_overview,
+        name="match_overview_api",
+    ),
     *user_api_urls,
     path("api/community", community_events.community_events, name="community_events_api"),
     path(
@@ -148,11 +170,17 @@ api_routes = [
     *short_links_api_urls,
     *slack.api_routes,
     *ai.api_routes,
+    *match_proposal_stats.api_urls,
     *user_advanced_api_urls,
     *matches_advanced_api_urls,
+    *matches_advanced_statistics_api_urls,
     *matching_panel_user_api_urls,
+    *open_chat_api_urls,
     *matching_users_advanced_api_urls,
     *still_in_contact_api_urls,
+    *search_activation_api_urls,
+    *journey_overview.api_urls,
+    *match_success.api_urls,
     *scores_advanced.api_urls,
     *videocalls_advanced.api_urls,
     *user_advanced_statistics.api_urls,
@@ -162,12 +190,19 @@ api_routes = [
     *notifications.api_urls,
     *push_notifications.api_urls,
     *support_task.api_urls,
+    *surveys.api_urls,
+    *time_series_statistics.api_urls,
     # User
     path("api/trans", trans.get_translation_catalogue),
     path("api/trans/<str:lang>/", trans.get_translation_catalogue),
     path("api/register/", register.Register.as_view()),
     path("api/register/android", register.RegisterAndroid.as_view()),
     path("api/register/ios", register.RegisterIOS.as_view()),
+    *(
+        [path("api/register/web", register.RegisterWebNative.as_view())]
+        if settings.BUILD_TYPE != BuildType.PRODUCTION
+        else []
+    ),
     path(
         "api/cookies/cookie_banner.js",
         cookies.get_dynamic_cookie_banner_js,
@@ -189,7 +224,9 @@ api_routes = [
     *api_urls_native_auth,
     path("api/matching/report_match/", report_unmatch.report),
     path("api/matching/unmatch/", report_unmatch.unmatch),
-    path("api/user/match/confirm_deny/", confirm_match.confirm_match),
+    path("api/user/match/proposal/respond/", proposed_match_response.respond_to_proposed_match),
+    # Deprecated alias — remove once all clients use proposal/respond.
+    path("api/user/match/confirm_deny/", proposed_match_response.respond_to_proposed_match),
     path("api/matching/make_match", matches.make_match),
     path("api/help_message/", help.SendHelpMessage.as_view()),
     path("api/integrity/challenge", app_integrity.app_integrity_challenge),
@@ -209,8 +246,24 @@ view_routes = [
         main_frontend.email_verification_link,
         name="email_verification_link",
     ),
+    path("youtube_embed/", youtube_embed.youtube_embed, name="youtube_embed"),
     path("api/user/question_cards/", get_question_cards, name="question_cards"),
     path("api/user/archive_card/", archive_card, name="question_cards_archive"),
+    path(
+        "api/admin/question_cards/",
+        admin_question_cards,
+        name="admin_question_cards_api",
+    ),
+    path(
+        "api/admin/question_cards/categories/<uuid:category_uuid>/",
+        admin_question_card_category_detail,
+        name="admin_question_card_category_detail_api",
+    ),
+    path(
+        "api/admin/question_cards/cards/<uuid:card_uuid>/",
+        admin_question_card_detail,
+        name="admin_question_card_detail_api",
+    ),
     path(
         "api/newsletter_subscribe",
         public_newsletter_subscribe,

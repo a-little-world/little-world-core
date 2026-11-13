@@ -3,7 +3,6 @@ import urllib.parse
 import pytz
 from django.conf import settings
 from django.utils import timezone
-from management.api.match_journey_filters import completed_match
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from patenmatch.models import PatenmatchUser
 
@@ -30,6 +29,10 @@ def verification_code(user):
 
 def restart_search_url(user):
     return f"{settings.BASE_URL}/app"
+
+
+def activate_searching_url(user):
+    return f"{settings.BASE_URL}/api/user/activate_searching/{user.uuid}/{user.state.search_activation_token}/"
 
 
 def verification_url(user):
@@ -69,8 +72,11 @@ def link_url(user=None, match=None, context={"link_url": "Not set"}):
     return context["link_url"]
 
 
-def share_story_url(user=None, match=None, context={"share_story_url": "Not set"}):
-    return context["share_story_url"]
+def share_story_url(user=None, match=None, context={"share_story_url": None}):
+    value = context.get("share_story_url")
+    if value not in (None, "Not set"):
+        return value
+    return settings.GOOGLE_FORM_SHARE_STORY_URL
 
 
 def completed_match_poll_url(user=None, match=None, context={"completed_match_poll_url": "Not set"}):
@@ -111,6 +117,14 @@ def newsletter_subscribe_url():
 
 def group_calls_url():
     return f"{settings.BASE_URL}/app/events"
+
+
+def intercultural_communication_training_url():
+    return f"{settings.BASE_URL}/app/resources/trainings/interkulturelle-gespraechsfuehrung"
+
+
+def random_calls_url():
+    return f"{settings.BASE_URL}/app/random-calls"
 
 
 def self_onboarding_url():
@@ -170,7 +184,7 @@ def patenmatch_language(user=None, context={"patenmatch_language": None}):
 
 def prematching_datetime(user, context={"appointment": None}):
     if context["appointment"] is None:
-        appointment = PreMatchingAppointment.objects.filter(user=user).first()
+        appointment = PreMatchingAppointment.get_current_for_user(user)
     else:
         appointment = context["appointment"]
 
@@ -225,7 +239,7 @@ def match_removed_fm011_no_contact_url(user, match, **kwargs):
     Used by 'automatic-emails-fm011'
     """
     # TODO: Form implies 'contact eingeschaften'
-    return "https://docs.google.com/forms/d/e/1FAIpQLSdR9ZwNPra9Lt7SCsqiTR2E_xA4FIj4i2JAuKGp8bA-6Wj7xQ/viewform"
+    return settings.GOOGLE_FORM_MATCH_REMOVED_NO_CONTACT
 
 
 def match_removed_fm021_ghosted_url(user, match, **kwargs):
@@ -233,7 +247,7 @@ def match_removed_fm021_ghosted_url(user, match, **kwargs):
     Send if a match was auto removed cause no contact was started after 15 days
     Used by 'automatic-emails-fm021'
     """
-    return "https://docs.google.com/forms/d/e/1FAIpQLSck918AL9dST6Dqp9DtOvtBC0-3BWJfB2pPZc31DUjCSWEOyg/viewform"
+    return settings.GOOGLE_FORM_MATCH_REMOVED_GHOSTED
 
 
 def beta_tester_email(user=None, match=None, context={"beta_tester_email": None}):
@@ -266,9 +280,12 @@ def native_app_bug_report_url(user=None, match=None, context={"native_app_bug_re
 
 def latest_completed_match_first_name(user):
     from django.db.models import Q
+    from management.match_success import successful_matches
+    from management.models.matches import Match
 
-    completed_matches = completed_match().filter(Q(user1=user) | Q(user2=user))
-    if completed_matches.count() == 0:
+    successful = successful_matches(Match.objects.filter(Q(user1=user) | Q(user2=user)))
+    match = successful.order_by("-created_at").first()
+    if match is None:
         return "..."
 
-    return completed_matches.order_by("-created_at").first().get_partner(user).profile.first_name
+    return match.get_partner(user).profile.first_name

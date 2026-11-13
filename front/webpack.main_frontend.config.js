@@ -29,6 +29,7 @@ var config = function (env) {
     },
     output: {
       path: path.join(__dirname, outputPath),
+      clean: true,
       filename: '[name]-[hash].js',
       publicPath: publicPath,
     },

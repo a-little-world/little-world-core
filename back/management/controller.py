@@ -19,14 +19,8 @@ from management.models.scores import TwoUserMatchingScore
 from management.models.settings import Settings
 from management.models.state import State
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
-from management.models.user import User, UserSerializer
+from management.models.user import PushNotificationType, User, UserSerializer
 from management.permissions import ManagementPermission
-from management.tasks import (
-    create_default_banners,
-    create_default_community_events,
-    create_default_cookie_groups,
-    fill_base_management_user_tim_profile,
-)
 
 
 class UserNotFoundErr(Exception):
@@ -184,6 +178,7 @@ def create_user(
     newsletter_subscribed=False,
     send_verification_mail=True,
     send_welcome_notification=True,
+    auto_apply_user_access_permission=True,
 ):
     """
     This should be used when creating a new user, it may throw validations errors!
@@ -276,6 +271,15 @@ def create_user(
         # in the future there might be a process to assign different management users to different users
         base_management_user.grant_management_access(usr, granted_by=base_management_user)
 
+    if auto_apply_user_access_permission:
+        managers_with_full_access = User.objects.filter(
+            user_permissions__codename=ManagementPermission.RECEIVES_FULL_USER_ACCESS.codename,
+            user_permissions__content_type__app_label="management",
+            user_permissions__content_type__model="state",
+        ).distinct()
+        for manager in managers_with_full_access:
+            manager.grant_management_access(usr, granted_by=base_management_user)
+
     return usr
 
 
@@ -339,17 +343,23 @@ def match_users(
                 random_call_room=False,
             )
 
+    user_chat: Chat | None = None
     if create_chat:
         # After the users are registered as matches
         # we still need to create a dialog for them
         chat = Chat.objects.filter(Q(u1=usr1, u2=usr2) | Q(u1=usr2, u2=usr1))
         if not chat.exists():
             chat = Chat.objects.create(u1=usr1, u2=usr2)
+            user_chat = chat
         else:
             existing_chat = chat.first()
             if existing_chat is not None and existing_chat.is_temporary:
                 existing_chat.is_temporary = False
                 existing_chat.save(update_fields=["is_temporary"])
+                user_chat = existing_chat
+
+    if match_type == MatchType.RANDOM_CALL:
+        matching_obj.adopt_preexisting_pair_history()
 
     if send_notification:
         # send sms message ( only if the user enabled sms notifications )
@@ -370,9 +380,22 @@ def match_users(
         usr1.message(match_message.format(other_name=usr2.profile.first_name), auto_mark_read=True)
         usr2.message(match_message.format(other_name=usr1.profile.first_name), auto_mark_read=True)
 
-    if send_email and match_type == MatchType.STANDARD:
-        usr1.send_email("new-match", match_id=matching_obj.pk)
-        usr2.send_email("new-match", match_id=matching_obj.pk)
+        if match_type == MatchType.STANDARD:
+            chat_path = f"/app/chat/{str(user_chat.uuid)}" if user_chat is not None else None
+            volunteer = matching_obj.get_volunteer()
+            learner = matching_obj.get_learner()
+            volunteer.push_notification(
+                title=get_translation("push_notification.new_match.title", lang="de"),
+                description=get_translation("push_notification.new_match.description", lang="de").format(
+                    user=learner.profile.first_name
+                ),
+                notification_type=PushNotificationType.MATCH,
+                path=chat_path,
+            )
+
+    if send_email and match_type in (MatchType.STANDARD, MatchType.RANDOM_CALL):
+        usr1.send_email("automatic-emails-m011", match_id=matching_obj.pk)
+        usr2.send_email("automatic-emails-m011", match_id=matching_obj.pk)
 
     if set_to_idle:
         usr1.state.set_idle()
@@ -446,8 +469,8 @@ def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatc
     match.active = False
     match.report_unmatch.append(
         {
-            "kind": "user_deleted",
-            "reason": reason or "User deleted by support user",
+            "kind": "unmatch",
+            "reason": reason or "Match deactivated by support user",
             "match_id": match.pk,
             "time": str(timezone.now()),
             "user_id": unmatcher.pk if unmatcher else "no unmatcher specified",
@@ -470,12 +493,29 @@ def is_base_management_user(user: User) -> bool:
     return user.email == settings.MATCHING_USER_MAIL
 
 
+def ensure_base_management_user_permissions(user: User) -> None:
+    required_permissions = (
+        ManagementPermission.MATCHING_USER,
+        ManagementPermission.OPEN_CHAT_ACCESS,
+        ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION,
+        ManagementPermission.USE_RANDOM_CALLS,
+        ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES,
+        ManagementPermission.IS_MAIN_SUPPORT_ACCOUNT,
+    )
+    for permission in required_permissions:
+        if not user.has_perm(permission):
+            user.grant_permission(permission)
+
+
 def get_base_management_user():
     """
     Always returns the BASE_MANAGEMENT_USER user
     """
     try:
-        return get_user_by_email(settings.MATCHING_USER_MAIL)
+        user = get_user_by_email(settings.MATCHING_USER_MAIL)
+        if not getattr(settings, "IS_TEST_COMMAND", False):
+            ensure_base_management_user_permissions(user)
+        return user
     except UserNotFoundErr:
         return create_base_admin_and_add_standart_db_values()
 
@@ -498,8 +538,7 @@ def create_base_admin_and_add_standart_db_values():
 
     def update_profile():
         usr_tim = get_user_by_email(settings.MATCHING_USER_MAIL)
-        if not usr_tim.has_perm(ManagementPermission.MATCHING_USER):
-            usr_tim.grant_permission(ManagementPermission.MATCHING_USER)
+        ensure_base_management_user_permissions(usr_tim)
         usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
@@ -520,10 +559,20 @@ def create_base_admin_and_add_standart_db_values():
     transaction.on_commit(update_profile)
     # The tim user should always get the matching permission
 
+    if getattr(settings, "IS_TEST_COMMAND", False):
+        return usr_tim
+
     # Now we create some default database elements that should be part of all setups!
 
     # Create default cookie groups and community events
     # This is done as celery task in the background!
+    from management.tasks import (
+        create_default_banners,
+        create_default_community_events,
+        create_default_cookie_groups,
+        fill_base_management_user_tim_profile,
+    )
+
     create_default_cookie_groups.delay()
     create_default_community_events.delay()
     create_default_banners.delay()
@@ -533,13 +582,85 @@ def create_base_admin_and_add_standart_db_values():
 
     create_default_random_call_lobby()
 
+    open_chat_automation_user = create_open_chat_automation_user()
+    ensure_base_management_open_chat_setup(open_chat_automation_user)
+
     return usr_tim
 
 
-def delete_user(user, management_user=None, send_deletion_email=False):
-    if send_deletion_email:
-        user.send_email("account-deleted")
+def create_open_chat_automation_user():
+    if not settings.CREATE_OPEN_CHAT_AUTOMATION_USER:
+        return None
 
+    email = settings.OPEN_CHAT_AUTOMATION_USER_EMAIL
+    try:
+        user = get_user_by_email(email)
+        print(f"Open chat automation user {user.email} already exists!")
+    except UserNotFoundErr:
+        user = User.objects.create_user(
+            email=email,
+            username=email,
+            password=settings.OPEN_CHAT_AUTOMATION_USER_PASSWORD,
+            first_name="Open Chat",
+            last_name="Automation",
+        )
+        print(f"Open chat automation user {user.email} newly created!")
+
+    user.grant_permission(ManagementPermission.MATCHING_USER)
+    user.grant_permission(ManagementPermission.OPEN_CHAT_ACCESS)
+    user.grant_permission(ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION)
+    user.grant_permission(ManagementPermission.MANAGE_OPEN_CHAT_ACCESS)
+    user.state.email_authenticated = True
+    user.state.save()
+    user.state.set_user_form_completed()
+
+    return user
+
+
+def ensure_base_management_open_chat_setup(open_chat_automation_user: User | None = None):
+    """
+    If enabled via env flags, ensure the base management user has:
+    1) a default Open Chat configuration
+    2) a support matching with the Open Chat automation user
+    """
+    if not settings.CREATE_OPEN_CHAT_AUTOMATION_USER:
+        return None
+    if not settings.CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION:
+        return None
+
+    from open_chat.models import OpenChatConfiguration
+
+    base_management_user = get_base_management_user()
+    config_defaults = dict(settings.DEFAULT_OPEN_CHAT_CONFIGURATION)
+
+    OpenChatConfiguration.objects.get_or_create(
+        user=base_management_user,
+        defaults=config_defaults,
+    )
+
+    automation_user = open_chat_automation_user or create_open_chat_automation_user()
+    if automation_user is None or automation_user.pk == base_management_user.pk:
+        return automation_user
+
+    if not Match.get_match(base_management_user, automation_user).exists():
+        match_users(
+            {base_management_user, automation_user},
+            send_notification=False,
+            send_message=False,
+            send_email=False,
+            set_unconfirmed=False,
+            set_to_idle=False,
+            set_received_first_match=False,
+        )
+
+    return automation_user
+
+
+def censor_user(user):
+    """
+    Censor a user *in place*, keeping the row (and therefore every FK pointing at it)
+    resolvable. Used by `delete_user` and by `migrate_user`.
+    """
     Match.update_deleted_user_matches(user)
     ProposedMatch.close_open_proposals_for_deleted_user(user)
 
@@ -559,3 +680,100 @@ def delete_user(user, management_user=None, send_deletion_email=False):
     user.profile.avatar_config = {}
     user.profile.phone_mobile = f"deleted, {user.profile.phone_mobile}"
     user.profile.save()
+    return user
+
+
+def delete_user(user, management_user=None, send_deletion_email=False):
+    if send_deletion_email:
+        user.send_email("account-deleted")
+
+    return censor_user(user)
+
+
+def set_user_company(user, company, changed_by=None):
+    """
+    Set or clear a user's company attribution, archiving the previous value in
+    `state.past_companies` so the history is not lost.
+    """
+    previous_company = user.state.company
+    normalized_company = company or None
+
+    if previous_company == normalized_company:
+        return user.state
+
+    if previous_company:
+        user.state.past_companies = [*user.state.past_companies, previous_company]
+
+    user.state.company = normalized_company
+    user.state.save()
+    return user.state
+
+
+def change_user_email(user, new_email, send_verification_mail=False):
+    """
+    Change a user's email from the admin/management side.
+
+    Validates the address with the same serializer the self-service flow uses and
+    rejects duplicates and staff/superuser accounts. Old addresses are archived in
+    `state.past_emails` by `User.change_email`.
+    """
+    from rest_framework import serializers
+
+    from management.api.user import ChangeEmailSerializer
+
+    serializer = ChangeEmailSerializer(data=dict(email=new_email))  # type: ignore
+    serializer.is_valid(raise_exception=True)
+    new_email = serializer.validated_data["email"]
+
+    if user.is_staff or user.is_superuser:
+        raise serializers.ValidationError({"email": "You can't change the email of a staff or superuser!"})
+
+    if new_email == user.email:
+        raise serializers.ValidationError({"email": "The new email is the same as the current one!"})
+
+    if User.objects.filter(email=new_email).exclude(pk=user.pk).exists():
+        raise serializers.ValidationError({"email": "A user with this email already exists!"})
+
+    user.change_email(new_email, send_verification_mail=send_verification_mail)
+    return user
+
+
+def migrate_user(
+    user,
+    *,
+    new_email=None,
+    company=None,
+    remove_company=False,
+    censor=True,
+    management_user=None,
+    send_deletion_email=False,
+):
+    """
+    Admin "migrate user" flow: optionally change the email and/or the company
+    attribution and (by default) censor the profile in place.
+
+    The row is never deleted so all references (matches, chats, LiveKit
+    rooms/sessions, scores, ...) stay resolvable. When censoring, the profile is
+    replaced by a stale ghost that still records where the user came from via
+    `state.migrated_from_company` / `state.migrated_at`.
+    """
+    if send_deletion_email:
+        user.send_email("account-deleted")
+
+    migrated_from_company = user.state.company
+
+    if new_email is not None:
+        change_user_email(user, new_email, send_verification_mail=False)
+
+    if remove_company:
+        set_user_company(user, None, changed_by=management_user)
+    elif company is not None:
+        set_user_company(user, company, changed_by=management_user)
+
+    if censor:
+        censor_user(user)
+
+    user.state.migrated_at = timezone.now()
+    user.state.migrated_from_company = migrated_from_company
+    user.state.save()
+    return user

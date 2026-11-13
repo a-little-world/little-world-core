@@ -1,7 +1,9 @@
-from datetime import timedelta
+from datetime import date, timedelta
 
-from django.db.models import Count, Max, Q
+from chat.models import Message
+from django.db.models import Count, Exists, Max, OuterRef, Q
 from django.utils import timezone
+from video.models import LivekitSession
 
 from management.api.match_journey_filters import (
     completed_match,
@@ -22,8 +24,16 @@ from management.api.match_journey_filters import (
 from management.models.matches import Match
 from management.models.profile import Profile
 from management.models.state import State
-from management.models.unconfirmed_matches import ProposedMatch
+from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from management.models.user import User
+from management.self_onboarding_progress import self_onboarding_in_progress_q
+
+
+def _num_journey_matches():
+    """Count of real (non-support, non-TEMPORARY) matches on either side of the user."""
+    return Count("match_user1", filter=Match.journey_q(related="match_user1")) + Count(
+        "match_user2", filter=Match.journey_q(related="match_user2")
+    )
 
 
 # Helper function to calculate three weeks ago
@@ -64,9 +74,13 @@ def email_verified(qs=User.objects.all()):
     )
 
 
-def user_form_completed(qs=User.objects.all()):
+def user_form_completed_excluding_a0_german(qs=User.objects.all()):
     """
-    (Sign-Up) User has filled form, but still has to have a prematching call
+    (Sign-Up) User has filled form and is awaiting onboarding, excluding A0 German learners.
+
+    A0 learners are excluded because other journey lists handle them separately.
+    For signup-funnel analytics that need all form-complete users, use
+    ``user_form_completed_awaiting_onboarding`` instead.
     """
     return qs.filter(
         is_active=True,
@@ -80,6 +94,25 @@ def user_form_completed(qs=User.objects.all()):
             {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
         ],
     )
+
+
+def user_form_completed_awaiting_onboarding(qs=User.objects.all()):
+    """
+    (Sign-Up) User has filled form and is awaiting onboarding — includes all users
+    (learners and volunteers), including A0 German learners.
+    """
+    return qs.filter(
+        is_active=True,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__is_onboarded=False,
+        prematchingappointment__isnull=True,
+    )
+
+
+# Backward-compatible alias — existing list IDs and callers keep the same behaviour.
+user_form_completed = user_form_completed_excluding_a0_german
 
 
 def never_active_or_deleted(qs=User.objects.all()):
@@ -182,15 +215,17 @@ def self_onboarding_started_no_booked_call(qs=User.objects.all()):
     booked_onboarding_call (future prematching appointment).
     """
     booked = booked_onboarding_call(qs)
-    return qs.filter(
-        is_active=True,
-        state__user_form_state=State.UserFormStateChoices.FILLED,
-        state__email_authenticated=True,
-        state__unresponsive=False,
-        state__is_onboarded=False,
-        state__self_onboarding_started=True,
-        state__self_onboarding_completed=False,
-    ).exclude(id__in=booked)
+    return (
+        qs.filter(
+            is_active=True,
+            state__user_form_state=State.UserFormStateChoices.FILLED,
+            state__email_authenticated=True,
+            state__unresponsive=False,
+            state__is_onboarded=False,
+        )
+        .filter(self_onboarding_in_progress_q())
+        .exclude(id__in=booked)
+    )
 
 
 def onboarding_incomplete(qs=User.objects.all()):
@@ -235,11 +270,28 @@ def first_search_v1(qs=User.objects.all()):
         )
         .exclude(id__in=users_w_open_proposals)
         .exclude(id__in=searched_too_long)
-        .annotate(
-            num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False))
-            + Count("match_user2", filter=Q(match_user2__support_matching=False))
-        )
+        .annotate(num_matches=_num_journey_matches())
         .filter(num_matches=0)
+    )
+
+
+def exclude_match_ineligible_learners(qs=User.objects.all()):
+    """
+    Exclude learners blocked from matching by A0 German or residence outside Germany.
+
+    ``force_match_eligible=True`` learners bypass both checks.
+    """
+    return qs.exclude(
+        Q(profile__user_type=Profile.TypeChoices.LEARNER)
+        & Q(state__force_match_eligible=False)
+        & (
+            Q(
+                profile__lang_skill__contains=[
+                    {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
+                ]
+            )
+            | ~Q(profile__country_of_residence=Profile.CountryChoices.GERMANY)
+        )
     )
 
 
@@ -266,19 +318,12 @@ def first_search_v2(qs=User.objects.all(), require_min_lang_level=True):
             state__is_onboarded=True,
         )
         .exclude(id__in=users_w_open_proposals)
-        .annotate(
-            num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False))
-            + Count("match_user2", filter=Q(match_user2__support_matching=False))
-        )
+        .annotate(num_matches=_num_journey_matches())
         .filter(num_matches=0)
     )
 
     if require_min_lang_level:
-        qs = qs.exclude(
-            profile__lang_skill__contains=[
-                {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
-            ],
-        )
+        qs = exclude_match_ineligible_learners(qs)
     return qs
 
 
@@ -286,16 +331,14 @@ def first_search_volunteers(qs=User.objects.all()):
     """
     (Sign-Up) VOLUNTEERS User is doing first search i.e.: has no 'non-support' match
     """
-    fs = first_search_v1(qs)
-    return fs.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER, is_active=True)
+    return first_search_v2(qs).filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
 
 
 def first_search_learners(qs=User.objects.all()):
     """
     (Sign-Up) LEARNERS User is doing first search i.e.: has no 'non-support' match
     """
-    fs = first_search_v1(qs)
-    return fs.filter(profile__user_type=Profile.TypeChoices.LEARNER, is_active=True)
+    return first_search_v2(qs).filter(profile__user_type=Profile.TypeChoices.LEARNER)
 
 
 def user_searching(qs=User.objects.all()):
@@ -311,16 +354,9 @@ def user_searching(qs=User.objects.all()):
             state__unresponsive=False,
             state__is_onboarded=True,
         )
-        .annotate(
-            num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False))
-            + Count("match_user2", filter=Q(match_user2__support_matching=False))
-        )
+        .annotate(num_matches=_num_journey_matches())
         .filter(num_matches__gt=0)
     )
-
-
-def user_searching_again(qs=User.objects.all()):
-    return user_searching(qs).filter(num_matches__gt=1)
 
 
 def pre_matching(qs=User.objects.all()):
@@ -667,10 +703,7 @@ def over_30_days_after_prematching_still_searching(qs=User.objects.all()):
             state__is_onboarded=True,
             date_joined__lt=thirty_days_ago,
         )
-        .annotate(
-            num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False))
-            + Count("match_user2", filter=Q(match_user2__support_matching=False))
-        )
+        .annotate(num_matches=_num_journey_matches())
         .filter(num_matches=0)
     )
 
@@ -701,10 +734,7 @@ def gave_up_searching(qs=User.objects.all()):
             | Q(id__in=user_with_contact_stopped_matches)
             | Q(id__in=user_with_reported_or_unmatched_matchings)
         )
-        .annotate(
-            num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False))
-            + Count("match_user2", filter=Q(match_user2__support_matching=False))
-        )
+        .annotate(num_matches=_num_journey_matches())
         .filter(num_matches=0)
     )
 
@@ -735,52 +765,40 @@ def subscribed_to_newsletter(qs=User.objects.all()):
     return qs.filter(profile__newsletter_subscribed=True).order_by("-date_joined")
 
 
-def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
+def community_calls(qs=User.objects.all()):
     """
-    Community Calls filter
+    Onboarded learners & volunteers — signed up last 6 months or active last 3 months
+
+    All onboarded learners and volunteers who signed up in the last 6 months or were
+    active in the last 3 months (login, messages, or video calls), regardless of
+    current match status.
     """
-    selected_fields = ["id"]  # Adjust these fields as needed for your User model
+    activity_cutoff = days_ago(28 * 3)
 
-    onboarded_unmatched_users = qs.filter(state__is_onboarded=True, state__has_received_first_match=False).values(
-        *selected_fields
+    recent_call = LivekitSession.objects.filter(
+        Q(u1=OuterRef("pk")) | Q(u2=OuterRef("pk")),
+        created_at__gte=activity_cutoff,
     )
-    learners_with_completed_form_outside_germany = (
-        user_form_completed(qs)
-        .filter(
-            profile__user_type=Profile.TypeChoices.LEARNER,
-            profile__country_of_residence__isnull=False,
-            state__force_match_eligible=False,
-        )
-        .exclude(profile__country_of_residence="DE")
-        .values(*selected_fields)
+    recent_message = Message.objects.filter(sender=OuterRef("pk"), created__gte=activity_cutoff)
+
+    return qs.filter(
+        is_active=True,
+        state__is_onboarded=True,
+        profile__user_type__in=[
+            Profile.TypeChoices.LEARNER,
+            Profile.TypeChoices.VOLUNTEER,
+        ],
+    ).filter(
+        Q(date_joined__gte=days_ago(28 * 6))
+        | Q(last_login__gte=activity_cutoff)
+        | Q(Exists(recent_call))
+        | Q(Exists(recent_message))
     )
-
-    users_without_match = User.objects.filter(
-        id__in=onboarded_unmatched_users.union(learners_with_completed_form_outside_germany)
-    ).values(*selected_fields)
-    users_without_match = User.objects.filter(id__in=users_without_match).distinct()
-    users_without_match = users_without_match.filter(date_joined__gte=days_ago(last_x_days))
-
-    prematching_users = (
-        pre_matching(qs)
-        .values(*selected_fields)
-        .union(
-            match_takeoff(qs).values(*selected_fields),
-            active_match(qs, last_interaction_days=35).values(*selected_fields),
-        )
-    )
-
-    prematching_users = User.objects.filter(id__in=prematching_users).distinct()
-
-    all_users = users_without_match.values(*selected_fields).union(prematching_users.values(*selected_fields))
-    all_distinct_users = User.objects.filter(id__in=all_users).distinct()
-
-    return all_distinct_users
 
 
 def community__active_volunteers(qs=User.objects.all()):
     """
-    Active volunteers - have signed up in last 6 months or have been active in the last 3 months
+    Active onboarded volunteers - have signed up in last 6 months or have been active in the last 3 months
     """
     selected_fields = ["id"]
 
@@ -788,7 +806,7 @@ def community__active_volunteers(qs=User.objects.all()):
     volunteers = qs.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
 
     # Volunteers who signed up in the last 6 months
-    recent_signup_volunteers = volunteers.filter(date_joined__gte=days_ago(28 * 6))
+    recent_signup_volunteers = volunteers.filter(date_joined__gte=days_ago(28 * 6), state__is_onboarded=True)
 
     # Volunteers who have been active in the last 3 months (match_takeoff or active_match)
     active_volunteers = (
@@ -806,42 +824,6 @@ def community__active_volunteers(qs=User.objects.all()):
     )
 
     return User.objects.filter(id__in=all_active_volunteers).distinct()
-
-
-def community__active_volunteers__volunteer_meetup(qs=User.objects.all()):
-    """
-    Active volunteers - have signed up in last 6 months or have been active in the last 3 months
-    """
-    selected_fields = ["id"]
-
-    # Filter for volunteers only
-    volunteers = qs.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
-
-    # Volunteers who signed up in the last 6 months
-    recent_signup_volunteers = volunteers.filter(date_joined__gte=days_ago(28 * 6))
-
-    # Volunteers who have been active in the last 3 months (match_takeoff or active_match)
-    active_volunteers = (
-        match_takeoff(volunteers)
-        .values(*selected_fields)
-        .union(
-            active_match(volunteers, last_interaction_days=28 * 3).values(*selected_fields),
-        )
-    )
-    active_volunteers = User.objects.filter(id__in=active_volunteers).distinct()
-
-    # Combine both groups (recent signups OR recently active)
-    all_active_volunteers = recent_signup_volunteers.values(*selected_fields).union(
-        active_volunteers.values(*selected_fields)
-    )
-
-    from emails.models import EmailLog
-
-    users_email_was_send_too = EmailLog.objects.filter(template="Volunteer Austausch")
-    users = User.objects.filter(id__in=all_active_volunteers).distinct()
-    only_new = users.exclude(id__in=users_email_was_send_too.values("receiver"))
-
-    return only_new
 
 
 def community__learners_better_than_a1a2(qs=User.objects.all()):
@@ -954,3 +936,86 @@ def users_with_duplicate_automatic_emails_29_01_2026(qs=User.objects.all()):
     )
 
     return qs.filter(pk__in=users_with_duplicates).distinct().order_by("-date_joined")
+
+
+# Remediation lists
+#
+# One-off lists tied to a specific incident. They are derived from `EmailLog` rather than a
+# frozen list of ids so the definition stays readable and re-derivable — if the log is ever
+# pruned the list shrinks visibly instead of quietly resolving to the wrong people.
+
+#: The day the Random Call backfill episode put journey e-mails into people's inboxes.
+RANDOM_CALL_BLAST_DATE = date(2026, 8, 27)
+
+#: Templates that went out as part of it: the no-interaction reminders, the no-video-call
+#: ladder, and the ghosting pair.
+RANDOM_CALL_BLAST_TEMPLATES = (
+    "automatic-emails-m012",
+    "automatic-emails-m013",
+    "automatic-emails-m014",
+    "automatic-emails-m031",
+    "automatic-emails-m032",
+    "automatic-emails-m033",
+    "automatic-emails-m042",
+    "automatic-emails-fm021",
+    "automatic-emails-fm022",
+)
+
+#: The three no-interaction stages. Receiving more than one of these for the *same* match on
+#: the same day is the signature of the stage collapse, which is not limited to Random Call.
+INTERACTION_REMINDER_TEMPLATES = (
+    "automatic-emails-m012",
+    "automatic-emails-m013",
+    "automatic-emails-m014",
+)
+
+
+def EXTRA__random_call_email_blast_2026_08_27(qs=User.objects.all()):
+    """Received the 2026-08-27 Random Call backfill e-mail blast (apology audience)
+
+    Two groups, unioned:
+
+    * anyone sent one of the journey templates **about a Random Call match** that day — the
+      backfill filled ``first_interaction_at`` from months-old lobby history, dropping those
+      matches straight into the ladder;
+    * anyone who received more than one no-interaction stage for the *same* match that day —
+      the stage collapse, which caught one Standard match too, so scoping this list to
+      Random Call alone would have missed that person.
+
+    39 users at the time of writing, 38 of them still active. Inactive accounts are excluded:
+    they cannot be e-mailed, and including them would overstate the audience.
+    """
+    from emails.models import EmailLog
+
+    # Materialised, not a subquery: `data__match_id` is a JSONB value, and Postgres has no
+    # operator comparing it to the bigints a subquery yields. A Python list lets Django
+    # encode each id as JSON on the way in.
+    random_call_match_ids = list(Match.objects.filter(match_type=MatchType.RANDOM_CALL).values_list("id", flat=True))
+
+    # Emulated sends are logged but never leave the building — fm021/fm022 were emulated
+    # throughout the episode, so anyone whose only e-mail that day was one of those received
+    # nothing and must not be in an apology audience.
+    #
+    # Keyed on the key *existing*: `send_template_email` writes `emulated_send` only when it
+    # skips the send. `exclude(data__emulated_send=True)` would also drop every row where the
+    # key is absent, because a missing key compares as NULL — which is the whole audience.
+    sent_that_day = EmailLog.objects.filter(
+        time__date=RANDOM_CALL_BLAST_DATE,
+        receiver__isnull=False,
+    ).exclude(data__has_key="emulated_send")
+
+    about_a_random_call_match = sent_that_day.filter(
+        template__in=RANDOM_CALL_BLAST_TEMPLATES,
+        data__match_id__in=random_call_match_ids,
+    ).values_list("receiver_id", flat=True)
+
+    collapsed_reminder_ladder = (
+        sent_that_day.filter(template__in=INTERACTION_REMINDER_TEMPLATES)
+        .values("receiver_id", "data__match_id")
+        .annotate(stages=Count("template", distinct=True))
+        .filter(stages__gt=1)
+        .values_list("receiver_id", flat=True)
+    )
+
+    affected = set(about_a_random_call_match) | set(collapsed_reminder_ladder)
+    return qs.filter(id__in=affected, is_active=True)

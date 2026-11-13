@@ -10,11 +10,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='emailsettings',
-            name='unsubscribed_categories',
-            field=models.JSONField(default=list),
-        ),
+        # Column is created in 0026; a duplicate AddField here broke fresh databases.
         migrations.AlterField(
             model_name='profile',
             name='gender',
